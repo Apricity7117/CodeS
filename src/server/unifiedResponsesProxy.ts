@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { request as httpRequest } from 'node:http'
 import { request as httpsRequest } from 'node:https'
+import { ENV_KEYS, readFirstTrimmedEnv } from '../config/env.js'
 
 type ResponsesApiInput = {
   id?: string
@@ -551,7 +552,7 @@ export function handleUnifiedResponsesProxyRequest(
           try {
             const upstreamPayload = JSON.parse(rawResponseBody) as Record<string, unknown>
             if (upstreamPayload.error || status >= 400) {
-              if ((process.env.CODES_PROXY_DEBUG ?? process.env.CODEXUI_PROXY_DEBUG) === '1') {
+              if (readFirstTrimmedEnv(ENV_KEYS.proxyDebug) === '1') {
                 console.warn('[unified-responses-proxy]', JSON.stringify({
                   status,
                   upstreamUrl: upstreamUrl.toString(),

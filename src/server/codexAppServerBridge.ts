@@ -43,6 +43,14 @@ import {
 } from '../commandResolution.js'
 import type { CollaborationModeKind, ReasoningEffort } from '../types/codex.js'
 import { isAbsoluteLikePath } from '../pathUtils.js'
+import {
+  ENV_KEYS,
+  readBooleanEnvConfig,
+  readFirstTrimmedEnv,
+  readIntegerEnv,
+  readNumberEnvConfig,
+  readTrimmedEnv,
+} from '../config/env.js'
 
 type JsonRpcCall = {
   jsonrpc: '2.0'
@@ -229,9 +237,6 @@ const THREAD_METHODS_WITH_THREAD_SNAPSHOT = new Set([...THREAD_METHODS_WITH_TURN
 const THREAD_SEARCH_FULL_TEXT_THREAD_LIMIT = 100
 const PROJECTLESS_THREAD_DIRECTORY_MAX_ATTEMPTS = 100
 const PROJECTLESS_THREAD_SLUG_MAX_LENGTH = 80
-const API_PERF_LOGGING_ENV_KEYS = ['CODES_API_PERF_LOGGING', 'CODEXUI_API_PERF_LOGGING'] as const
-const API_PERF_MS_THRESHOLD_ENV_KEYS = ['CODES_API_PERF_MS_THRESHOLD', 'CODEXUI_API_PERF_MS_THRESHOLD'] as const
-const API_PERF_BODY_MB_THRESHOLD_ENV_KEYS = ['CODES_API_PERF_BODY_MB_THRESHOLD', 'CODEXUI_API_PERF_BODY_MB_THRESHOLD'] as const
 const DEFAULT_API_PERF_MS_THRESHOLD = 300
 const DEFAULT_API_PERF_BODY_MB_THRESHOLD = 1
 const MB_DIVISOR = 1024 * 1024
@@ -437,80 +442,9 @@ async function mergeSessionSkillInputsIntoThreadResult(result: unknown): Promise
   }
 }
 
-function readEnvValueFromFile(filePath: string, key: string): string | null {
-  try {
-    const content = readFileSync(filePath, 'utf8')
-    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const match = content.match(new RegExp(`^\\s*${escapedKey}\\s*=\\s*(.+)\\s*$`, 'm'))
-    if (!match) return null
-    const rawValue = match[1]?.trim() ?? ''
-    if (!rawValue) return null
-    if ((rawValue.startsWith('"') && rawValue.endsWith('"')) || (rawValue.startsWith('\'') && rawValue.endsWith('\''))) {
-      return rawValue.slice(1, -1).trim()
-    }
-    return rawValue
-  } catch {
-    return null
-  }
-}
-
-function parseBooleanEnvFlag(value: string | null | undefined): boolean | null {
-  if (!value) return null
-  const normalized = value.trim().toLowerCase()
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true
-  if (['0', 'false', 'no', 'off'].includes(normalized)) return false
-  return null
-}
-
-function resolveApiPerfLoggingEnabled(): boolean {
-  for (const envKey of API_PERF_LOGGING_ENV_KEYS) {
-    const explicitValue = parseBooleanEnvFlag(process.env[envKey])
-    if (explicitValue !== null) return explicitValue
-  }
-
-  for (const envKey of API_PERF_LOGGING_ENV_KEYS) {
-    const fromEnvLocal = parseBooleanEnvFlag(readEnvValueFromFile('.env.local', envKey))
-    if (fromEnvLocal !== null) return fromEnvLocal
-  }
-
-  for (const envKey of API_PERF_LOGGING_ENV_KEYS) {
-    const fromEnv = parseBooleanEnvFlag(readEnvValueFromFile('.env', envKey))
-    if (fromEnv !== null) return fromEnv
-  }
-
-  return false
-}
-
-const API_PERF_LOGGING_ENABLED = resolveApiPerfLoggingEnabled()
-
-function parseNumberEnvFlag(value: string | null | undefined): number | null {
-  if (!value) return null
-  const parsed = Number.parseFloat(value.trim())
-  if (!Number.isFinite(parsed)) return null
-  return parsed
-}
-
-function resolveNumericEnvConfig(envKeys: readonly string[], fallback: number): number {
-  for (const envKey of envKeys) {
-    const fromProcess = parseNumberEnvFlag(process.env[envKey])
-    if (fromProcess !== null) return fromProcess
-  }
-
-  for (const envKey of envKeys) {
-    const fromEnvLocal = parseNumberEnvFlag(readEnvValueFromFile('.env.local', envKey))
-    if (fromEnvLocal !== null) return fromEnvLocal
-  }
-
-  for (const envKey of envKeys) {
-    const fromEnv = parseNumberEnvFlag(readEnvValueFromFile('.env', envKey))
-    if (fromEnv !== null) return fromEnv
-  }
-
-  return fallback
-}
-
-const API_PERF_MS_THRESHOLD = resolveNumericEnvConfig(API_PERF_MS_THRESHOLD_ENV_KEYS, DEFAULT_API_PERF_MS_THRESHOLD)
-const API_PERF_BODY_MB_THRESHOLD = resolveNumericEnvConfig(API_PERF_BODY_MB_THRESHOLD_ENV_KEYS, DEFAULT_API_PERF_BODY_MB_THRESHOLD)
+const API_PERF_LOGGING_ENABLED = readBooleanEnvConfig(ENV_KEYS.apiPerfLogging, false)
+const API_PERF_MS_THRESHOLD = readNumberEnvConfig(ENV_KEYS.apiPerfMsThreshold, DEFAULT_API_PERF_MS_THRESHOLD)
+const API_PERF_BODY_MB_THRESHOLD = readNumberEnvConfig(ENV_KEYS.apiPerfBodyMbThreshold, DEFAULT_API_PERF_BODY_MB_THRESHOLD)
 
 function getChunkByteLength(chunk: unknown, encoding?: BufferEncoding): number {
   if (typeof chunk === 'string') {
@@ -1551,7 +1485,7 @@ function readNumber(value: unknown): number {
 type ComposioCliInvocation = { command: string; args: string[]; displayCommand: string }
 
 function buildComposioInvocation(args: string[]): ComposioCliInvocation | null {
-  const overrideCommand = process.env.CODES_COMPOSIO_COMMAND?.trim() || process.env.CODEXUI_COMPOSIO_COMMAND?.trim()
+  const overrideCommand = readFirstTrimmedEnv(ENV_KEYS.composioCommand)
   if (overrideCommand) {
     const invocation = getSpawnInvocation(overrideCommand, args)
     return {
@@ -2701,7 +2635,7 @@ async function listFilesWithRipgrep(cwd: string): Promise<string[]> {
 }
 
 function getCodexHomeDir(): string {
-  const codexHome = process.env.CODEX_HOME?.trim()
+  const codexHome = readTrimmedEnv(ENV_KEYS.codexHome[0])
   return codexHome && codexHome.length > 0 ? codexHome : join(homedir(), '.codex')
 }
 
@@ -4727,7 +4661,7 @@ class AppServerProcess {
       '-c', 'sandbox_mode="danger-full-access"',
     ]
     let extraEnv: Record<string, string> = {}
-    const serverPort = parseInt(process.env.CODES_SERVER_PORT ?? process.env.CODEXUI_SERVER_PORT ?? '', 10) || undefined
+    const serverPort = readIntegerEnv(ENV_KEYS.serverPort) || undefined
     const statePath = join(getCodexHomeDir(), FREE_MODE_STATE_FILE)
     try {
       const state = ensureDefaultFreeModeStateForMissingAuthSync(statePath)

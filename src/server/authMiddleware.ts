@@ -4,6 +4,7 @@ import type { IncomingMessage } from 'node:http'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { RequestHandler, Request, Response, NextFunction } from 'express'
+import { ENV_KEYS, readTrimmedEnv } from '../config/env.js'
 
 const TOKEN_COOKIE = 'portal_session'
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
@@ -74,7 +75,7 @@ function isTrustedTailscaleRemote(remote: string): boolean {
 }
 
 function getCodexHomeDir(): string {
-  const codexHome = process.env.CODEX_HOME?.trim()
+  const codexHome = readTrimmedEnv(ENV_KEYS.codexHome[0])
   return codexHome && codexHome.length > 0 ? codexHome : join(homedir(), '.codex')
 }
 

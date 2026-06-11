@@ -1,17 +1,14 @@
 import { createServer } from 'node:http'
-import { chmodSync, createWriteStream, existsSync, mkdirSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync } from 'node:fs'
 import { readFile, stat, writeFile } from 'node:fs/promises'
 import { homedir, networkInterfaces } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 import { spawn } from 'node:child_process'
-import { createInterface } from 'node:readline/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
-import { get as httpsGet } from 'node:https'
 import { Command } from 'commander'
 import qrcode from 'qrcode-terminal'
 import {
-  canRunCommand,
   getNpmGlobalBinDir,
   getUserNpmPrefix,
   prependPathEntry,
@@ -25,27 +22,14 @@ import {
 import { createServer as createApp } from '../server/httpServer.js'
 import { generatePassword } from '../server/password.js'
 import { spawnSyncCommand } from '../utils/commandInvocation.js'
+import { ENV_KEYS, readTrimmedEnv, setEnvValues } from '../config/env.js'
+import { hasDetectedTailscaleIp, resolveCloudflaredForTunnel, startCloudflaredTunnel } from './tunnel.js'
 
 const program = new Command().name('codes').description('CodeS web interface for Codex app-server')
 const __dirname = dirname(fileURLToPath(import.meta.url))
-let hasPromptedCloudflaredInstall = false
 
 function getCodexHomePath(): string {
-  return process.env.CODEX_HOME?.trim() || join(homedir(), '.codex')
-}
-
-function getCloudflaredPromptMarkerPath(): string {
-  return join(getCodexHomePath(), '.cloudflared-install-prompted')
-}
-
-function hasPromptedCloudflaredInstallPersisted(): boolean {
-  return existsSync(getCloudflaredPromptMarkerPath())
-}
-
-async function persistCloudflaredInstallPrompted(): Promise<void> {
-  const codexHome = getCodexHomePath()
-  mkdirSync(codexHome, { recursive: true })
-  await writeFile(getCloudflaredPromptMarkerPath(), `${Date.now()}\n`, 'utf8')
+  return readTrimmedEnv(ENV_KEYS.codexHome[0]) || join(homedir(), '.codex')
 }
 
 async function readCliVersion(): Promise<string> {
@@ -69,132 +53,6 @@ function runOrFail(command: string, args: string[], label: string): void {
 function runWithStatus(command: string, args: string[]): number {
   const result = spawnSyncCommand(command, args, { stdio: 'inherit' })
   return result.status ?? -1
-}
-
-function resolveCloudflaredCommand(): string | null {
-  if (canRunCommand('cloudflared', ['--version'])) {
-    return 'cloudflared'
-  }
-  const localCandidate = join(homedir(), '.local', 'bin', 'cloudflared')
-  if (existsSync(localCandidate) && canRunCommand(localCandidate, ['--version'])) {
-    return localCandidate
-  }
-  return null
-}
-
-function mapCloudflaredLinuxArch(arch: NodeJS.Architecture): string | null {
-  if (arch === 'x64') {
-    return 'amd64'
-  }
-  if (arch === 'arm64') {
-    return 'arm64'
-  }
-  return null
-}
-
-function downloadFile(url: string, destination: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = (currentUrl: string) => {
-      httpsGet(currentUrl, (response) => {
-        const code = response.statusCode ?? 0
-        if (code >= 300 && code < 400 && response.headers.location) {
-          response.resume()
-          request(response.headers.location)
-          return
-        }
-        if (code !== 200) {
-          response.resume()
-          reject(new Error(`Download failed with HTTP status ${String(code)}`))
-          return
-        }
-        const file = createWriteStream(destination, { mode: 0o755 })
-        response.pipe(file)
-        file.on('finish', () => {
-          file.close()
-          resolve()
-        })
-        file.on('error', reject)
-      }).on('error', reject)
-    }
-
-    request(url)
-  })
-}
-
-async function ensureCloudflaredInstalledLinux(): Promise<string | null> {
-  const current = resolveCloudflaredCommand()
-  if (current) {
-    return current
-  }
-  if (process.platform !== 'linux') {
-    return null
-  }
-
-  const mappedArch = mapCloudflaredLinuxArch(process.arch)
-  if (!mappedArch) {
-    throw new Error(`cloudflared auto-install is not supported for Linux architecture: ${process.arch}`)
-  }
-
-  const userBinDir = join(homedir(), '.local', 'bin')
-  mkdirSync(userBinDir, { recursive: true })
-  const destination = join(userBinDir, 'cloudflared')
-  const downloadUrl = `https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${mappedArch}`
-
-  console.log('\ncloudflared not found. Installing to ~/.local/bin...\n')
-  await downloadFile(downloadUrl, destination)
-  chmodSync(destination, 0o755)
-  process.env.PATH = prependPathEntry(process.env.PATH ?? '', userBinDir)
-
-  const installed = resolveCloudflaredCommand()
-  if (!installed) {
-    throw new Error('cloudflared download completed but executable is still not available')
-  }
-  console.log('\ncloudflared installed.\n')
-  return installed
-}
-
-async function shouldInstallCloudflaredInteractively(): Promise<boolean> {
-  if (hasPromptedCloudflaredInstall || hasPromptedCloudflaredInstallPersisted()) {
-    return false
-  }
-  hasPromptedCloudflaredInstall = true
-  await persistCloudflaredInstallPrompted()
-
-  if (process.platform === 'win32') {
-    return false
-  }
-
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    console.warn('\n[cloudflared] cloudflared is missing and terminal is non-interactive, skipping install.')
-    return false
-  }
-
-  const prompt = createInterface({ input: process.stdin, output: process.stdout })
-  try {
-    const answer = await prompt.question('cloudflared is not installed. Install it now to ~/.local/bin? [y/N] ')
-    const normalized = answer.trim().toLowerCase()
-    return normalized === 'y' || normalized === 'yes'
-  } finally {
-    prompt.close()
-  }
-}
-
-async function resolveCloudflaredForTunnel(): Promise<string | null> {
-  const current = resolveCloudflaredCommand()
-  if (current) {
-    return current
-  }
-
-  if (process.platform === 'win32') {
-    return null
-  }
-
-  const installApproved = await shouldInstallCloudflaredInteractively()
-  if (!installApproved) {
-    return null
-  }
-
-  return ensureCloudflaredInstalledLinux()
 }
 
 function hasCodexAuth(): boolean {
@@ -272,14 +130,6 @@ function buildTunnelAutologinUrl(tunnelUrl: string, _password: string | undefine
   return tunnelUrl
 }
 
-function parseCloudflaredUrl(chunk: string): string | null {
-  const urlMatch = chunk.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/g)
-  if (!urlMatch || urlMatch.length === 0) {
-    return null
-  }
-  return urlMatch[urlMatch.length - 1] ?? null
-}
-
 function getAccessibleUrls(port: number): string[] {
   const urls = new Set<string>([`http://localhost:${String(port)}`])
   try {
@@ -299,79 +149,6 @@ function getAccessibleUrls(port: number): string[] {
     }
   } catch {}
   return Array.from(urls)
-}
-
-function isTailscaleIPv4Address(address: string): boolean {
-  const parts = address.split('.')
-  if (parts.length !== 4) return false
-  const octets = parts.map((part) => Number.parseInt(part, 10))
-  if (octets.some((value) => Number.isNaN(value) || value < 0 || value > 255)) return false
-  return octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127
-}
-
-function isTailscaleIPv6Address(address: string): boolean {
-  const normalized = address.toLowerCase()
-  return normalized.startsWith('fd7a:115c:a1e0:')
-}
-
-function hasDetectedTailscaleIp(): boolean {
-  try {
-    const interfaces = networkInterfaces()
-    for (const entries of Object.values(interfaces)) {
-      if (!entries) continue
-      for (const entry of entries) {
-        if (entry.internal) continue
-        if (entry.family === 'IPv4' && isTailscaleIPv4Address(entry.address)) return true
-        if (entry.family === 'IPv6' && isTailscaleIPv6Address(entry.address)) return true
-      }
-    }
-  } catch {}
-  return false
-}
-
-async function startCloudflaredTunnel(command: string, localPort: number): Promise<{
-  process: ReturnType<typeof spawn>
-  url: string
-}> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, ['tunnel', '--url', `http://localhost:${String(localPort)}`], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-
-    const timeout = setTimeout(() => {
-      child.kill('SIGTERM')
-      reject(new Error('Timed out waiting for cloudflared tunnel URL'))
-    }, 20000)
-
-    const handleData = (value: Buffer | string) => {
-      const text = String(value)
-      const parsedUrl = parseCloudflaredUrl(text)
-      if (!parsedUrl) {
-        return
-      }
-      clearTimeout(timeout)
-      child.stdout?.off('data', handleData)
-      child.stderr?.off('data', handleData)
-      resolve({ process: child, url: parsedUrl })
-    }
-
-    const onError = (error: Error) => {
-      clearTimeout(timeout)
-      reject(new Error(`Failed to start cloudflared: ${error.message}`))
-    }
-
-    child.once('error', onError)
-    child.stdout?.on('data', handleData)
-    child.stderr?.on('data', handleData)
-
-    child.once('exit', (code) => {
-      if (code === 0) {
-        return
-      }
-      clearTimeout(timeout)
-      reject(new Error(`cloudflared exited before providing a URL (code ${String(code)})`))
-    })
-  })
 }
 
 function listenWithFallback(server: ReturnType<typeof createServer>, startPort: number): Promise<number> {
@@ -480,16 +257,13 @@ async function startServer(options: {
   }
   const codexCommand = ensureCodexInstalled() ?? resolveCodexCommand()
   if (codexCommand) {
-    process.env.CODES_CODEX_COMMAND = codexCommand
-    process.env.CODEXUI_CODEX_COMMAND = codexCommand
+    setEnvValues(ENV_KEYS.codexCommand, codexCommand)
   }
   if (options.sandboxMode) {
-    process.env.CODES_SANDBOX_MODE = options.sandboxMode
-    process.env.CODEXUI_SANDBOX_MODE = options.sandboxMode
+    setEnvValues(ENV_KEYS.sandboxMode, options.sandboxMode)
   }
   if (options.approvalPolicy) {
-    process.env.CODES_APPROVAL_POLICY = options.approvalPolicy
-    process.env.CODEXUI_APPROVAL_POLICY = options.approvalPolicy
+    setEnvValues(ENV_KEYS.approvalPolicy, options.approvalPolicy)
   }
   const runtimeConfig = resolveAppServerRuntimeConfig()
   if (options.login && !hasCodexAuth()) {
@@ -505,8 +279,7 @@ async function startServer(options: {
   const server = createServer(app)
   attachWebSocket(server)
   const port = await listenWithFallback(server, requestedPort)
-  process.env.CODES_SERVER_PORT = String(port)
-  process.env.CODEXUI_SERVER_PORT = String(port)
+  setEnvValues(ENV_KEYS.serverPort, String(port))
   let tunnelChild: ReturnType<typeof spawn> | null = null
   let tunnelUrl: string | null = null
 
@@ -588,8 +361,7 @@ async function startServer(options: {
 
 async function runLogin() {
   const codexCommand = ensureCodexInstalled() ?? 'codex'
-  process.env.CODES_CODEX_COMMAND = codexCommand
-  process.env.CODEXUI_CODEX_COMMAND = codexCommand
+  setEnvValues(ENV_KEYS.codexCommand, codexCommand)
   console.log('\nStarting `codex login`...\n')
   runOrFail(codexCommand, ['login'], 'Codex login')
 }

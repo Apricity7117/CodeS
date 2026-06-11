@@ -5,6 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildAppServerArgs } from './appServerRuntimeConfig.js'
+import { ENV_KEYS, readTrimmedEnv } from '../config/env.js'
 
 type AppServerLike = {
   rpc(method: string, params: unknown): Promise<unknown>
@@ -161,7 +162,7 @@ function detectAccountUnavailableReason(error: unknown): AccountUnavailableReaso
 }
 
 function getCodexHomeDir(): string {
-  const codexHome = process.env.CODEX_HOME?.trim()
+  const codexHome = readTrimmedEnv(ENV_KEYS.codexHome[0])
   return codexHome && codexHome.length > 0 ? codexHome : join(homedir(), '.codex')
 }
 

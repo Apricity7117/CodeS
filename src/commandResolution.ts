@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { delimiter, join } from 'node:path'
+import { ENV_KEYS, readFirstTrimmedEnv, readTrimmedEnv } from './config/env.js'
 
 export type CommandInvocation = {
   command: string
@@ -30,14 +31,14 @@ function isRunnableCommand(command: string, args: string[] = []): boolean {
 }
 
 function getWindowsAppDataNpmPrefix(): string | null {
-  const appData = process.env.APPDATA?.trim()
+  const appData = readTrimmedEnv('APPDATA')
   return appData ? join(appData, 'npm') : null
 }
 
 function getPotentialNpmPrefixes(): string[] {
   return uniqueStrings([
     process.env.npm_config_prefix,
-    process.env.PREFIX,
+    readTrimmedEnv('PREFIX'),
     getUserNpmPrefix(),
     process.platform === 'win32' ? getWindowsAppDataNpmPrefix() : null,
   ])
@@ -118,7 +119,7 @@ export function prependPathEntry(existingPath: string, entry: string): string {
 }
 
 export function resolveCodexCommand(): string | null {
-  const explicit = process.env.CODES_CODEX_COMMAND?.trim() || process.env.CODEXUI_CODEX_COMMAND?.trim()
+  const explicit = readFirstTrimmedEnv(ENV_KEYS.codexCommand)
   const packageCandidates = getPotentialNpmPrefixes().flatMap(getPotentialCodexExecutables)
   const fallbackCandidates = process.platform === 'win32'
     ? [...packageCandidates, 'codex']
@@ -134,7 +135,7 @@ export function resolveCodexCommand(): string | null {
 }
 
 export function resolveRipgrepCommand(): string | null {
-  const explicit = process.env.CODES_RG_COMMAND?.trim() || process.env.CODEXUI_RG_COMMAND?.trim()
+  const explicit = readFirstTrimmedEnv(ENV_KEYS.rgCommand)
   const packageCandidates = getPotentialNpmPrefixes().flatMap(getPotentialRipgrepExecutables)
   const fallbackCandidates = process.platform === 'win32'
     ? [...packageCandidates, 'rg']
@@ -172,12 +173,13 @@ export function resolvePythonCommand(): CommandInvocation | null {
 
 export function resolveSkillInstallerScriptPath(codexHome?: string): string | null {
   const normalizedCodexHome = codexHome?.trim()
+  const envCodexHome = readTrimmedEnv(ENV_KEYS.codexHome[0])
   const candidates = uniqueStrings([
     normalizedCodexHome
       ? join(normalizedCodexHome, 'skills', '.system', 'skill-installer', 'scripts', 'install-skill-from-github.py')
       : null,
-    process.env.CODEX_HOME?.trim()
-      ? join(process.env.CODEX_HOME.trim(), 'skills', '.system', 'skill-installer', 'scripts', 'install-skill-from-github.py')
+    envCodexHome
+      ? join(envCodexHome, 'skills', '.system', 'skill-installer', 'scripts', 'install-skill-from-github.py')
       : null,
     join(homedir(), '.codex', 'skills', '.system', 'skill-installer', 'scripts', 'install-skill-from-github.py'),
     join(homedir(), '.cursor', 'skills', '.system', 'skill-installer', 'scripts', 'install-skill-from-github.py'),

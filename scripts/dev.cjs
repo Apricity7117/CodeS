@@ -1,18 +1,17 @@
 const { spawnSync } = require('node:child_process')
 const { existsSync } = require('node:fs')
 const { join } = require('node:path')
+const { ENV_KEYS, readFirstTrimmedEnv, setEnvValues } = require('./env.cjs')
 
 function run(command, args, options = {}) {
-  const sandboxMode = process.env.CODES_SANDBOX_MODE || process.env.CODEXUI_SANDBOX_MODE || 'danger-full-access'
-  const approvalPolicy = process.env.CODES_APPROVAL_POLICY || process.env.CODEXUI_APPROVAL_POLICY || 'never'
+  const sandboxMode = readFirstTrimmedEnv(ENV_KEYS.sandboxMode) || 'danger-full-access'
+  const approvalPolicy = readFirstTrimmedEnv(ENV_KEYS.approvalPolicy) || 'never'
+  setEnvValues(ENV_KEYS.sandboxMode, sandboxMode)
+  setEnvValues(ENV_KEYS.approvalPolicy, approvalPolicy)
   const result = spawnSync(command, args, {
     stdio: 'inherit',
     env: {
       ...process.env,
-      CODES_SANDBOX_MODE: sandboxMode,
-      CODES_APPROVAL_POLICY: approvalPolicy,
-      CODEXUI_SANDBOX_MODE: sandboxMode,
-      CODEXUI_APPROVAL_POLICY: approvalPolicy,
     },
     ...options,
   })

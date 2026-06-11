@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { writeFile } from 'node:fs/promises'
 import { resolvePythonCommand, resolveSkillInstallerScriptPath } from '../commandResolution.js'
 import { getSpawnInvocation } from '../utils/commandInvocation.js'
+import { ENV_KEYS, readTrimmedEnv } from '../config/env.js'
 
 type AppServerLike = {
   rpc(method: string, params: unknown): Promise<unknown>
@@ -47,7 +48,7 @@ function setJson(res: ServerResponse, statusCode: number, payload: unknown): voi
 }
 
 function getCodexHomeDir(): string {
-  const codexHome = process.env.CODEX_HOME?.trim()
+  const codexHome = readTrimmedEnv(ENV_KEYS.codexHome[0])
   return codexHome && codexHome.length > 0 ? codexHome : join(homedir(), '.codex')
 }
 
@@ -721,8 +722,8 @@ async function completeGithubDeviceLogin(deviceCode: string): Promise<{ token: s
 }
 
 function getConfiguredUpstreamSkillsRepo(): { owner: string; repo: string } | null {
-  const owner = process.env.CODES_SKILLS_UPSTREAM_OWNER?.trim() ?? ''
-  const repo = process.env.CODES_SKILLS_UPSTREAM_REPO?.trim() ?? ''
+  const owner = readTrimmedEnv(ENV_KEYS.skillsUpstreamOwner[0])
+  const repo = readTrimmedEnv(ENV_KEYS.skillsUpstreamRepo[0])
   return owner && repo ? { owner, repo } : null
 }
 

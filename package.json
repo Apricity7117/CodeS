@@ -25,6 +25,7 @@
     "dist/",
     "dist-cli/",
     "scripts/dev.cjs",
+    "scripts/env.cjs",
     "scripts/fix-pty-native-build.cjs"
   ],
   "pnpm": {
