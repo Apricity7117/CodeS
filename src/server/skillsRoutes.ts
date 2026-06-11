@@ -546,11 +546,8 @@ type GithubTokenResponse = { access_token?: string; error?: string }
 const GITHUB_DEVICE_CLIENT_ID = 'Iv1.b507a08c87ecfe98'
 const DEFAULT_SKILLS_SYNC_REPO_NAME = 'codexskills'
 const SKILLS_SYNC_MANIFEST_PATH = 'installed-skills.json'
-const SYNC_UPSTREAM_SKILLS_OWNER = 'OpenClawAndroid'
-const SYNC_UPSTREAM_SKILLS_REPO = 'skills'
 const PRIVATE_SYNC_BRANCH = 'main'
-const PUBLIC_UPSTREAM_BRANCH_ANDROID = 'android'
-const PUBLIC_UPSTREAM_BRANCH_DEFAULT = 'main'
+const PUBLIC_UPSTREAM_BRANCH = 'main'
 let startupSkillsSyncInitialized = false
 
 type StartupSyncStatus = {
@@ -723,23 +720,17 @@ async function completeGithubDeviceLogin(deviceCode: string): Promise<{ token: s
   return { token: payload.access_token, error: null }
 }
 
-function isAndroidLikeRuntime(): boolean {
-  if (process.platform === 'android') return true
-  if (existsSync('/data/data/com.termux')) return true
-  if (process.env.TERMUX_VERSION) return true
-  const prefix = process.env.PREFIX?.toLowerCase() ?? ''
-  if (prefix.includes('/com.termux/')) return true
-  const proot = process.env.PROOT_TMP_DIR?.toLowerCase() ?? ''
-  return proot.length > 0
-}
-
-function getPreferredPublicUpstreamBranch(): string {
-  return isAndroidLikeRuntime() ? PUBLIC_UPSTREAM_BRANCH_ANDROID : PUBLIC_UPSTREAM_BRANCH_DEFAULT
+function getConfiguredUpstreamSkillsRepo(): { owner: string; repo: string } | null {
+  const owner = process.env.CODES_SKILLS_UPSTREAM_OWNER?.trim() ?? ''
+  const repo = process.env.CODES_SKILLS_UPSTREAM_REPO?.trim() ?? ''
+  return owner && repo ? { owner, repo } : null
 }
 
 function isUpstreamSkillsRepo(repoOwner: string, repoName: string): boolean {
-  return repoOwner.toLowerCase() === SYNC_UPSTREAM_SKILLS_OWNER.toLowerCase()
-    && repoName.toLowerCase() === SYNC_UPSTREAM_SKILLS_REPO.toLowerCase()
+  const upstream = getConfiguredUpstreamSkillsRepo()
+  return Boolean(upstream)
+    && repoOwner.toLowerCase() === upstream?.owner.toLowerCase()
+    && repoName.toLowerCase() === upstream?.repo.toLowerCase()
 }
 
 async function resolveGithubUsername(token: string): Promise<string> {
@@ -747,8 +738,9 @@ async function resolveGithubUsername(token: string): Promise<string> {
   return user.login
 }
 
-async function ensurePrivateForkFromUpstream(token: string, username: string, repoName: string): Promise<void> {
+async function ensurePrivateSkillsSyncRepo(token: string, username: string, repoName: string): Promise<void> {
   const repoUrl = `https://api.github.com/repos/${username}/${repoName}`
+  const upstream = getConfiguredUpstreamSkillsRepo()
   let created = false
   const existing = await fetch(repoUrl, {
     headers: {
@@ -772,7 +764,7 @@ async function ensurePrivateForkFromUpstream(token: string, username: string, re
     'https://api.github.com/user/repos',
     token,
     'POST',
-    { name: repoName, private: true, auto_init: false, description: 'Codex skills private mirror sync' },
+    { name: repoName, private: true, auto_init: !upstream, description: 'Codex skills private mirror sync' },
   )
   created = true
 
@@ -793,11 +785,11 @@ async function ensurePrivateForkFromUpstream(token: string, username: string, re
     await new Promise((resolve) => setTimeout(resolve, 1000))
   }
   if (!ready) throw new Error('Private mirror repo was created but is not available yet')
-  if (!created) return
+  if (!created || !upstream) return
 
   const tmp = await mkdtemp(join(tmpdir(), 'codex-skills-seed-'))
   try {
-    const upstreamUrl = `https://github.com/${SYNC_UPSTREAM_SKILLS_OWNER}/${SYNC_UPSTREAM_SKILLS_REPO}.git`
+    const upstreamUrl = `https://github.com/${upstream.owner}/${upstream.repo}.git`
     const branch = PRIVATE_SYNC_BRANCH
     try {
       await runCommand('git', ['clone', '--depth', '1', '--single-branch', '--branch', branch, upstreamUrl, tmp])
@@ -1221,7 +1213,7 @@ async function syncInstalledSkillsFolderToRepo(
 async function pullInstalledSkillsFolderFromRepo(token: string, repoOwner: string, repoName: string): Promise<string> {
   const remoteUrl = toGitHubTokenRemote(repoOwner, repoName, token)
   const isUpstream = isUpstreamSkillsRepo(repoOwner, repoName)
-  const branch = isUpstream ? PUBLIC_UPSTREAM_BRANCH_ANDROID : PRIVATE_SYNC_BRANCH
+  const branch = isUpstream ? PUBLIC_UPSTREAM_BRANCH : PRIVATE_SYNC_BRANCH
   return await ensureSkillsWorkingTreeRepo(remoteUrl, branch, {
     ...(isUpstream ? { localDir: getSharedSkillsInstallDir() } : {}),
     overwriteLocalFiles: isUpstream,
@@ -1229,8 +1221,12 @@ async function pullInstalledSkillsFolderFromRepo(token: string, repoOwner: strin
 }
 
 async function bootstrapSkillsFromUpstreamIntoLocal(): Promise<string> {
-  const repoUrl = `https://github.com/${SYNC_UPSTREAM_SKILLS_OWNER}/${SYNC_UPSTREAM_SKILLS_REPO}.git`
-  return await ensureSkillsWorkingTreeRepo(repoUrl, PUBLIC_UPSTREAM_BRANCH_ANDROID, {
+  const upstream = getConfiguredUpstreamSkillsRepo()
+  if (!upstream) {
+    throw new Error('Public skills upstream is not configured')
+  }
+  const repoUrl = `https://github.com/${upstream.owner}/${upstream.repo}.git`
+  return await ensureSkillsWorkingTreeRepo(repoUrl, PUBLIC_UPSTREAM_BRANCH, {
     localDir: getSharedSkillsInstallDir(),
     overwriteLocalFiles: true,
   })
@@ -1330,19 +1326,9 @@ async function runSkillsSyncStartup(appServer: AppServerLike): Promise<void> {
     const state = await readSkillsSyncState()
     if (!state.githubToken) {
       await ensureCodexAgentsSymlinkToSkillsAgents()
-      if (!isAndroidLikeRuntime()) {
-        startupSyncStatus.mode = 'idle'
-        startupSyncStatus.lastAction = 'skip-upstream-non-android'
-        startupSyncStatus.lastSuccessAtIso = new Date().toISOString()
-        return
-      }
-      startupSyncStatus.mode = 'unauthenticated-bootstrap'
-      startupSyncStatus.branch = getPreferredPublicUpstreamBranch()
-      startupSyncStatus.lastAction = 'pull-upstream'
-      await bootstrapSkillsFromUpstreamIntoLocal()
-      try { await appServer.rpc('skills/list', { forceReload: true }) } catch {}
+      startupSyncStatus.mode = 'idle'
+      startupSyncStatus.lastAction = 'skip-upstream-unauthenticated'
       startupSyncStatus.lastSuccessAtIso = new Date().toISOString()
-      startupSyncStatus.lastAction = 'pull-upstream-complete'
       return
     }
     startupSyncStatus.mode = 'authenticated-fork-sync'
@@ -1350,7 +1336,7 @@ async function runSkillsSyncStartup(appServer: AppServerLike): Promise<void> {
     startupSyncStatus.lastAction = 'ensure-private-fork'
     const username = state.githubUsername || await resolveGithubUsername(state.githubToken)
     const repoName = DEFAULT_SKILLS_SYNC_REPO_NAME
-    await ensurePrivateForkFromUpstream(state.githubToken, username, repoName)
+    await ensurePrivateSkillsSyncRepo(state.githubToken, username, repoName)
     await writeSkillsSyncState({ ...state, githubUsername: username, repoOwner: username, repoName })
     startupSyncStatus.lastAction = 'pull-private-fork'
     await pullInstalledSkillsFolderFromRepo(state.githubToken, username, repoName)
@@ -1375,7 +1361,7 @@ export async function initializeSkillsSyncOnStartup(appServer: AppServerLike): P
 
 async function finalizeGithubLoginAndSync(token: string, username: string, appServer: AppServerLike): Promise<void> {
   const repoName = DEFAULT_SKILLS_SYNC_REPO_NAME
-  await ensurePrivateForkFromUpstream(token, username, repoName)
+  await ensurePrivateSkillsSyncRepo(token, username, repoName)
   const current = await readSkillsSyncState()
   await writeSkillsSyncState({ ...current, githubToken: token, githubUsername: username, repoOwner: username, repoName })
   await pullInstalledSkillsFolderFromRepo(token, username, repoName)
@@ -1552,6 +1538,10 @@ export async function handleSkillsRoutes(
     try {
       const state = await readSkillsSyncState()
       if (!state.githubToken || !state.repoOwner || !state.repoName) {
+        if (!getConfiguredUpstreamSkillsRepo()) {
+          setJson(res, 400, { error: 'Public skills upstream is not configured' })
+          return true
+        }
         const repoDir = await bootstrapSkillsFromUpstreamIntoLocal()
         const localSkills = await scanInstalledSkillsFromDir(repoDir)
         try { await appServer.rpc('skills/list', { forceReload: true }) } catch {}

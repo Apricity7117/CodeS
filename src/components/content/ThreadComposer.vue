@@ -625,7 +625,6 @@ let fileMentionDebounceTimer: ReturnType<typeof setTimeout> | null = null
 let isHoldPressActive = false
 let dragDepth = 0
 let attachmentSessionToken = 0
-const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
 const DRAFT_STORAGE_PREFIX = 'codex-web-local.thread-draft.v1.'
 let lastActiveThreadId = ''
 
@@ -1031,7 +1030,7 @@ function onSubmit(mode: 'steer' | 'queue' = 'steer'): void {
   folderUploadGroups.value = []
   isAttachMenuOpen.value = false
   closeFileMention()
-  if (isAndroid || isMobile.value) {
+  if (isMobile.value) {
     inputRef.value?.blur()
     return
   }

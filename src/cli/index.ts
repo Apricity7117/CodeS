@@ -59,10 +59,6 @@ async function readCliVersion(): Promise<string> {
   }
 }
 
-function isTermuxRuntime(): boolean {
-  return Boolean(process.env.TERMUX_VERSION || process.env.PREFIX?.includes('/com.termux/'))
-}
-
 function runOrFail(command: string, args: string[], label: string): void {
   const result = spawnSyncCommand(command, args, { stdio: 'inherit' })
   if (result.status !== 0) {
@@ -214,38 +210,18 @@ function ensureCodexInstalled(): string | null {
       if (status === 0) {
         return
       }
-      if (isTermuxRuntime()) {
-        throw new Error(`${label} failed with exit code ${String(status)}`)
-      }
       const userPrefix = getUserNpmPrefix()
       console.log(`\nGlobal npm install requires elevated permissions. Retrying with --prefix ${userPrefix}...\n`)
       runOrFail('npm', ['install', '-g', '--prefix', userPrefix, pkg], `${label} (user prefix)`)
       process.env.PATH = prependPathEntry(process.env.PATH ?? '', getNpmGlobalBinDir(userPrefix))
     }
 
-    if (isTermuxRuntime()) {
-      console.log('\nCodex CLI not found. Installing Termux-compatible Codex CLI from npm...\n')
-      installWithFallback('@mmmbuto/codex-cli-termux', 'Codex CLI install')
-      codexCommand = resolveCodexCommand()
-      if (!codexCommand) {
-        console.log('\nTermux npm package did not expose `codex`. Installing official CLI fallback...\n')
-        installWithFallback('@openai/codex', 'Codex CLI fallback install')
-      }
-    } else {
-      console.log('\nCodex CLI not found. Installing official Codex CLI from npm...\n')
-      installWithFallback('@openai/codex', 'Codex CLI install')
-    }
+    console.log('\nCodex CLI not found. Installing official Codex CLI from npm...\n')
+    installWithFallback('@openai/codex', 'Codex CLI install')
 
     codexCommand = resolveCodexCommand()
-    if (!codexCommand && !isTermuxRuntime()) {
-      // Non-Termux path should resolve after official package install.
-      throw new Error('Official Codex CLI install completed but binary is still not available in PATH')
-    }
-    if (!codexCommand && isTermuxRuntime()) {
-      codexCommand = resolveCodexCommand()
-    }
     if (!codexCommand) {
-      throw new Error('Codex CLI install completed but binary is still not available in PATH')
+      throw new Error('Official Codex CLI install completed but binary is still not available in PATH')
     }
     console.log('\nCodex CLI installed.\n')
   }
@@ -278,17 +254,6 @@ async function persistGeneratedPassword(password: string): Promise<string> {
   await writeFile(passwordPath, `${password}\n`, { encoding: 'utf8', mode: 0o600 })
   chmodSync(passwordPath, 0o600)
   return passwordPath
-}
-
-function printTermuxKeepAlive(lines: string[]): void {
-  if (!isTermuxRuntime()) {
-    return
-  }
-  lines.push('')
-  lines.push('  Android/Termux keep-alive:')
-  lines.push('  1) Keep this Termux session open (do not swipe it away).')
-  lines.push('  2) Disable battery optimization for Termux in Android settings.')
-  lines.push('  3) Optional: run `termux-wake-lock` in another shell.')
 }
 
 function openBrowser(url: string): void {
@@ -593,7 +558,6 @@ async function startServer(options: {
     lines.push('  Tunnel QR code below')
   }
 
-  printTermuxKeepAlive(lines)
   lines.push('')
   console.log(lines.join('\n'))
   if (tunnelQrUrl) {

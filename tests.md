@@ -1355,39 +1355,6 @@ Right inspector branch dropdown uses the compact Codex desktop-style placement, 
 
 ---
 
-### Termux install without native PTY build
-
-#### Feature/Change Name
-Android Termux installs can complete when `node-pty` has no compatible native build.
-
-#### Prerequisites/Setup
-1. Android device or emulator with Termux installed.
-2. Node.js and npm available in Termux.
-3. Network access to npm and GitHub.
-4. A macOS or Linux desktop remains available for supported-host integrated terminal checks.
-5. Light theme and dark theme are available from the appearance switcher on the desktop check.
-
-#### Steps
-1. In Termux, run `npm i -g codes@latest` after the fixed version is published.
-2. Confirm installation does not fail if npm cannot build `node-pty` for `android-arm64`.
-3. Run `codes --no-login` in Termux.
-4. Open the printed URL and confirm the app loads.
-5. Open a thread and confirm the integrated terminal reports unavailable instead of crashing the server if native PTY support is missing.
-6. On macOS or Linux, run `npm i -g codes@latest`, then start `codes --no-login`.
-7. Open a thread in light theme and confirm the integrated terminal still opens on the supported host.
-8. Switch to dark theme and confirm the integrated terminal remains readable.
-
-#### Expected Results
-- Termux install completes even when `node-pty` cannot build on Android.
-- The Termux app server starts and the browser UI loads.
-- Missing native PTY support disables only the integrated terminal, not the whole app.
-- Supported hosts still install `node-pty` and keep integrated terminal behavior in light theme and dark theme.
-
-#### Rollback/Cleanup
-- Remove test global installs with `npm rm -g codes`.
-
----
-
 ### Composer controls stay editable during responses
 
 #### Feature/Change Name
@@ -2002,37 +1969,6 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 
 ---
 
-### Feature: GitHub Website Redesign — OpenClaw-Inspired Design + Web Demo Link
-
-#### Prerequisites
-- The `docs/index.html` file has been updated with the new design.
-- A browser is available to view the page locally or via GitHub Pages.
-
-#### Steps
-1. Open `docs/index.html` in a browser (local file or via GitHub Pages).
-2. Verify the fixed **navigation bar** at top with brand logo, section links, and "Get the App" CTA.
-3. Verify the **announcement banner** below nav shows the XCodex WASM link.
-4. Verify **hero section** displays lobster emoji, "AnyClaw" title with gradient, tagline, and four CTA buttons: "Try Web Demo", "Google Play", "Download APK", "GitHub".
-5. Click **"Try Web Demo"** button — confirm it navigates to `https://xcodex.slrv.md/#/`.
-6. Verify the **stats bar** shows key metrics (2 AI Agents, 1 APK, 0 Root Required, 73MB, infinity).
-7. Scroll to **Live Demo** section — verify embedded iframe loads `https://xcodex.slrv.md/#/` with mock browser chrome.
-8. Scroll to **Screenshots** section — verify four images render (2 desktop, 2 mobile).
-9. Scroll to **Features** section — verify 6 feature cards in a 3-column grid.
-10. Scroll to **Testimonials** section — verify two rows of auto-scrolling marquee cards (row 2 scrolls reverse). Hover to pause.
-11. Scroll through **Architecture**, **Boot Sequence**, **Quick Start**, and **Tech Stack** sections — verify content renders.
-12. Verify the **footer** includes a "Web Demo" link to `https://xcodex.slrv.md/#/`.
-13. Test responsive at 768px and 480px — nav links collapse, grids single-column, buttons stack vertically.
-
-#### Expected Results
-- Page has a dark, premium feel with gradient accents, grain overlay, and smooth animations.
-- All links to `https://xcodex.slrv.md/#/` work (announcement, hero CTA, demo section, quick start text, footer).
-- Marquee testimonials scroll continuously and pause on hover.
-- Embedded iframe demo loads successfully.
-- Mobile responsive layout works at all breakpoints.
-
-#### Rollback/Cleanup
-- Revert `docs/index.html` to previous commit if needed.
-
 ### Feature: Keep manual chat scroll position during streaming
 
 #### Prerequisites
@@ -2302,6 +2238,7 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 #### Prerequisites
 - App running from this repository with Skills Hub available.
 - GitHub skills sync is not configured/logged in.
+- Public skills upstream is configured with `CODES_SKILLS_UPSTREAM_OWNER` and `CODES_SKILLS_UPSTREAM_REPO`.
 - Local shared skills directory exists at `~/.codex/skills/shared_skills`.
 
 #### Steps
@@ -2310,7 +2247,7 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 3. Open `Skills Hub`.
 4. Trigger `Pull` from the `Skills Sync (GitHub)` panel.
 5. Wait for the pull success toast.
-6. Inspect `~/.codex/skills/shared_skills` and compare it with the public `OpenClawAndroid/skills` `android` branch.
+6. Inspect `~/.codex/skills/shared_skills` and compare it with the public upstream `main` branch.
 7. Inspect `~/.codex/skills` and verify unrelated parent-level files were not reset or cleaned by the unauthenticated pull.
 8. If `~/.codex/skills/shared_skills/.git` is a git file or worktree/submodule-style pointer, repeat the pull and verify the nested repo is not reinitialized.
 9. Inspect the `/codex-api/skills-sync/pull` response and verify `data.synced` matches the number of direct shared skill folders with `SKILL.md`.
@@ -2318,7 +2255,7 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 11. Switch to dark theme and verify the same Skills Hub state remains readable and current.
 
 #### Expected Results
-- Public unauthenticated pull resets only the nested `shared_skills` repo to the public upstream `android` branch.
+- Public unauthenticated pull resets only the nested `shared_skills` repo to the public upstream `main` branch.
 - Local uncommitted edits and local-only untracked skill folders inside `shared_skills` are removed by the pull.
 - Parent-level `~/.codex/skills` files outside `shared_skills` are not reset or cleaned.
 - Existing git-file/worktree/submodule-style shared skills repos are reused, not reinitialized.
@@ -2760,28 +2697,6 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 - Remove imported snapshots from `~/.codex/accounts/` and corresponding rows in `~/.codex/accounts.json` if needed.
 - Delete localStorage key `codex-web-local.accounts-section-collapsed.v1` to reset UI preference.
 
-### Feature: Copy Codex accounts to Android via ssh helper script
-
-#### Prerequisites
-- Local Codex state exists at `~/.codex/accounts` and `~/.codex/accounts.json`.
-- Android helper exists and is executable: `/Users/igor/Git-projects/codex-web-local-android/andclaw/ssh.sh`.
-- Android target is reachable through helper SSH path.
-
-#### Steps
-1. Run `scripts/copy-accounts-to-android.sh`.
-2. Confirm script prints local account count and upload/extract progress.
-3. Confirm script prints remote account count.
-4. Verify script exits successfully with `Copy complete: local and remote counts match.`
-5. On Android host, verify `~/.codex/accounts.json` exists and snapshots under `~/.codex/accounts/*/auth.json` are present.
-
-#### Expected Results
-- Script packs `accounts/` and `accounts.json`, uploads and extracts on Android.
-- Local and remote `auth.json` snapshot counts match.
-- Script exits non-zero on mismatch or missing prerequisites.
-
-#### Rollback/Cleanup
-- Remove remote copied data if needed: delete `~/.codex/accounts` and `~/.codex/accounts.json` on Android host.
-
 ### Feature: Accounts no longer stuck on "Fetching account details…"
 
 #### Prerequisites
@@ -2886,26 +2801,6 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 
 #### Rollback/Cleanup
 - Stop running dev servers and unset temporary env overrides.
-
-### Feature: npm run dev uses CLI server on Android
-
-#### Prerequisites
-- Android SSH helper exists and is executable: `/Users/igor/Git-projects/codex-web-local-android/andClaw/ssh.sh`.
-- Dependencies are installed on the Android clone.
-
-#### Steps
-1. On Android, run `npm run dev -- --port 4173`.
-2. Confirm startup logs show `CodeS is running!`.
-3. In a second Android shell, run `curl -fsS http://127.0.0.1:4173/ | head -5`.
-4. Stop the dev server.
-
-#### Expected Results
-- Android starts `node dist-cli/index.js`, not raw Vite.
-- The server binds successfully and returns the app HTML.
-- The Vite `uv_interface_addresses` Android error does not occur.
-
-#### Rollback/Cleanup
-- Stop the Android dev server.
 
 ### Feature: Approval request uses legacy in-conversation request card only
 
@@ -3423,7 +3318,7 @@ stays at `source: "NoValues"` permanently. Feature gate `505458` (worktree) retu
 
 #### Prerequisites
 - `gh` CLI installed and authenticated (`gh auth status`).
-- Start the app via CLI from this repository (`pnpm run dev` or published `npx codes-android`).
+- Start the app via CLI from this repository (`pnpm run dev` or published `npx codes`).
 
 #### Steps
 1. Ensure the repository is not starred (optional baseline): `gh api /user/starred/friuns2/codes --silent --include` and check status code.
@@ -4859,7 +4754,7 @@ Terminal focus on mobile keeps the terminal as a bottom panel instead of expandi
 #### Prerequisites/Setup
 1. Dev server running at `http://127.0.0.1:4173`
 2. A thread or new-chat project with the terminal toggle available
-3. Mobile viewport or Android device browser
+3. Mobile viewport or mobile browser
 
 #### Steps
 1. Open a thread or new chat with a valid project path
@@ -5628,39 +5523,6 @@ Fresh unauthenticated install mobile home screen rate-limit handling.
 
 #### Rollback/Cleanup
 - Stop and remove the temporary Docker container, for example `docker rm -f <container-name>`.
-
----
-
-### Android published CLI loads Codex app-server models through local proxy
-
-#### Feature/Change Name
-Android `codes-android` startup passes the bound server port to app-server free-mode config.
-
-#### Prerequisites/Setup
-1. Android proot access works through `/Users/igor/Git-projects/codex-web-local-android/andClaw-codex/ssh.sh`.
-2. The published `codes-android` package version under test is available from npm.
-3. ADB forward maps device port `17923` to local port `17923`.
-
-#### Steps
-1. Start the package in Android proot:
-   `pnpm dlx codes-android@<version> --port 17923 --no-open --no-tunnel --no-login`
-2. Open `http://127.0.0.1:17923/#/` in the browser.
-3. Call `POST /codex-api/rpc` with `{"method":"config/read","params":{}}`.
-4. Call `POST /codex-api/rpc` with `{"method":"model/list","params":{}}`.
-5. Confirm `/codex-api/provider-models` still returns OpenCode Zen model ids.
-6. Verify the model selector is enabled in light theme and dark theme.
-7. Send `hi` from the home composer and wait for the first assistant reply.
-8. Confirm browser/network logs do not show a `502` for `generate-thread-title` or an empty-rollout `thread/read` during startup.
-
-#### Expected Results
-- `config/read` returns `200` and includes `model_providers.opencode-zen.base_url` pointing at `http://127.0.0.1:17923/codex-api/zen-proxy/v1`.
-- `config/read` includes `model_providers.opencode-zen.wire_api` as `responses`, not `chat`.
-- `model/list` returns `200` with model data instead of `502 codex app-server exited unexpectedly`.
-- The model selector is usable in both light theme and dark theme.
-- A first home-composer message creates a thread and receives a response without visible startup RPC errors.
-
-#### Rollback/Cleanup
-- Stop the temporary Android proot process with `pkill -f codes-android` if needed.
 
 ---
 

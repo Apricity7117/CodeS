@@ -1,9 +1,9 @@
 # 🔥 codes
 
-### 🚀 Run Codex App UI Anywhere: Linux, Windows, or Termux on Android 🚀
+### 🚀 Run Codex App UI Anywhere: Linux or Windows 🚀
 
 [![npm](https://img.shields.io/npm/v/codes?style=for-the-badge&logo=npm&logoColor=white)](https://www.npmjs.com/package/codes)
-[![platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20Android-blue?style=for-the-badge)](#-quick-start)
+[![platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-blue?style=for-the-badge)](#-quick-start)
 [![node](https://img.shields.io/badge/Node-18%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![license](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](./LICENSE)
 
@@ -28,7 +28,7 @@
 
 You run one command. It starts a local web server. You open it from your machine, your LAN, or wherever your setup allows.  
 
-**TL;DR 🧠: Codex app UI, unlocked for Linux, Windows, and Termux-powered Android setups.**
+**TL;DR 🧠: Codex app UI, unlocked for Linux and Windows setups.**
 
 ---
 
@@ -70,26 +70,6 @@ node -v   # 18+
 npx codes
 ```
 
-### Termux (Android) 🤖
-```bash
-pkg update && pkg upgrade -y
-pkg install nodejs -y
-npx codes
-```
-
-Android background requirements:
-
-1. Keep `codes` running in the current Termux session (do not close it).
-2. In Android settings, disable battery optimization for `Termux`.
-3. Keep the persistent Termux notification enabled so Android is less likely to kill it.
-4. Optional but recommended in Termux:
-```bash
-termux-wake-lock
-```
-5. Open the shown URL in your Android browser. If the app is killed, return to Termux and run `npx codes` again.
-
----
-
 ## iPhone / iPad via Tailscale Serve
 
 If you want to use CodeS from iPhone or iPad Safari, serving it over HTTPS is recommended.
@@ -128,7 +108,7 @@ Notes:
 > **The payload.**
 
 - 🚀 One-command launch with `npx codes`
-- 🌍 Cross-platform support for Linux, Windows, and Termux on Android
+- 🌍 Cross-platform support for Linux and Windows
 - 🖥️ Browser-first CodeS flow on `http://localhost:18923`
 - 🌐 LAN-friendly access from other devices on the same network
 - 🧪 Remote/headless-friendly setup for server-based Codex usage
@@ -195,7 +175,6 @@ Outgoing assistant messages are sent with Telegram `parse_mode=HTML` for formatt
 |---|---|
 | 💻 Linux workstation | Run CodeS in browser without depending on desktop shell |
 | 🪟 Windows machine | Launch web UI and access from Chrome/Edge quickly |
-| 📱 Termux on Android | Start service in Termux and control from mobile browser |
 | 🧪 Remote dev box | Keep Codex process on server, view UI from client device |
 | 🌐 LAN sharing | Open UI from another device on same network |
 | 🧰 Headless workflows | Keep terminal + browser split for productivity |
@@ -251,7 +230,6 @@ Outgoing assistant messages are sent with Telegram `parse_mode=HTML` for formatt
 |---|---|
 | Port already in use | Run on a free port or stop old process |
 | `npx` fails | Update npm/node, then retry |
-| Termux install fails | `pkg update && pkg upgrade` then reinstall `nodejs` |
 | Can’t open from other device | Check firewall, bind address, and LAN routing |
 
 ---
