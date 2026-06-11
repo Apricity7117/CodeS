@@ -1,0 +1,2036 @@
+@import "tailwindcss";
+@import "highlight.js/styles/github-dark.css";
+
+:root {
+  /* Codex 桌面端视觉变量（浅色） */
+  --codex-bg: #ffffff;
+  --codex-surface-under: #f9f9f9;
+  --codex-sidebar-bg: #f9f9f9;
+  --codex-surface: #ffffff;
+  --codex-panel-surface: #ffffff;
+  --codex-popover-surface: #ffffff;
+  --codex-subtle-surface: #f3f3f4;
+  --codex-selected-surface: rgba(26, 28, 31, 0.08);
+  --codex-muted-surface: rgba(26, 28, 31, 0.02);
+  --codex-elevated-surface: rgba(255, 255, 255, 0.7);
+  --codex-border: rgba(26, 28, 31, 0.08);
+  --codex-border-heavy: rgba(26, 28, 31, 0.12);
+  --codex-border-light: rgba(26, 28, 31, 0.05);
+  --codex-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.08);
+  --codex-main-surface-shadow: 0 0 0 0.5px var(--codex-border-heavy), var(--codex-shadow);
+  --codex-control-bg: rgba(26, 28, 31, 0.05);
+  --codex-control-hover: rgba(26, 28, 31, 0.08);
+  --codex-text: #1a1c1f;
+  --codex-muted-text: color-mix(in srgb, var(--codex-text) 65%, transparent);
+  --codex-accent: #007acc;
+  --codex-link: #339cff;
+  --codex-link-hover: #007acc;
+  --codex-focus-ring: rgba(0, 122, 204, 0.35);
+  --codex-switch-checked-bg: #0a84ff;
+  --codex-switch-thumb-bg: #ffffff;
+  --shimmer-text-secondary: var(--codex-muted-text);
+  --shimmer-contrast: var(--codex-text);
+  --codex-diff-added: #008000;
+  --codex-diff-removed: #ee0000;
+  --codex-diff-added-bg: rgba(0, 128, 0, 0.1);
+  --codex-diff-removed-bg: rgba(238, 0, 0, 0.1);
+  --codex-skill: #0000ff;
+  --codex-skill-fg: #0000cc;
+  --codex-skill-bg: rgba(0, 0, 255, 0.08);
+  --codex-skill-border: rgba(0, 0, 255, 0.22);
+  --codex-message-bubble-bg: #f3f3f4;
+  --codex-code-block-bg: #f3f3f4;
+  --codex-code-block-border: rgba(26, 28, 31, 0.05);
+  --codex-inline-code-bg: #ededed;
+  --codex-file-summary-bg: rgba(255, 255, 255, 0.96);
+  --codex-file-summary-hover: #f7f7f7;
+  --codex-file-summary-border: rgba(0, 0, 0, 0.1);
+  --codex-file-row-border: rgba(0, 0, 0, 0.08);
+  --codex-code-text: #000000;
+  --codex-code-comment: #008000;
+  --codex-code-keyword: #0000ff;
+  --codex-code-string: #a31515;
+  --codex-code-title: #795e26;
+  --codex-code-number: #098658;
+  --codex-ui-font-size: 14px;
+  --codex-text-sm: 12px;
+  --codex-text-xs: 11px;
+  --codex-chat-font-size: 14px;
+  --codex-chat-line-height: 1.5;
+  --codex-toolbar-height: 46px;
+  --codex-nav-row-height: calc(var(--codex-ui-font-size) * 1.5 + 8px);
+  --codex-radius-sm: 7.5px;
+  --codex-radius-md: 10px;
+  --codex-radius-lg: 12.5px;
+  --codex-radius-xl: 15px;
+  --codex-radius-2xl: 20px;
+  --codex-code-font-size: 12px;
+  --codex-ui-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --codex-code-font-family: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+:root.dark {
+  color-scheme: dark;
+
+  /* Codex 桌面端视觉变量（深色） */
+  --codex-bg: #1e1e1e;
+  --codex-surface-under: #1e1e1e;
+  --codex-sidebar-bg: #1e1e1e;
+  --codex-surface: #1e1e1e;
+  --codex-panel-surface: #252526;
+  --codex-popover-surface: #252526;
+  --codex-subtle-surface: #2a2a2a;
+  --codex-selected-surface: rgba(0, 120, 212, 0.24);
+  --codex-muted-surface: rgba(212, 212, 212, 0.044);
+  --codex-elevated-surface: rgba(62, 62, 62, 0.96);
+  --codex-border: rgba(212, 212, 212, 0.108);
+  --codex-border-heavy: rgba(212, 212, 212, 0.192);
+  --codex-border-light: rgba(212, 212, 212, 0.054);
+  --codex-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.08);
+  --codex-main-surface-shadow: 0 0 0 0.5px var(--codex-border-heavy), var(--codex-shadow);
+  --codex-control-bg: rgba(52, 52, 52, 0.96);
+  --codex-control-hover: rgba(212, 212, 212, 0.096);
+  --codex-text: #cccccc;
+  --codex-muted-text: #9d9d9d;
+  --codex-accent: #0078d4;
+  --codex-link: #4daafc;
+  --codex-link-hover: #4daafc;
+  --codex-focus-ring: rgba(0, 120, 212, 0.5);
+  --codex-switch-checked-bg: #0a84ff;
+  --codex-switch-thumb-bg: #ffffff;
+  --shimmer-text-secondary: var(--codex-muted-text);
+  --shimmer-contrast: var(--codex-text);
+  --codex-diff-added: #369432;
+  --codex-diff-removed: #f44747;
+  --codex-diff-added-bg: rgba(54, 148, 50, 0.18);
+  --codex-diff-removed-bg: rgba(244, 71, 71, 0.18);
+  --codex-skill: #000080;
+  --codex-skill-fg: #d7ddff;
+  --codex-skill-bg: rgba(0, 0, 128, 0.62);
+  --codex-skill-border: rgba(116, 139, 255, 0.32);
+  --codex-message-bubble-bg: #272727;
+  --codex-code-block-bg: #323232;
+  --codex-code-block-border: rgba(212, 212, 212, 0.08);
+  --codex-inline-code-bg: #3a3a3a;
+  --codex-file-summary-bg: #242424;
+  --codex-file-summary-hover: #2b2b2b;
+  --codex-file-summary-border: rgba(255, 255, 255, 0.08);
+  --codex-file-row-border: rgba(255, 255, 255, 0.07);
+  --codex-code-text: #cccccc;
+  --codex-code-comment: #6a9955;
+  --codex-code-keyword: #569cd6;
+  --codex-code-string: #ce9178;
+  --codex-code-title: #dcdcaa;
+  --codex-code-number: #b5cea8;
+}
+
+body {
+  background-color: var(--codex-bg);
+  color: var(--codex-text);
+  font-family: var(--codex-ui-font-family);
+  font-size: var(--codex-ui-font-size);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  @apply transition-colors;
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--codex-code-font-family);
+}
+
+.message-file-link {
+  color: var(--codex-link);
+}
+
+.message-file-link:hover {
+  color: var(--codex-link-hover);
+}
+
+.desktop-layout, .desktop-sidebar, .sidebar-scrollable, .mobile-drawer {
+  background-color: var(--codex-sidebar-bg);
+  color: var(--codex-text);
+  @apply transition-colors;
+}
+
+.desktop-main {
+  background-color: var(--codex-bg);
+  color: var(--codex-text);
+  @apply transition-colors;
+}
+
+:root.dark .desktop-resize-handle {
+  @apply bg-zinc-700 hover:bg-zinc-600;
+}
+
+:root.dark .sidebar-settings-area {
+  background-color: var(--codex-sidebar-bg);
+}
+
+:root.dark .sidebar-settings-button {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .sidebar-settings-button:hover {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-panel {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-panel-surface);
+}
+
+:root.dark .sidebar-settings-row {
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-row:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .sidebar-settings-row + .sidebar-settings-row {
+  border-color: var(--codex-border);
+}
+
+:root.dark .sidebar-settings-context-value {
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-context-value[data-state='ok'] {
+  @apply text-emerald-300;
+}
+
+:root.dark .sidebar-settings-context-value[data-state='warning'] {
+  @apply text-amber-300;
+}
+
+:root.dark .sidebar-settings-context-value[data-state='danger'] {
+  @apply text-rose-300;
+}
+
+:root.dark .sidebar-settings-context-meta {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .sidebar-settings-rate-limits {
+  border-color: var(--codex-border);
+}
+
+:root.dark .sidebar-settings-account-section {
+  border-color: var(--codex-border);
+  background-color: var(--codex-surface);
+}
+
+:root.dark .sidebar-settings-account-title {
+  @apply text-zinc-200;
+}
+
+:root.dark .sidebar-settings-account-count {
+  background-color: var(--codex-subtle-surface);
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-account-collapse {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-account-collapse:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .sidebar-settings-account-error {
+  @apply bg-rose-950/40 text-rose-200;
+}
+
+:root.dark .sidebar-settings-account-refresh,
+:root.dark .sidebar-settings-account-switch,
+:root.dark .sidebar-settings-account-login-button {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-account-refresh:hover,
+:root.dark .sidebar-settings-account-switch:hover,
+:root.dark .sidebar-settings-account-login-button:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .sidebar-settings-account-login-link {
+  @apply text-sky-300 hover:text-sky-200;
+}
+
+:root.dark .sidebar-settings-account-empty {
+  @apply text-zinc-400;
+}
+
+:root.dark .sidebar-settings-account-item {
+  border-color: var(--codex-border);
+  background-color: var(--codex-surface);
+}
+
+:root.dark .sidebar-settings-account-item.is-active {
+  @apply border-emerald-500/35 bg-emerald-500/10;
+}
+
+:root.dark .sidebar-settings-account-item.is-unavailable {
+  @apply border-rose-500/35 bg-rose-500/10;
+}
+
+:root.dark .sidebar-settings-account-email {
+  @apply text-zinc-100;
+}
+
+:root.dark .sidebar-settings-account-meta {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .sidebar-settings-account-quota {
+  @apply text-zinc-300;
+}
+
+:root.dark .sidebar-settings-account-id {
+  background-color: var(--codex-subtle-surface);
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-account-item.is-active .sidebar-settings-account-id {
+  @apply bg-emerald-500/15 text-emerald-200;
+}
+
+:root.dark .sidebar-settings-account-item.is-unavailable .sidebar-settings-account-id {
+  @apply bg-rose-500/15 text-rose-200;
+}
+
+:root.dark .sidebar-settings-account-remove {
+  @apply border-amber-500/35 bg-zinc-700 text-zinc-400 hover:bg-amber-500/10;
+}
+
+:root.dark .sidebar-settings-account-remove.is-confirming {
+  @apply border-amber-400/50 bg-amber-500/10 text-amber-200;
+}
+
+:root.dark .sidebar-settings-value {
+  background-color: var(--codex-subtle-surface);
+  color: var(--codex-muted-text);
+}
+
+:root.dark .sidebar-settings-language-dropdown .composer-dropdown-trigger {
+  border-color: var(--codex-border-heavy) !important;
+  background-color: var(--codex-control-bg) !important;
+  color: var(--codex-text) !important;
+}
+
+:root.dark .sidebar-settings-language-dropdown .composer-dropdown-chevron {
+  color: var(--codex-muted-text) !important;
+}
+
+:root.dark .sidebar-skills-link {
+  border-color: transparent;
+  background-color: transparent;
+  color: var(--codex-muted-text);
+}
+
+:root.dark .sidebar-skills-link:hover,
+:root.dark .sidebar-skills-link.is-active {
+  border-color: transparent;
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-search-bar {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+}
+
+:root.dark .sidebar-search-input {
+  @apply text-zinc-200 placeholder-zinc-500;
+}
+
+:root.dark .thread-tree-header {
+  @apply text-zinc-500;
+}
+
+:root.dark .thread-tree-action-error {
+  @apply border-rose-800/80 bg-rose-950 text-rose-100;
+}
+
+:root.dark .section-toggle-row {
+  @apply focus-visible:ring-zinc-600;
+}
+
+:root.dark .section-toggle-row:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .chats-section-action {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .chats-section-action:hover {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
+}
+
+:root.dark .chats-section-action[aria-pressed='true'] {
+  background-color: var(--codex-selected-surface);
+  color: var(--codex-text);
+}
+
+:root.dark .thread-composer-input-wrap--drag-active {
+  background-color: var(--codex-muted-surface);
+}
+
+:root.dark .thread-composer-drop-overlay {
+  border-color: var(--codex-border-heavy);
+  background-color: color-mix(in srgb, var(--codex-surface) 92%, transparent);
+}
+
+:root.dark .thread-composer-drop-overlay-copy {
+  @apply bg-zinc-100 text-zinc-900;
+}
+
+:root.dark .history-edit-banner {
+  border-color: var(--codex-border);
+  background-color: var(--codex-panel-surface);
+  color: var(--codex-text);
+}
+
+:root.dark .history-edit-banner-cancel {
+  @apply focus-visible:ring-zinc-600;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .history-edit-banner-cancel:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .composer-runtime-error {
+  @apply border-rose-800/70 bg-rose-950/70 text-rose-100 shadow-none;
+}
+
+:root.dark .composer-dropdown-trigger {
+  @apply text-zinc-400;
+}
+
+
+:root.dark .composer-dropdown-menu {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-popover-surface);
+}
+
+:root.dark .composer-dropdown-option {
+  color: var(--codex-text);
+}
+
+:root.dark .composer-dropdown-option:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .composer-dropdown-option.is-selected {
+  background-color: var(--codex-selected-surface);
+}
+
+:root.dark .content-header {
+  background-color: var(--codex-bg);
+}
+
+:root.dark .content-header .content-title,
+:root.dark .content-title {
+  @apply text-zinc-200;
+}
+
+:root.dark .content-header-inspector-toggle {
+  @apply focus-visible:ring-zinc-700;
+  color: var(--codex-muted-text);
+}
+
+:root.dark .content-header-inspector-toggle:hover {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
+}
+
+:root.dark .content-header-inspector-toggle.is-active {
+  background-color: var(--codex-selected-surface);
+  color: var(--codex-text);
+}
+
+:root.dark .content-inspector-shell {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-surface);
+  box-shadow: none;
+}
+
+:root.dark .content-inspector-section::after {
+  background-color: var(--codex-border);
+}
+
+:root.dark .content-inspector-heading,
+:root.dark .content-inspector-row-label--muted,
+:root.dark .content-inspector-row-icon,
+:root.dark .content-inspector-heading-icon,
+:root.dark .content-inspector-row-value {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .content-inspector-row {
+  color: var(--codex-text);
+}
+
+:root.dark .content-inspector-empty {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .content-inspector-status-dot[data-state='idle'] {
+  @apply border-zinc-600;
+}
+
+:root.dark .content-inspector-progress-heading-button {
+  @apply text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:ring-zinc-700;
+}
+
+:root.dark .content-inspector-source-mark {
+  background-color: var(--codex-subtle-surface);
+  color: var(--codex-text);
+}
+
+:root.dark .content-inspector-branch-dropdown .header-git-trigger {
+  @apply border-transparent bg-transparent text-zinc-200 hover:bg-transparent;
+}
+
+:root.dark .sidebar-thread-controls-button {
+  @apply text-zinc-400 hover:border-zinc-600 hover:bg-zinc-800;
+}
+
+:root.dark .new-thread-hero {
+  @apply text-zinc-100;
+}
+
+:root.dark .build-badge {
+  @apply border-zinc-700 bg-zinc-800/95 text-zinc-400;
+}
+
+:root.dark .rate-limit-card {
+  @apply border-zinc-700 bg-zinc-800/95;
+}
+
+:root.dark .rate-limit-card-title {
+  @apply text-zinc-500;
+}
+
+:root.dark .rate-limit-card-plan {
+  @apply bg-zinc-700 text-zinc-300;
+}
+
+:root.dark .rate-limit-card-metric {
+  @apply bg-amber-900/40 text-amber-200;
+}
+
+:root.dark .rate-limit-card-footer {
+  @apply text-zinc-400;
+}
+
+:root.dark .thread-composer-attach-menu {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-popover-surface);
+}
+
+:root.dark .thread-composer-attach-item {
+  color: var(--codex-text);
+}
+
+:root.dark .thread-composer-attach-item:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .thread-composer-attach-separator {
+  background-color: var(--codex-border);
+}
+
+:root.dark .thread-composer-attach-setting {
+  color: var(--codex-text);
+}
+
+:root.dark .thread-composer-attach-setting:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .thread-composer-attach-setting-label {
+  color: var(--codex-text);
+}
+
+:root.dark .thread-composer-attach-setting-description {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .thread-composer-attach-mode-label {
+  color: var(--codex-text);
+}
+
+:root.dark .thread-composer-attach-mode-buttons {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-surface);
+}
+
+:root.dark .thread-composer-attach-mode-button {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .thread-composer-attach-mode-button:hover {
+  color: var(--codex-text);
+}
+
+:root.dark .thread-composer-attach-mode-button.is-active {
+  background-color: var(--codex-text);
+  color: var(--codex-surface);
+}
+
+:root.dark .thread-composer-attach-switch {
+  @apply bg-zinc-600;
+}
+
+:root.dark .thread-composer-attach-switch::after {
+  @apply bg-zinc-100;
+}
+
+:root.dark .thread-composer-attach-switch.is-on {
+  @apply bg-emerald-500;
+}
+
+:root.dark .thread-composer-file-mentions {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-popover-surface);
+}
+
+:root.dark .thread-composer-file-mention-row {
+  color: var(--codex-text);
+}
+
+:root.dark .thread-composer-file-mention-row:hover,
+:root.dark .thread-composer-file-mention-row.is-active {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .thread-composer-file-chip {
+  border-color: var(--codex-border);
+  background-color: var(--codex-subtle-surface);
+  color: var(--codex-text);
+}
+
+:root.dark .thread-composer-context-ring-core {
+  background-color: var(--codex-surface);
+}
+
+:root.dark .thread-composer-context-popover {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-popover-surface);
+  color: var(--codex-text);
+  box-shadow: none;
+}
+
+:root.dark .thread-composer-context-popover::after {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-popover-surface);
+}
+
+:root.dark .thread-composer-context-popover-title {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .thread-composer-context-popover-strong {
+  color: var(--codex-text);
+}
+
+:root.dark .organize-menu-panel {
+  @apply border-zinc-600 bg-zinc-800/95;
+}
+
+:root.dark .organize-menu-item {
+  @apply text-zinc-300 hover:bg-zinc-700;
+}
+
+:root.dark .organize-menu-item[data-active='true'] {
+  @apply bg-zinc-700 text-zinc-100;
+}
+
+:root.dark .organize-menu-separator {
+  @apply bg-zinc-700;
+}
+
+:root.dark .project-menu-panel {
+  @apply border-zinc-600 bg-zinc-800;
+}
+
+:root.dark .project-menu-item {
+  @apply text-zinc-300 hover:bg-zinc-700;
+}
+
+:root.dark .thread-menu-panel {
+  @apply border-zinc-600 bg-zinc-800;
+}
+
+:root.dark .thread-menu-item {
+  @apply text-zinc-300 hover:bg-zinc-700;
+}
+
+:root.dark .thread-menu-item-danger {
+  @apply text-rose-300 hover:bg-rose-900/40;
+}
+
+:root.dark .thread-menu-trigger {
+  @apply text-zinc-400;
+}
+
+:root.dark .rename-thread-panel {
+  @apply bg-zinc-800;
+}
+
+:root.dark .rename-thread-title {
+  @apply text-zinc-100;
+}
+
+:root.dark .rename-thread-subtitle {
+  @apply text-zinc-400;
+}
+
+:root.dark .rename-thread-input {
+  @apply border-zinc-600 bg-zinc-700 text-zinc-100;
+}
+
+:root.dark .automation-target-picker {
+  @apply border-zinc-700 bg-zinc-900;
+}
+
+:root.dark .automation-target-mode-group {
+  @apply border-zinc-700 bg-zinc-800;
+}
+
+:root.dark .automation-target-mode {
+  @apply text-zinc-400 hover:bg-zinc-700;
+}
+
+:root.dark .automation-target-mode.is-active {
+  @apply bg-zinc-200 text-zinc-900 hover:bg-zinc-200;
+}
+
+:root.dark .automation-thread-list {
+  @apply border-zinc-700 bg-zinc-900;
+}
+
+:root.dark .automation-thread-list-item {
+  @apply text-zinc-300 hover:bg-zinc-800;
+}
+
+:root.dark .automation-thread-list-item.is-active {
+  @apply bg-zinc-800 text-zinc-50 shadow-none;
+}
+
+:root.dark .automation-thread-list-item small {
+  @apply text-zinc-500;
+}
+
+:root.dark .automation-thread-list-add {
+  @apply border-zinc-700 text-zinc-400;
+}
+
+:root.dark .automation-thread-select,
+:root.dark .automation-thread-textarea {
+  @apply border-zinc-600 bg-zinc-700 text-zinc-100;
+}
+
+:root.dark .automation-schedule-mode-group {
+  @apply border-zinc-700 bg-zinc-900;
+}
+
+:root.dark .automation-schedule-mode {
+  @apply text-zinc-400 hover:bg-zinc-800;
+}
+
+:root.dark .automation-schedule-mode.is-active {
+  @apply bg-zinc-800 text-zinc-50 shadow-none;
+}
+
+:root.dark .automation-schedule-row {
+  @apply border-zinc-700 bg-zinc-900;
+}
+
+:root.dark .automation-schedule-copy,
+:root.dark .automation-schedule-preview {
+  @apply text-zinc-400;
+}
+
+:root.dark .automation-schedule-time,
+:root.dark .automation-schedule-number,
+:root.dark .automation-schedule-unit {
+  @apply border-zinc-600 bg-zinc-700 text-zinc-100;
+}
+
+:root.dark .automation-thread-notice {
+  @apply text-emerald-400;
+}
+
+:root.dark .thread-row-automation-chip {
+  @apply bg-amber-900/40 text-amber-200 ring-1 ring-amber-700/40;
+}
+
+:root.dark .rename-thread-button {
+  @apply text-zinc-300 hover:bg-zinc-700;
+}
+
+:root.dark .rename-thread-button-primary {
+  @apply bg-zinc-200 text-zinc-900 hover:bg-white;
+}
+
+:root.dark .rename-thread-button-danger {
+  @apply bg-rose-500 text-white hover:bg-rose-400;
+}
+
+:root.dark .thread-delete-button {
+  @apply text-zinc-400;
+}
+
+:root.dark .thread-delete-button[data-confirming='true'] {
+  @apply bg-rose-500 text-white hover:bg-rose-400;
+}
+
+:root.dark .message-bubble {
+  background-color: var(--codex-message-bubble-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .message-bubble-user {
+  background-color: var(--codex-message-bubble-bg);
+}
+
+:root.dark .composer-search-dropdown-menu {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-popover-surface);
+}
+
+:root.dark .composer-search-dropdown-option {
+  color: var(--codex-text);
+}
+
+:root.dark .composer-search-dropdown-option:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .message-text {
+  color: var(--codex-text);
+}
+
+:root.dark .message-heading {
+  color: var(--codex-text);
+}
+
+:root.dark .message-heading-h6 {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .message-bold-text {
+  color: var(--codex-text);
+}
+
+:root.dark .message-italic-text {
+  color: var(--codex-text);
+}
+
+:root.dark .message-strikethrough-text {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .message-blockquote {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-muted-surface);
+  color: var(--codex-text);
+}
+
+:root.dark .message-list {
+  color: var(--codex-text);
+}
+
+:root.dark .message-task-checkbox {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .message-card[data-role='user'] {
+  background-color: var(--codex-message-bubble-bg);
+}
+
+:root.dark .automation-message-label {
+  @apply text-zinc-400;
+}
+
+:root.dark .automation-message-label code {
+  @apply bg-zinc-800/80 text-zinc-300;
+}
+
+:root.dark .message-copy-button,
+:root.dark .message-fork-button {
+  @apply focus-visible:ring-zinc-600;
+  color: var(--codex-muted-text);
+}
+
+:root.dark .message-copy-button:hover,
+:root.dark .message-fork-button:hover {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
+}
+
+:root.dark .message-copy-button[data-copied='true'] {
+  @apply border-emerald-500/40 bg-emerald-500/10 text-emerald-200;
+}
+
+:root.dark .message-edit-button {
+  @apply focus-visible:ring-zinc-600;
+  color: var(--codex-muted-text);
+}
+
+:root.dark .message-edit-button:hover {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
+}
+
+:root.dark .message-rollback-button {
+  @apply text-amber-400/70 hover:text-amber-300;
+}
+
+:root.dark .message-inline-code {
+  background-color: var(--codex-inline-code-bg);
+  color: var(--codex-text);
+  box-shadow: none;
+}
+
+:root.dark .message-table {
+  @apply border-zinc-700 bg-zinc-900/90 text-zinc-100;
+}
+
+:root.dark .message-table-head-cell,
+:root.dark .message-table-cell {
+  @apply border-zinc-700;
+}
+
+:root.dark .message-table-head-cell {
+  @apply bg-zinc-800 text-zinc-100;
+}
+
+:root.dark .message-code-block {
+  background-color: var(--codex-code-block-bg);
+  border-color: var(--codex-code-block-border);
+  color: var(--codex-text);
+  box-shadow: none;
+}
+
+:root.dark .message-code-language {
+  @apply text-zinc-400/80;
+}
+
+:root.dark .message-code-copy {
+  @apply text-zinc-400/80 hover:bg-white/10 hover:text-zinc-50;
+  --tw-ring-color: var(--codex-focus-ring);
+}
+
+:root.dark .message-code-copy[data-copied='true'] {
+  @apply bg-emerald-500/10 text-emerald-200;
+}
+
+:root.dark .message-divider {
+  @apply bg-zinc-700/80;
+}
+
+:root.dark .message-file-chip {
+  @apply border-zinc-600 bg-zinc-700 text-zinc-300;
+}
+
+:root.dark .conversation-loading,
+:root.dark .conversation-empty {
+  @apply text-zinc-500;
+}
+
+:root.dark .live-overlay-label {
+  @apply text-zinc-400;
+}
+
+:root.dark .live-overlay-reasoning {
+  @apply text-zinc-500;
+}
+
+:root.dark .cmd-row {
+  background-color: var(--codex-file-summary-bg);
+  border-color: var(--codex-file-summary-border);
+}
+
+:root.dark .cmd-row:hover {
+  background-color: var(--codex-file-summary-hover);
+}
+
+:root.dark .cmd-row.cmd-row-group {
+  color: var(--codex-text);
+}
+
+:root.dark .cmd-chevron {
+  @apply text-zinc-300;
+}
+
+:root.dark .cmd-label {
+  @apply text-zinc-300;
+}
+
+:root.dark .cmd-group-label {
+  @apply text-zinc-300;
+}
+
+:root.dark .cmd-status {
+  @apply text-zinc-400;
+}
+
+:root.dark .cmd-status-running .cmd-status {
+  @apply text-amber-300;
+}
+
+:root.dark .cmd-status-ok .cmd-status {
+  @apply text-emerald-300;
+}
+
+:root.dark .cmd-status-error .cmd-status {
+  @apply text-rose-300;
+}
+
+:root.dark .cmd-output-wrap.cmd-output-visible {
+  @apply border-zinc-700;
+}
+
+:root.dark .file-change-summary-label {
+  color: var(--codex-text);
+}
+
+:root.dark .file-change-path-button {
+  color: var(--codex-link);
+}
+
+:root.dark .file-change-path-button:hover {
+  color: var(--codex-link-hover);
+}
+
+:root.dark .file-change-summary-status {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .file-change-list {
+  background-color: var(--codex-file-summary-bg);
+  border-color: var(--codex-file-summary-border);
+}
+
+:root.dark .file-change-item {
+  color: var(--codex-text);
+}
+
+:root.dark .file-change-badge[data-operation='add'] {
+  background-color: var(--codex-diff-added-bg);
+  color: var(--codex-diff-added);
+}
+
+:root.dark .file-change-badge[data-operation='update'] {
+  @apply bg-sky-950/70 text-sky-300;
+}
+
+:root.dark .file-change-badge[data-operation='delete'] {
+  background-color: var(--codex-diff-removed-bg);
+  color: var(--codex-diff-removed);
+}
+
+:root.dark .file-change-badge[data-operation='move'] {
+  @apply bg-amber-950/70 text-amber-300;
+}
+
+:root.dark .file-change-arrow {
+  @apply text-zinc-500;
+}
+
+:root.dark .file-change-delta {
+  background-color: var(--codex-control-bg);
+  color: var(--codex-muted-text);
+}
+
+:root.dark .file-change-signed-count[data-tone='add'] {
+  color: var(--codex-diff-added);
+}
+
+:root.dark .file-change-signed-count[data-tone='remove'] {
+  color: var(--codex-diff-removed);
+}
+
+:root.dark .diff-viewer-shell {
+  @apply border-zinc-700 bg-zinc-900;
+}
+
+:root.dark .diff-viewer-sidebar {
+  @apply border-zinc-700 bg-zinc-950;
+}
+
+:root.dark .diff-viewer-sidebar-header {
+  @apply border-zinc-700;
+}
+
+:root.dark .diff-viewer-sidebar-title {
+  @apply text-zinc-100;
+}
+
+:root.dark .diff-viewer-sidebar-count {
+  @apply text-zinc-400;
+}
+
+:root.dark .diff-viewer-file-button {
+  @apply hover:border-zinc-700 hover:bg-zinc-900;
+}
+
+:root.dark .diff-viewer-file-button[data-active='true'] {
+  @apply border-sky-800 bg-zinc-900;
+}
+
+:root.dark .diff-viewer-file-label {
+  @apply text-zinc-200;
+}
+
+:root.dark .diff-viewer-file-delta {
+  @apply bg-zinc-800 text-zinc-300;
+}
+
+:root.dark .diff-viewer-main {
+  @apply bg-zinc-900;
+}
+
+:root.dark .diff-viewer-toolbar {
+  @apply border-zinc-700 bg-zinc-900;
+}
+
+:root.dark .diff-viewer-mobile-files-button {
+  @apply border-zinc-700 bg-zinc-800 text-zinc-200;
+}
+
+:root.dark .diff-viewer-title {
+  @apply text-zinc-100;
+}
+
+:root.dark .diff-viewer-subtitle {
+  @apply text-zinc-400;
+}
+
+:root.dark .diff-viewer-empty-title {
+  @apply text-zinc-100;
+}
+
+:root.dark .diff-viewer-empty-text {
+  @apply text-zinc-400;
+}
+
+:root.dark .diff-viewer-meta {
+  @apply border-zinc-700 bg-zinc-950;
+}
+
+:root.dark .diff-viewer-language {
+  @apply bg-zinc-800 text-zinc-300;
+}
+
+:root.dark .diff-viewer-mobile-sheet {
+  @apply border-zinc-700 bg-zinc-900;
+}
+
+:root.dark .diff-viewer-mobile-sheet-handle {
+  @apply bg-zinc-700;
+}
+
+:root.dark .diff-viewer-mobile-sheet-header {
+  @apply border-zinc-700;
+}
+
+:root.dark .diff-viewer-close {
+  @apply border-zinc-700 bg-zinc-800 text-zinc-100;
+}
+
+:root.dark .content-header-branch-dropdown .composer-dropdown-trigger {
+  @apply border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800;
+}
+
+:root.dark .content-header-terminal-command .composer-dropdown-trigger {
+  @apply border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 focus:border-zinc-600;
+}
+
+:root.dark .content-header-terminal-command.is-open .composer-dropdown-trigger {
+  @apply border-zinc-600 bg-zinc-800 text-zinc-100;
+}
+
+:root.dark .content-header-branch-dropdown.is-review-open .composer-dropdown-trigger {
+  @apply border-zinc-200 bg-zinc-200 text-zinc-900 hover:bg-white;
+}
+
+:root.dark .content-header-branch-dropdown.is-review-open .composer-dropdown-chevron {
+  @apply text-zinc-900;
+}
+
+:root.dark .header-git-trigger {
+  border-color: var(--codex-border);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .header-git-trigger:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .header-git-dropdown.is-review-open .header-git-trigger {
+  @apply border-zinc-200 bg-zinc-200 text-zinc-900 hover:bg-white;
+}
+
+:root.dark .header-git-menu {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-popover-surface);
+}
+
+:root.dark .header-git-review-row,
+:root.dark .header-git-branch-button,
+:root.dark .header-git-commit {
+  color: var(--codex-text);
+}
+
+:root.dark .header-git-review-row:hover,
+:root.dark .header-git-branch-expand:hover,
+:root.dark .header-git-branch-button:hover,
+:root.dark .header-git-commit:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .header-git-commit.is-current,
+:root.dark .header-git-branch-button.is-current {
+  background-color: var(--codex-selected-surface);
+}
+
+:root.dark .header-git-commit.is-current {
+  --tw-ring-color: var(--codex-border-heavy);
+}
+
+:root.dark .header-git-state,
+:root.dark .header-git-commits {
+  border-color: var(--codex-border);
+  background-color: var(--codex-surface);
+}
+
+:root.dark .header-git-state-value {
+  color: var(--codex-text);
+}
+
+:root.dark .header-git-state-label,
+:root.dark .header-git-state-meta,
+:root.dark .header-git-branch-meta,
+:root.dark .header-git-branch-section-label,
+:root.dark .header-git-commit-top,
+:root.dark .header-git-empty,
+:root.dark .header-git-commits-empty {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .header-git-search {
+  border-color: var(--codex-border);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .header-git-search:focus {
+  border-color: var(--codex-border-heavy);
+}
+
+:root.dark .header-git-commit-top code,
+:root.dark .header-git-branch-meta {
+  background-color: var(--codex-subtle-surface);
+  color: var(--codex-text);
+}
+
+:root.dark .header-git-status {
+  @apply bg-amber-950/40 text-amber-300;
+}
+
+:root.dark .header-git-status.is-error,
+:root.dark .header-git-commits-empty.is-error {
+  @apply bg-red-950/40 text-red-300;
+}
+
+:root.dark .review-pane {
+  @apply border-zinc-700 bg-zinc-900;
+}
+
+:root.dark .review-pane-header,
+:root.dark .review-pane-toolbar,
+:root.dark .review-pane-bulk-actions,
+:root.dark .review-pane-hunk-header {
+  @apply border-zinc-700;
+}
+
+:root.dark .review-pane-header,
+:root.dark .review-pane-toolbar,
+:root.dark .review-pane-hunk-header,
+:root.dark .review-pane-summary-card,
+:root.dark .review-pane-file-header,
+:root.dark .review-pane-hunk,
+:root.dark .review-pane-finding,
+:root.dark .review-pane-sheet {
+  @apply bg-zinc-900;
+}
+
+:root.dark .review-pane-eyebrow {
+  @apply text-zinc-500;
+}
+
+:root.dark .review-pane-title,
+:root.dark .review-pane-empty-title,
+:root.dark .review-pane-file-title,
+:root.dark .review-pane-summary-title,
+:root.dark .review-pane-finding-title,
+:root.dark .review-pane-sheet-title {
+  @apply text-zinc-100;
+}
+
+:root.dark .review-pane-empty-text,
+:root.dark .review-pane-file-subtitle,
+:root.dark .review-pane-hunk-meta,
+:root.dark .review-pane-finding-location,
+:root.dark .review-pane-finding-body {
+  @apply text-zinc-400;
+}
+
+:root.dark .review-pane-close,
+:root.dark .review-pane-mobile-files-button,
+:root.dark .review-pane-refresh,
+:root.dark .review-pane-bulk-button,
+:root.dark .review-pane-row-button,
+:root.dark .review-pane-primary-cta {
+  @apply border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700;
+}
+
+:root.dark .review-pane-control-label {
+  @apply text-zinc-500;
+}
+
+:root.dark .review-pane-branch-select-wrap {
+  @apply border-zinc-600 bg-zinc-800;
+}
+
+:root.dark .review-pane-branch-select {
+  @apply text-zinc-200;
+}
+
+:root.dark .review-pane-segmented {
+  @apply bg-zinc-800;
+}
+
+:root.dark .review-pane-segmented-button {
+  @apply text-zinc-400;
+}
+
+:root.dark .review-pane-segmented-button::before {
+  @apply bg-zinc-600;
+}
+
+:root.dark .review-pane-segmented-button[data-active='true'] {
+  @apply border-sky-400/40 bg-sky-500 text-white;
+}
+
+:root.dark .review-pane-segmented-button[data-active='true']::before {
+  @apply bg-white;
+}
+
+:root.dark .review-pane-run,
+:root.dark .review-pane-primary-cta {
+  @apply border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-400;
+}
+
+:root.dark .review-pane-refresh {
+  @apply border-amber-500/35 bg-amber-500/12 text-amber-200 hover:bg-amber-500/20;
+}
+
+:root.dark .review-pane-meta span,
+:root.dark .review-pane-sheet-count {
+  @apply bg-zinc-800 text-zinc-300;
+}
+
+:root.dark .review-pane-summary-pill.review-pane-summary-pill-add {
+  @apply bg-emerald-500/15 text-emerald-300;
+}
+
+:root.dark .review-pane-summary-pill.review-pane-summary-pill-remove {
+  @apply bg-rose-500/15 text-rose-300;
+}
+
+:root.dark .review-pane-file-list {
+  @apply border-zinc-700 bg-zinc-950/70;
+}
+
+:root.dark .review-pane-tree-folder {
+  @apply text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100;
+}
+
+:root.dark .review-pane-tree-folder-sheet {
+  @apply bg-zinc-800/80;
+}
+
+:root.dark .review-pane-tree-folder-count {
+  @apply bg-zinc-700 text-zinc-300;
+}
+
+:root.dark .review-pane-resizer {
+  @apply bg-zinc-800;
+}
+
+:root.dark .review-pane-resizer::before {
+  @apply bg-zinc-600;
+}
+
+:root.dark .review-pane-resizer:hover::before {
+  @apply bg-sky-400;
+}
+
+:root.dark .review-pane-file {
+  @apply hover:border-zinc-600 hover:bg-zinc-800;
+}
+
+:root.dark .review-pane-file[data-active='true'] {
+  @apply border-zinc-500 bg-zinc-800;
+}
+
+:root.dark .review-pane-file-path {
+  @apply text-zinc-100;
+}
+
+:root.dark .review-pane-file-op[data-operation='update'] {
+  @apply bg-amber-500/15 text-amber-200;
+}
+
+:root.dark .review-pane-file-op[data-operation='add'] {
+  @apply bg-emerald-500/15 text-emerald-200;
+}
+
+:root.dark .review-pane-file-op[data-operation='delete'] {
+  @apply bg-rose-500/15 text-rose-200;
+}
+
+:root.dark .review-pane-file-op[data-operation='rename'] {
+  @apply bg-sky-500/15 text-sky-200;
+}
+
+:root.dark .review-pane-file-delta,
+:root.dark .review-pane-meta {
+  @apply text-zinc-500;
+}
+
+:root.dark .review-pane-delta-add {
+  @apply text-emerald-300;
+}
+
+:root.dark .review-pane-delta-remove {
+  @apply text-rose-300;
+}
+
+:root.dark .review-pane-delta-separator {
+  @apply text-zinc-500;
+}
+
+:root.dark .review-pane-file-header,
+:root.dark .review-pane-hunk,
+:root.dark .review-pane-summary-card,
+:root.dark .review-pane-finding {
+  @apply border-zinc-700;
+}
+
+:root.dark .review-pane-hunk[data-active='true'] {
+  box-shadow: 0 0 0 1px rgba(244, 244, 245, 0.12);
+  @apply border-zinc-400;
+}
+
+:root.dark .review-pane-lines,
+:root.dark .review-pane-raw-diff {
+  @apply border-zinc-700 bg-zinc-950;
+}
+
+:root.dark .review-pane-line-number,
+:root.dark .review-pane-line-marker {
+  @apply text-zinc-600;
+}
+
+:root.dark .review-pane-line[data-kind='add'] .review-pane-line-marker,
+:root.dark .review-pane-line[data-kind='add'] .review-pane-line-code {
+  @apply text-emerald-300;
+}
+
+:root.dark .review-pane-line[data-kind='remove'] .review-pane-line-marker,
+:root.dark .review-pane-line[data-kind='remove'] .review-pane-line-code {
+  @apply text-rose-300;
+}
+
+:root.dark .review-pane-sheet-handle {
+  @apply bg-zinc-700;
+}
+
+:root.dark .review-pane-sheet-backdrop {
+  @apply bg-black/55;
+}
+
+:root.dark .worked-separator-text {
+  @apply text-zinc-300;
+}
+
+:root.dark .worked-separator-line {
+  @apply bg-zinc-700;
+}
+
+:root.dark .request-card {
+  @apply border-amber-700 bg-amber-900/30;
+}
+
+:root.dark .request-title {
+  @apply text-amber-200;
+}
+
+:root.dark .request-meta {
+  @apply text-amber-400;
+}
+
+:root.dark .request-reason {
+  @apply text-amber-200;
+}
+
+:root.dark .request-button {
+  @apply border-amber-700 bg-zinc-800 text-amber-200 hover:bg-zinc-700;
+}
+
+:root.dark .request-button-primary {
+  @apply border-amber-600 bg-amber-600 text-white hover:bg-amber-700;
+}
+
+:root.dark .request-question-option-description {
+  @apply text-amber-400;
+}
+
+:root.dark .message-image-button {
+  @apply border-zinc-600 bg-zinc-800;
+}
+
+:root.dark .message-file-link {
+  color: var(--codex-link);
+}
+
+:root.dark .message-file-link:hover {
+  color: var(--codex-link-hover);
+}
+
+:root.dark .composer-dropdown-search-input {
+  @apply border-zinc-600 bg-zinc-700 text-zinc-200;
+}
+
+:root.dark .composer-dropdown-chevron {
+  @apply text-zinc-500;
+}
+
+:root.dark .composer-dropdown-empty {
+  @apply text-zinc-500;
+}
+
+:root.dark .search-dropdown-trigger,
+:root.dark .search-dropdown-trigger:disabled,
+:root.dark .search-dropdown-value,
+:root.dark .search-dropdown-chevron {
+  @apply text-zinc-400;
+}
+
+:root.dark .search-dropdown-menu-wrap-up,
+:root.dark .search-dropdown-menu-wrap-down {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-popover-surface);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+}
+
+:root.dark .search-dropdown-search-wrap {
+  border-color: var(--codex-border);
+}
+
+:root.dark .search-dropdown-search,
+:root.dark .search-dropdown-create,
+:root.dark .search-dropdown-create-icon {
+  border-color: var(--codex-border);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .search-dropdown-create:hover,
+:root.dark .search-dropdown-create-icon:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .search-dropdown-option {
+  color: var(--codex-text);
+}
+
+:root.dark .search-dropdown-option.is-highlighted,
+:root.dark .search-dropdown-option-main:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .search-dropdown-option-label {
+  color: var(--codex-text);
+}
+
+:root.dark .search-dropdown-option-desc {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .search-dropdown-option-remove {
+  @apply text-zinc-300;
+}
+
+:root.dark .search-dropdown-option-remove:hover {
+  @apply bg-zinc-700 text-zinc-100;
+}
+
+:root.dark .search-dropdown-empty {
+  @apply text-zinc-500;
+}
+
+:root.dark .thread-composer-skill-chip {
+  border-color: var(--codex-skill-border);
+  background-color: var(--codex-skill-bg);
+  color: var(--codex-skill-fg);
+}
+
+:root.dark .thread-composer-input::placeholder {
+  @apply text-zinc-500;
+}
+
+:root.dark .new-thread-folder-dropdown {
+  @apply text-zinc-400;
+}
+
+:root.dark .new-thread-folder-dropdown .composer-dropdown-trigger {
+  @apply text-zinc-300;
+}
+
+:root.dark .new-thread-folder-dropdown .composer-dropdown-value {
+  @apply text-zinc-200;
+}
+
+:root.dark .new-thread-folder-action {
+  @apply border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800;
+}
+
+:root.dark .new-thread-folder-action-primary {
+  @apply border-zinc-100 bg-zinc-100 text-zinc-950 hover:bg-white;
+}
+
+:root.dark .new-thread-open-folder,
+:root.dark .new-thread-project-modal {
+  @apply border-zinc-700 bg-zinc-950 text-zinc-100;
+}
+
+:root.dark .new-thread-open-folder-title {
+  @apply text-zinc-50;
+}
+
+:root.dark .new-thread-open-folder-close,
+:root.dark .new-thread-open-folder-label {
+  @apply text-zinc-400;
+}
+
+:root.dark .new-thread-open-folder-close:hover {
+  @apply text-zinc-100;
+}
+
+:root.dark .new-thread-open-folder-path,
+:root.dark .new-thread-open-folder-filter,
+:root.dark .new-thread-open-folder-create-input {
+  @apply border-zinc-700 bg-zinc-900 text-zinc-100 focus:border-zinc-500;
+}
+
+:root.dark .new-thread-project-mode-tabs {
+  @apply border-zinc-700 bg-zinc-900;
+}
+
+:root.dark .new-thread-project-mode-tab {
+  @apply text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50;
+}
+
+:root.dark .new-thread-project-mode-tab.is-active {
+  @apply bg-zinc-100 text-zinc-950;
+}
+
+:root.dark .new-thread-open-folder-error {
+  @apply border-rose-900 bg-rose-950/60 text-rose-200;
+}
+
+:root.dark .runtime-toggle {
+  @apply border-zinc-700 bg-zinc-900;
+}
+
+:root.dark .runtime-toggle-option {
+  @apply text-zinc-300;
+}
+
+:root.dark .runtime-toggle-option:hover {
+  @apply bg-zinc-800 text-zinc-100;
+}
+
+:root.dark .runtime-toggle-option.is-selected {
+  @apply border-zinc-600 bg-zinc-800 text-zinc-100 shadow-none;
+}
+
+:root.dark .runtime-toggle-option:focus-visible {
+  @apply ring-zinc-600 ring-offset-zinc-900;
+}
+
+:root.dark .runtime-toggle-option-icon {
+  @apply text-zinc-400;
+}
+
+:root.dark .runtime-toggle-option.is-selected .runtime-toggle-option-icon {
+  @apply text-zinc-200;
+}
+
+:root.dark .worktree-init-status.is-running {
+  @apply border-zinc-600 bg-zinc-800 text-zinc-300;
+}
+
+:root.dark .worktree-init-status.is-error {
+  @apply border-rose-700 bg-rose-950/40 text-rose-200;
+}
+
+:root.dark .skills-hub-title {
+  @apply text-zinc-100;
+}
+
+:root.dark .skills-hub-subtitle {
+  @apply text-zinc-400;
+}
+
+:root.dark .skills-hub-search-wrap {
+  @apply border-zinc-700 bg-zinc-800 focus-within:border-zinc-500;
+}
+
+:root.dark .skills-hub-search-icon {
+  @apply text-zinc-500;
+}
+
+:root.dark .skills-hub-search {
+  @apply text-zinc-200 placeholder-zinc-500;
+}
+
+:root.dark .skills-hub-search-btn,
+:root.dark .skills-hub-sort {
+  @apply border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:border-zinc-500;
+}
+
+:root.dark .skills-hub-count {
+  @apply text-zinc-500;
+}
+
+:root.dark .skills-sync-panel {
+  @apply border-zinc-700 bg-zinc-800;
+}
+
+:root.dark .skills-sync-header {
+  @apply text-zinc-300;
+}
+
+:root.dark .skills-sync-badge {
+  @apply border-zinc-600 bg-zinc-700 text-zinc-200;
+}
+
+:root.dark .skills-sync-badge-link {
+  @apply text-zinc-200 hover:text-white hover:border-zinc-500;
+}
+
+:root.dark .skills-sync-device,
+:root.dark .skills-sync-meta {
+  @apply text-zinc-400;
+}
+
+:root.dark .skills-sync-device a {
+  @apply text-blue-400 hover:text-blue-300;
+}
+
+:root.dark .skills-sync-device code {
+  @apply border border-zinc-600 bg-zinc-700 px-1.5 py-0.5 rounded text-zinc-200;
+}
+
+:root.dark .skills-sync-error {
+  @apply border-rose-800 bg-rose-950/40 text-rose-200;
+}
+
+:root.dark .skills-search-panel {
+  @apply border-zinc-700 bg-zinc-900;
+}
+
+:root.dark .skills-search-copy {
+  @apply text-zinc-200;
+}
+
+:root.dark .skills-search-copy span {
+  @apply text-zinc-400;
+}
+
+:root.dark .skills-directory-link {
+  @apply border-zinc-700 bg-zinc-800 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-700 hover:text-zinc-100;
+}
+
+:root.dark .skills-search-input {
+  @apply border-zinc-700 bg-zinc-950 text-zinc-100 placeholder-zinc-500 focus:border-zinc-600 focus:bg-zinc-900;
+}
+
+:root.dark .skills-hub-section-toggle {
+  @apply text-zinc-300 hover:text-zinc-100;
+}
+
+:root.dark .skills-hub-loading,
+:root.dark .skills-hub-empty {
+  @apply text-zinc-400;
+}
+
+:root.dark .skills-hub-error {
+  @apply border-rose-800 bg-rose-950/40 text-rose-200;
+}
+
+:root.dark .directory-title,
+:root.dark .directory-card-title,
+:root.dark .directory-modal-title,
+:root.dark .directory-mini-heading,
+:root.dark .directory-detail-heading {
+  @apply text-zinc-100;
+}
+
+:root.dark .directory-subtitle,
+:root.dark .directory-card-meta,
+:root.dark .directory-card-description,
+:root.dark .directory-mini-list,
+:root.dark .directory-detail-description {
+  @apply text-zinc-400;
+}
+
+:root.dark .directory-tabs,
+:root.dark .directory-search,
+:root.dark .directory-card,
+:root.dark .directory-loading,
+:root.dark .directory-empty,
+:root.dark .directory-modal,
+:root.dark .directory-refresh,
+:root.dark .directory-action,
+:root.dark .directory-action-link,
+:root.dark .directory-modal-close {
+  @apply border-zinc-700 bg-zinc-900 text-zinc-100;
+}
+
+:root.dark .directory-tab,
+:root.dark .directory-sort-button {
+  @apply text-zinc-400 hover:text-zinc-100;
+}
+
+:root.dark .directory-search {
+  @apply text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500;
+}
+
+:root.dark .directory-tab.is-active,
+:root.dark .directory-sort-button.is-active,
+:root.dark .directory-detail-block,
+:root.dark .directory-auth-panel,
+:root.dark .directory-chip {
+  @apply border-zinc-700 bg-zinc-800 text-zinc-100;
+}
+
+:root.dark .directory-action.primary {
+  @apply border-zinc-100 bg-zinc-100 text-zinc-950 hover:bg-white;
+}
+
+:root.dark .directory-sort-group {
+  @apply border-zinc-700 bg-zinc-950;
+}
+
+:root.dark .directory-badge.is-muted,
+:root.dark .directory-auth-status.is-muted {
+  @apply border-zinc-700 bg-zinc-900 text-zinc-400;
+}
+
+:root.dark .skill-card {
+  @apply border-zinc-700 bg-zinc-800 hover:border-zinc-600 hover:bg-zinc-700/70;
+}
+
+:root.dark .skill-card-avatar {
+  @apply bg-zinc-700;
+}
+
+:root.dark .skill-card-avatar-fallback {
+  @apply bg-zinc-600 text-zinc-300;
+}
+
+:root.dark .skill-card-name {
+  @apply text-zinc-100;
+}
+
+:root.dark .skill-card-badge-disabled {
+  @apply border-zinc-600 bg-zinc-700 text-zinc-300;
+}
+
+:root.dark .skill-card-owner {
+  @apply text-zinc-400;
+}
+
+:root.dark .skill-card-browse {
+  @apply text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200;
+}
+
+:root.dark .skill-card-desc {
+  @apply text-zinc-300;
+}
+
+:root.dark .skill-card-meta {
+  @apply text-zinc-500;
+}
+
+:root.dark .mcp-skill-name {
+  @apply text-zinc-100;
+}
+
+:root.dark .mcp-skill-owner {
+  @apply text-zinc-400;
+}
+
+:root.dark .mcp-skill-meta {
+  @apply text-zinc-300;
+}
+
+:root.dark .sdm-panel {
+  @apply bg-zinc-800;
+}
+
+:root.dark .sdm-title {
+  @apply text-zinc-100;
+}
+
+:root.dark .sdm-badge-disabled {
+  @apply border-zinc-600 bg-zinc-700 text-zinc-300;
+}
+
+:root.dark .sdm-owner {
+  @apply text-zinc-400;
+}
+
+:root.dark .sdm-close {
+  @apply text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100;
+}
+
+:root.dark .sdm-desc {
+  @apply text-zinc-300;
+}
+
+:root.dark .sdm-readme-loading {
+  @apply text-zinc-400;
+}
+
+:root.dark .sdm-readme {
+  @apply text-zinc-300 border-zinc-700;
+}
+
+:root.dark .sdm-readme h2 {
+  @apply text-zinc-100;
+}
+
+:root.dark .sdm-readme h3 {
+  @apply text-zinc-200;
+}
+
+:root.dark .sdm-readme h4 {
+  @apply text-zinc-300;
+}
+
+:root.dark .sdm-readme code {
+  @apply bg-zinc-700 text-zinc-200;
+}
+
+:root.dark .sdm-footer {
+  @apply border-zinc-700;
+}
+
+:root.dark .sdm-btn-primary {
+  @apply bg-zinc-200 text-zinc-900 hover:bg-white;
+}
+
+:root.dark .sdm-btn-secondary {
+  @apply bg-zinc-700 text-zinc-200 hover:bg-zinc-600;
+}
+
+:root.dark .automations-toolbar {
+  @apply border-zinc-800;
+}
+
+:root.dark .automations-summary span,
+:root.dark .automation-row-icon[data-status='PAUSED'],
+:root.dark .automation-detail-icon[data-status='PAUSED'] {
+  @apply bg-zinc-800 text-zinc-400;
+}
+
+:root.dark .automations-refresh,
+:root.dark .automations-create,
+:root.dark .automation-edit-button,
+:root.dark .automation-detail-edit,
+:root.dark .automations-list,
+:root.dark .automation-detail {
+  @apply border-zinc-800 bg-zinc-950 text-zinc-100;
+}
+
+:root.dark .automations-refresh:hover,
+:root.dark .automations-create:hover,
+:root.dark .automation-edit-button:hover,
+:root.dark .automation-detail-edit:hover,
+:root.dark .automation-row:hover,
+:root.dark .automation-row.is-selected {
+  @apply bg-zinc-900;
+}
+
+:root.dark .automation-row {
+  @apply border-zinc-800;
+}
+
+:root.dark .automation-row-title,
+:root.dark .automation-detail-title-wrap h2,
+:root.dark .automation-detail-grid dd,
+:root.dark .automations-empty p {
+  @apply text-zinc-100;
+}
+
+:root.dark .automation-row-meta,
+:root.dark .automation-row-schedule,
+:root.dark .automation-detail-title-wrap span,
+:root.dark .automation-detail-grid dt,
+:root.dark .automation-detail-prompt h3,
+:root.dark .automations-summary,
+:root.dark .automations-empty {
+  @apply text-zinc-400;
+}
+
+:root.dark .automation-detail-grid div,
+:root.dark .automation-detail-prompt p {
+  @apply bg-zinc-900 text-zinc-200;
+}
+
+@media (max-width: 768px) {
+  .thread-composer-input,
+  .composer-dropdown-search-input,
+  .search-dropdown-search,
+  .sidebar-search-input,
+  .project-menu-input,
+  .rename-thread-input,
+  .request-input {
+    font-size: 16px !important;
+  }
+}

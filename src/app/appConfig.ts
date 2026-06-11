@@ -1,0 +1,151 @@
+import type { ChatWidthMode, ChatWidthPreset, TranslateFunction } from './appTypes'
+
+export const SIDEBAR_COLLAPSED_STORAGE_KEY = 'codex-web-local.sidebar-collapsed.v1'
+export const ACCOUNTS_SECTION_COLLAPSED_STORAGE_KEY = 'codex-web-local.accounts-section-collapsed.v1'
+export const TERMINAL_QUICK_COMMAND_STORAGE_KEY = 'codex-web-local.terminal-quick-commands.v1'
+export const INSPECTOR_PANEL_OPEN_STORAGE_KEY = 'codex-web-local.inspector-panel-open.v1'
+export const SEND_WITH_ENTER_KEY = 'codex-web-local.send-with-enter.v1'
+export const IN_PROGRESS_SEND_MODE_KEY = 'codex-web-local.in-progress-send-mode.v1'
+export const DARK_MODE_KEY = 'codex-web-local.dark-mode.v1'
+export const DICTATION_CLICK_TO_TOGGLE_KEY = 'codex-web-local.dictation-click-to-toggle.v1'
+export const DICTATION_AUTO_SEND_KEY = 'codex-web-local.dictation-auto-send.v1'
+export const DICTATION_LANGUAGE_KEY = 'codex-web-local.dictation-language.v1'
+export const TEXT_ANIMATIONS_ENABLED_KEY = 'codex-web-local.text-animations-enabled.v1'
+export const CHAT_WIDTH_KEY = 'codex-web-local.chat-width.v1'
+
+export const TOGGLE_TERMINAL_COMMAND_VALUE = '__toggle_terminal__'
+export const MOBILE_RESUME_RELOAD_MIN_HIDDEN_MS = 400
+
+export const CHAT_WIDTH_PRESETS: Record<ChatWidthMode, ChatWidthPreset> = {
+  standard: {
+    label: 'Standard',
+    columnMax: '45rem',
+    cardMax: '76ch',
+  },
+  wide: {
+    label: 'Wide',
+    columnMax: '72rem',
+    cardMax: '88ch',
+  },
+  'extra-wide': {
+    label: 'Extra wide',
+    columnMax: '96rem',
+    cardMax: '96ch',
+  },
+}
+
+export const WHISPER_LANGUAGES: Record<string, string> = {
+  en: 'english',
+  zh: 'chinese',
+  de: 'german',
+  es: 'spanish',
+  ru: 'russian',
+  ko: 'korean',
+  fr: 'french',
+  ja: 'japanese',
+  pt: 'portuguese',
+  tr: 'turkish',
+  pl: 'polish',
+  ca: 'catalan',
+  nl: 'dutch',
+  ar: 'arabic',
+  sv: 'swedish',
+  it: 'italian',
+  id: 'indonesian',
+  hi: 'hindi',
+  fi: 'finnish',
+  vi: 'vietnamese',
+  he: 'hebrew',
+  uk: 'ukrainian',
+  el: 'greek',
+  ms: 'malay',
+  cs: 'czech',
+  ro: 'romanian',
+  da: 'danish',
+  hu: 'hungarian',
+  ta: 'tamil',
+  no: 'norwegian',
+  th: 'thai',
+  ur: 'urdu',
+  hr: 'croatian',
+  bg: 'bulgarian',
+  lt: 'lithuanian',
+  la: 'latin',
+  mi: 'maori',
+  ml: 'malayalam',
+  cy: 'welsh',
+  sk: 'slovak',
+  te: 'telugu',
+  fa: 'persian',
+  lv: 'latvian',
+  bn: 'bengali',
+  sr: 'serbian',
+  az: 'azerbaijani',
+  sl: 'slovenian',
+  kn: 'kannada',
+  et: 'estonian',
+  mk: 'macedonian',
+  br: 'breton',
+  eu: 'basque',
+  is: 'icelandic',
+  hy: 'armenian',
+  ne: 'nepali',
+  mn: 'mongolian',
+  bs: 'bosnian',
+  kk: 'kazakh',
+  sq: 'albanian',
+  sw: 'swahili',
+  gl: 'galician',
+  mr: 'marathi',
+  pa: 'punjabi',
+  si: 'sinhala',
+  km: 'khmer',
+  sn: 'shona',
+  yo: 'yoruba',
+  so: 'somali',
+  af: 'afrikaans',
+  oc: 'occitan',
+  ka: 'georgian',
+  be: 'belarusian',
+  tg: 'tajik',
+  sd: 'sindhi',
+  gu: 'gujarati',
+  am: 'amharic',
+  yi: 'yiddish',
+  lo: 'lao',
+  uz: 'uzbek',
+  fo: 'faroese',
+  ht: 'haitian creole',
+  ps: 'pashto',
+  tk: 'turkmen',
+  nn: 'nynorsk',
+  mt: 'maltese',
+  sa: 'sanskrit',
+  lb: 'luxembourgish',
+  my: 'myanmar',
+  bo: 'tibetan',
+  tl: 'tagalog',
+  mg: 'malagasy',
+  as: 'assamese',
+  tt: 'tatar',
+  haw: 'hawaiian',
+  ln: 'lingala',
+  ha: 'hausa',
+  ba: 'bashkir',
+  jw: 'javanese',
+  su: 'sundanese',
+  yue: 'cantonese',
+}
+
+export function buildSettingsHelp(t: TranslateFunction) {
+  return {
+    sendWithEnter: t('When enabled, press Enter to send. When disabled, use Command+Enter to send.'),
+    inProgressSendMode: t('If a turn is still running, choose whether a new prompt should steer the current turn or be queued.'),
+    appearance: t('Switch between system theme, light mode, and dark mode.'),
+    chatWidth: t('Choose how wide the conversation column and composer can grow on desktop screens.'),
+    textAnimations: t('Show shimmer animations on thinking and running status text.'),
+    dictationClickToToggle: t('Use click-to-start and click-to-stop dictation instead of hold-to-talk.'),
+    dictationAutoSend: t('Automatically send transcribed dictation when recording stops.'),
+    dictationLanguage: t('Choose transcription language or keep auto-detect.'),
+  } as const
+}

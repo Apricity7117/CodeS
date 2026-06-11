@@ -1,0 +1,5448 @@
+<template>
+  <section class="conversation-root" @click.capture="onConversationClick" @contextmenu.capture="onConversationContextMenu">
+    <p v-if="isLoading" class="conversation-loading">Loading messages...</p>
+
+    <p
+      v-else-if="messages.length === 0 && pendingRequests.length === 0 && !liveOverlay"
+      class="conversation-empty"
+    >
+      No messages in this thread yet.
+    </p>
+
+    <ul v-else ref="conversationListRef" class="conversation-list" @scroll="onConversationScroll">
+      <li v-if="hasMoreAbove" class="conversation-load-more">
+        <button
+          type="button"
+          class="load-more-button"
+          :disabled="isLoadingMore || isLoadingPersistedAbove"
+          @click="loadMoreAbove"
+        >
+          {{ isLoadingMore || isLoadingPersistedAbove ? 'Loading…' : 'Load earlier messages' }}
+        </button>
+      </li>
+      <template v-for="message in visibleMessages" :key="message.id">
+      <li
+        v-if="!hiddenGroupedCommandIds.has(message.id) && !hiddenFileChangeMessageIds.has(message.id) && !hiddenWorkedProcessMessageIds.has(message.id)"
+        class="conversation-item"
+        :data-role="message.role"
+        :data-message-type="message.messageType || ''"
+      >
+        <div v-if="isCommandMessage(message)" class="message-row" data-role="system">
+          <div class="message-stack" data-role="system">
+            <button
+              v-if="getGroupedCommandsForLatest(message).length > 0"
+              type="button"
+              class="cmd-row cmd-row-group cmd-compact command-group-summary-row"
+              :class="[commandStatusClass(message), { 'cmd-expanded': isCommandGroupExpanded(message) }]"
+              @click="toggleCommandGroup(message)"
+            >
+              <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isCommandGroupExpanded(message) }">▶</span>
+              <span class="cmd-group-label">{{ commandGroupSummaryLabel(message) }}</span>
+              <span class="cmd-status">{{ commandGroupSummaryStatus(message) }}</span>
+            </button>
+            <div
+              v-if="getGroupedCommandsForLatest(message).length > 0"
+              class="cmd-group-wrap"
+              :class="{ 'cmd-group-visible': isCommandGroupExpanded(message) }"
+            >
+              <div class="cmd-group-inner">
+                <div
+                  v-for="cmd in getCommandBlockForLatest(message)"
+                  :key="`grouped-cmd-${cmd.id}`"
+                  class="worked-cmd-item"
+                >
+                  <button
+                    type="button"
+                    class="cmd-row"
+                    :class="[
+                      commandStatusClass(cmd),
+                      {
+                        'cmd-expanded': isCommandExpanded(cmd),
+                        'cmd-compact': true,
+                      },
+                    ]"
+                    @click="toggleCommandExpand(cmd)"
+                  >
+                    <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isCommandExpanded(cmd) }">▶</span>
+                    <code class="cmd-label">{{ cmd.commandExecution?.command || '(command)' }}</code>
+                    <span class="cmd-status">{{ commandStatusLabel(cmd) }}</span>
+                  </button>
+                  <div
+                    class="cmd-output-wrap"
+                    :class="{ 'cmd-output-visible': isCommandExpanded(cmd) }"
+                  >
+                    <div class="cmd-output-inner">
+                      <pre
+                        class="cmd-output"
+                        :class="{ 'cmd-output-condensed': isCommandOutputCondensed(cmd) }"
+                        v-text="cmd.commandExecution?.aggregatedOutput || '(no output)'"
+                      ></pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <template v-else>
+              <button
+                type="button"
+                class="cmd-row standalone-command-row"
+                :class="[
+                  commandStatusClass(message),
+                  {
+                    'cmd-expanded': isCommandExpanded(message),
+                    'cmd-compact': isCommandCompact(message),
+                  },
+                ]"
+                @click="toggleCommandExpand(message)"
+              >
+                <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isCommandExpanded(message) }">▶</span>
+                <code class="cmd-label">{{ message.commandExecution?.command || '(command)' }}</code>
+                <span class="cmd-status">{{ commandStatusLabel(message) }}</span>
+              </button>
+              <div
+                class="cmd-output-wrap"
+                :class="{ 'cmd-output-visible': isCommandExpanded(message) }"
+              >
+                <div class="cmd-output-inner">
+                  <pre
+                    class="cmd-output"
+                    :class="{ 'cmd-output-condensed': isCommandOutputCondensed(message) }"
+                    v-text="message.commandExecution?.aggregatedOutput || '(no output)'"
+                  ></pre>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div
+          v-else-if="isFileChangeMessage(message)"
+          class="message-row"
+          :data-role="message.role"
+          :data-message-type="message.messageType || ''"
+        >
+          <div class="message-stack" :data-role="message.role">
+            <article class="message-body" :data-role="message.role">
+              <section v-if="readStandaloneFileChangeSummary(message)" class="file-change-summary-block">
+                <button
+                  type="button"
+                  class="cmd-row cmd-row-group cmd-compact file-change-summary-row"
+                  :class="{ 'cmd-expanded': isFileChangeSummaryExpanded(message) }"
+                  @click="toggleFileChangeSummary(message)"
+                >
+                  <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isFileChangeSummaryExpanded(message) }">▶</span>
+                  <span class="file-change-summary-label">
+                    {{ fileChangeSummaryLabel(readStandaloneFileChangeSummary(message)) }}
+                  </span>
+                  <span class="file-change-summary-status">
+                    <span
+                      v-for="part in fileChangeSummaryStatusParts(readStandaloneFileChangeSummary(message))"
+                      :key="`summary-status:${message.id}:${part.tone}:${part.label}`"
+                      class="file-change-signed-count"
+                      :data-tone="part.tone"
+                    >
+                      {{ part.label }}
+                    </span>
+                  </span>
+                </button>
+                <div class="cmd-group-wrap" :class="{ 'cmd-group-visible': isFileChangeSummaryExpanded(message) }">
+                  <div class="file-change-panel-inner">
+                    <ul class="file-change-list">
+                      <li
+                        v-for="change in readStandaloneFileChangeSummary(message)?.changes ?? []"
+                        :key="`file-change:${message.id}:${change.path}:${change.movedToPath || ''}`"
+                        class="file-change-item"
+                      >
+                        <span class="file-change-badge" :data-operation="fileChangeOperationTone(change)">
+                          {{ fileChangeOperationLabel(change) }}
+                        </span>
+                        <button
+                          type="button"
+                          class="file-change-path-button"
+                          :title="change.path"
+                          @click="openDiffViewer(readStandaloneFileChangeSummary(message), change)"
+                        >
+                          {{ displayFileChangePath(change.path) }}
+                        </button>
+                        <span v-if="change.movedToPath" class="file-change-arrow">→</span>
+                        <button
+                          v-if="change.movedToPath"
+                          type="button"
+                          class="file-change-path-button"
+                          :title="change.movedToPath"
+                          @click="openDiffViewer(readStandaloneFileChangeSummary(message), change)"
+                        >
+                          {{ displayFileChangePath(change.movedToPath) }}
+                        </button>
+                        <span v-if="change.addedLineCount > 0 || change.removedLineCount > 0" class="file-change-delta">
+                          <span
+                            v-for="part in fileChangeDeltaParts(change)"
+                            :key="`change-delta:${message.id}:${change.path}:${part.tone}:${part.label}`"
+                            class="file-change-signed-count"
+                            :data-tone="part.tone"
+                          >
+                            {{ part.label }}
+                          </span>
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </section>
+            </article>
+          </div>
+        </div>
+
+        <div v-else class="message-row" :data-role="message.role" :data-message-type="message.messageType || ''">
+          <div class="message-stack" :data-role="message.role">
+            <article class="message-body" :data-role="message.role">
+              <ul
+                v-if="message.images && message.images.length > 0"
+                class="message-image-list"
+                :class="{ 'message-generated-image-list': message.messageType === 'imageView' }"
+                :data-role="message.role"
+              >
+                <li v-for="imageUrl in message.images" :key="imageUrl" class="message-image-item">
+                  <button class="message-image-button" type="button" @click="openImageModal(imageUrl)">
+                    <img
+                      class="message-image-preview"
+                      :class="{ 'message-generated-image-preview': message.messageType === 'imageView' }"
+                      :src="imageUrl"
+                      :alt="message.messageType === 'imageView' ? 'Generated image' : 'Message image preview'"
+                      loading="lazy"
+                    />
+                  </button>
+                </li>
+              </ul>
+
+              <div v-if="message.fileAttachments && message.fileAttachments.length > 0" class="message-file-attachments">
+                <span v-for="att in message.fileAttachments" :key="`${message.id}:${att.path}`" class="message-file-chip">
+                  <span class="message-file-chip-icon">📄</span>
+                  <a
+                    class="message-file-link message-file-chip-name"
+                    :href="toBrowseUrl(att.path)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    :title="att.path"
+                  >
+                    {{ att.label }}
+                  </a>
+                </span>
+              </div>
+
+              <div v-if="message.skills && message.skills.length > 0" class="message-skill-attachments">
+                <a
+                  v-for="skill in message.skills"
+                  :key="`${message.id}:${skill.path}`"
+                  class="message-skill-chip"
+                  :href="toBrowseUrl(skill.path)"
+                  :title="skill.path"
+                >
+                  <span class="message-skill-chip-prefix">Skill</span>
+                  <span class="message-skill-chip-name">{{ skill.name }}</span>
+                </a>
+              </div>
+
+              <article v-if="message.text.length > 0" class="message-card" :data-role="message.role">
+                <div v-if="message.isAutomationRun" class="automation-message-label">
+                  <span>Sent via automation</span>
+                  <code v-if="message.automationDisplayName">{{ message.automationDisplayName }}</code>
+                </div>
+                <div v-if="message.messageType === 'worked'" class="worked-separator-wrap" aria-live="polite">
+                  <button type="button" class="worked-separator" @click="toggleWorkedExpand(message)">
+                    <span class="worked-separator-line" aria-hidden="true" />
+                    <span class="worked-chevron" :class="{ 'worked-chevron-open': isWorkedExpanded(message) }">▶</span>
+                    <p class="worked-separator-text">{{ message.text }}</p>
+                    <span class="worked-separator-line" aria-hidden="true" />
+                  </button>
+                  <div v-if="isWorkedExpanded(message)" class="worked-details">
+                    <div
+                      v-for="item in getProcessMessagesForWorked(message)"
+                      :key="`worked-process-${item.id}`"
+                      class="worked-cmd-item"
+                    >
+                      <button
+                        v-if="isCommandMessage(item)"
+                        type="button"
+                        class="cmd-row"
+                        :class="[
+                          commandStatusClass(item),
+                          {
+                            'cmd-expanded': isCommandExpanded(item),
+                            'cmd-compact': isCommandCompact(item),
+                          },
+                        ]"
+                        @click="toggleCommandExpand(item)"
+                      >
+                        <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isCommandExpanded(item) }">▶</span>
+                        <code class="cmd-label">{{ item.commandExecution?.command || '(command)' }}</code>
+                        <span class="cmd-status">{{ commandStatusLabel(item) }}</span>
+                      </button>
+                      <div
+                        v-if="isCommandMessage(item)"
+                        class="cmd-output-wrap"
+                        :class="{ 'cmd-output-visible': isCommandExpanded(item) }"
+                      >
+                        <div class="cmd-output-inner">
+                          <pre
+                            class="cmd-output"
+                            :class="{ 'cmd-output-condensed': isCommandOutputCondensed(item) }"
+                            v-text="item.commandExecution?.aggregatedOutput || '(no output)'"
+                          ></pre>
+                        </div>
+                      </div>
+                      <section v-else-if="isFileChangeMessage(item)" class="file-change-summary-block file-change-summary-block-inline">
+                        <button
+                          type="button"
+                          class="cmd-row cmd-row-group cmd-compact file-change-summary-row"
+                          :class="{ 'cmd-expanded': isFileChangeSummaryExpanded(item) }"
+                          @click="toggleFileChangeSummary(item)"
+                        >
+                          <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isFileChangeSummaryExpanded(item) }">▶</span>
+                          <span class="file-change-summary-label">
+                            {{ fileChangeSummaryLabel(readFileChangeMessageSummary(item)) }}
+                          </span>
+                          <span class="file-change-summary-status">
+                            <span
+                              v-for="part in fileChangeSummaryStatusParts(readFileChangeMessageSummary(item))"
+                              :key="`worked-summary-status:${item.id}:${part.tone}:${part.label}`"
+                              class="file-change-signed-count"
+                              :data-tone="part.tone"
+                            >
+                              {{ part.label }}
+                            </span>
+                          </span>
+                        </button>
+                        <div class="cmd-group-wrap" :class="{ 'cmd-group-visible': isFileChangeSummaryExpanded(item) }">
+                          <div class="file-change-panel-inner">
+                            <ul class="file-change-list">
+                              <li
+                                v-for="change in readFileChangeMessageSummary(item)?.changes ?? []"
+                                :key="`file-change:worked:${item.id}:${change.path}:${change.movedToPath || ''}`"
+                                class="file-change-item"
+                              >
+                                <span class="file-change-badge" :data-operation="fileChangeOperationTone(change)">
+                                  {{ fileChangeOperationLabel(change) }}
+                                </span>
+                                <button
+                                  type="button"
+                                  class="file-change-path-button"
+                                  :title="change.path"
+                                  @click="openDiffViewer(readFileChangeMessageSummary(item), change)"
+                                >
+                                  {{ displayFileChangePath(change.path) }}
+                                </button>
+                                <span v-if="change.movedToPath" class="file-change-arrow">→</span>
+                                <button
+                                  v-if="change.movedToPath"
+                                  type="button"
+                                  class="file-change-path-button"
+                                  :title="change.movedToPath"
+                                  @click="openDiffViewer(readFileChangeMessageSummary(item), change)"
+                                >
+                                  {{ displayFileChangePath(change.movedToPath) }}
+                                </button>
+                              </li>
+                            </ul>
+                          </div>
+                        </div>
+                      </section>
+                      <article v-else-if="item.text.trim().length > 0" class="worked-process-text" v-html="renderMarkdownBlocksAsHtml(item.text)" />
+                    </div>
+                  </div>
+                </div>
+                <div
+                  v-else-if="isPlanMessage(message)"
+                  class="plan-card"
+                  :data-streaming="message.messageType === 'plan.live'"
+                  :data-collapsed="isPlanCollapsed(message)"
+                >
+                  <div class="plan-card-header">
+                    <p class="plan-card-title">
+                      <ThinkingShimmer
+                        :message="planCardTitle(message)"
+                        :active="isTextAnimationEnabled && message.messageType === 'plan.live'"
+                      />
+                    </p>
+                    <div class="plan-card-header-actions">
+                      <button
+                        v-if="readPlanMarkdown(message)"
+                        type="button"
+                        class="plan-card-icon-button"
+                        aria-label="Download plan"
+                        title="Download plan"
+                        @click="downloadPlan(message)"
+                      >
+                        <IconCodexDownload class="icon-svg plan-card-action-icon" />
+                      </button>
+                      <button
+                        v-if="readPlanMarkdown(message)"
+                        type="button"
+                        class="plan-card-icon-button"
+                        :aria-label="copiedResponseAnchorId === message.id ? 'Plan copied' : 'Copy plan'"
+                        :title="copiedResponseAnchorId === message.id ? 'Plan copied' : 'Copy plan'"
+                        @click="copyResponse(message.id)"
+                      >
+                        <IconCodexCheckMd v-if="copiedResponseAnchorId === message.id" class="icon-svg plan-card-action-icon" />
+                        <IconCodexCopy v-else class="icon-svg plan-card-action-icon" />
+                      </button>
+                      <button
+                        type="button"
+                        class="plan-card-icon-button"
+                        :aria-label="isPlanCollapsed(message) ? 'Expand plan summary' : 'Collapse plan summary'"
+                        :title="isPlanCollapsed(message) ? 'Expand plan summary' : 'Collapse plan summary'"
+                        @click="togglePlanCollapsed(message)"
+                      >
+                        <IconCodexChevron
+                          class="icon-svg plan-card-action-icon plan-card-collapse-icon"
+                          :class="{ 'is-collapsed': isPlanCollapsed(message) }"
+                        />
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    v-if="readPlanMarkdown(message)"
+                    class="plan-card-content"
+                    :data-collapsed="isPlanCollapsed(message)"
+                  >
+                    <div class="plan-card-markdown" v-html="renderMarkdownBlocksAsHtml(readPlanMarkdown(message))" />
+                    <div v-if="isPlanCollapsed(message)" class="plan-card-collapse-fade">
+                      <button type="button" class="plan-card-expand-button" @click="togglePlanCollapsed(message)">
+                        Expand plan
+                      </button>
+                    </div>
+                  </div>
+                  <div v-if="showImplementPlanButton(message)" class="plan-card-actions">
+                    <button
+                      type="button"
+                      class="plan-card-implement-button"
+                      @click="implementPlan(message)"
+                    >
+                      Implement plan
+                    </button>
+                  </div>
+                </div>
+                <div
+                  v-else
+                  class="message-text-flow"
+                  v-memo="[message.id, message.text, props.cwd, highlightCacheVersion, markdownImageFailureVersion]"
+                >
+                  <template v-for="(block, blockIndex) in getMessageBlocks(message)" :key="`block-${blockIndex}`">
+                    <p v-if="block.kind === 'paragraph'" class="message-text">
+                      <template v-for="(segment, segmentIndex) in getInlineSegments(block.value)" :key="`seg-${blockIndex}-${segmentIndex}`">
+                        <span v-if="segment.kind === 'text'">{{ segment.value }}</span>
+                        <strong v-else-if="segment.kind === 'bold'" class="message-bold-text">{{ segment.value }}</strong>
+                        <em v-else-if="segment.kind === 'italic'" class="message-italic-text">{{ segment.value }}</em>
+                        <s v-else-if="segment.kind === 'strikethrough'" class="message-strikethrough-text">{{ segment.value }}</s>
+                        <a
+                          v-else-if="segment.kind === 'file'"
+                          class="message-file-link"
+                          :href="toBrowseUrl(segment.path)"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          :title="segment.path"
+                        >
+                          {{ segment.displayPath }}
+                        </a>
+                        <a
+                          v-else-if="segment.kind === 'url'"
+                          class="message-file-link"
+                          :href="segment.href"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          :title="segment.href"
+                        >
+                          {{ segment.value }}
+                        </a>
+                        <code v-else class="message-inline-code">{{ segment.value }}</code>
+                      </template>
+                    </p>
+                    <component
+                      :is="headingTag(block.level)"
+                      v-else-if="block.kind === 'heading'"
+                      class="message-heading"
+                      :class="headingClass(block.level)"
+                    >
+                      <template v-for="(segment, segmentIndex) in getInlineSegments(block.value)" :key="`heading-seg-${blockIndex}-${segmentIndex}`">
+                        <span v-if="segment.kind === 'text'">{{ segment.value }}</span>
+                        <strong v-else-if="segment.kind === 'bold'" class="message-bold-text">{{ segment.value }}</strong>
+                        <em v-else-if="segment.kind === 'italic'" class="message-italic-text">{{ segment.value }}</em>
+                        <s v-else-if="segment.kind === 'strikethrough'" class="message-strikethrough-text">{{ segment.value }}</s>
+                        <a
+                          v-else-if="segment.kind === 'file'"
+                          class="message-file-link"
+                          :href="toBrowseUrl(segment.path)"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          :title="segment.path"
+                        >
+                          {{ segment.displayPath }}
+                        </a>
+                        <a
+                          v-else-if="segment.kind === 'url'"
+                          class="message-file-link"
+                          :href="segment.href"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          :title="segment.href"
+                        >
+                          {{ segment.value }}
+                        </a>
+                        <code v-else class="message-inline-code">{{ segment.value }}</code>
+                      </template>
+                    </component>
+                    <blockquote v-else-if="block.kind === 'blockquote'" class="message-blockquote">
+                      <template v-for="(segment, segmentIndex) in getInlineSegments(block.value)" :key="`quote-seg-${blockIndex}-${segmentIndex}`">
+                        <span v-if="segment.kind === 'text'">{{ segment.value }}</span>
+                        <strong v-else-if="segment.kind === 'bold'" class="message-bold-text">{{ segment.value }}</strong>
+                        <em v-else-if="segment.kind === 'italic'" class="message-italic-text">{{ segment.value }}</em>
+                        <s v-else-if="segment.kind === 'strikethrough'" class="message-strikethrough-text">{{ segment.value }}</s>
+                        <a
+                          v-else-if="segment.kind === 'file'"
+                          class="message-file-link"
+                          :href="toBrowseUrl(segment.path)"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          :title="segment.path"
+                        >
+                          {{ segment.displayPath }}
+                        </a>
+                        <a
+                          v-else-if="segment.kind === 'url'"
+                          class="message-file-link"
+                          :href="segment.href"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          :title="segment.href"
+                        >
+                          {{ segment.value }}
+                        </a>
+                        <code v-else class="message-inline-code">{{ segment.value }}</code>
+                      </template>
+                    </blockquote>
+                    <ul v-else-if="block.kind === 'unorderedList'" class="message-list message-list-unordered">
+                      <li v-for="(item, itemIndex) in block.items" :key="`ul-${blockIndex}-${itemIndex}`" class="message-list-item">
+                        <div class="message-list-item-content" v-html="renderListItemContentAsHtml(item)" />
+                      </li>
+                    </ul>
+                    <ul v-else-if="block.kind === 'taskList'" class="message-list message-task-list">
+                      <li v-for="(item, itemIndex) in block.items" :key="`task-${blockIndex}-${itemIndex}`" class="message-task-item">
+                        <span class="message-task-checkbox" :data-checked="item.checked">{{ item.checked ? '☑' : '☐' }}</span>
+                        <div class="message-list-item-text">
+                          <template v-for="(segment, segmentIndex) in getInlineSegments(item.text)" :key="`task-seg-${blockIndex}-${itemIndex}-${segmentIndex}`">
+                            <span v-if="segment.kind === 'text'">{{ segment.value }}</span>
+                            <strong v-else-if="segment.kind === 'bold'" class="message-bold-text">{{ segment.value }}</strong>
+                            <em v-else-if="segment.kind === 'italic'" class="message-italic-text">{{ segment.value }}</em>
+                            <s v-else-if="segment.kind === 'strikethrough'" class="message-strikethrough-text">{{ segment.value }}</s>
+                            <a
+                              v-else-if="segment.kind === 'file'"
+                              class="message-file-link"
+                              :href="toBrowseUrl(segment.path)"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              :title="segment.path"
+                            >
+                              {{ segment.displayPath }}
+                            </a>
+                            <a
+                              v-else-if="segment.kind === 'url'"
+                              class="message-file-link"
+                              :href="segment.href"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              :title="segment.href"
+                            >
+                              {{ segment.value }}
+                            </a>
+                            <code v-else class="message-inline-code">{{ segment.value }}</code>
+                          </template>
+                        </div>
+                      </li>
+                    </ul>
+                    <ol
+                      v-else-if="block.kind === 'orderedList'"
+                      class="message-list message-list-ordered"
+                      :start="block.start"
+                    >
+                      <li v-for="(item, itemIndex) in block.items" :key="`ol-${blockIndex}-${itemIndex}`" class="message-list-item">
+                        <div class="message-list-item-content" v-html="renderListItemContentAsHtml(item)" />
+                      </li>
+                    </ol>
+                    <div v-else-if="block.kind === 'table'" class="message-table-wrap">
+                      <table class="message-table">
+                        <thead>
+                          <tr>
+                            <th
+                              v-for="(cell, cellIndex) in block.headers"
+                              :key="`th-${blockIndex}-${cellIndex}`"
+                              class="message-table-head-cell"
+                              :style="{ textAlign: block.alignments[cellIndex] ?? 'left' }"
+                            >
+                              <template v-for="(segment, segmentIndex) in getInlineSegments(cell)" :key="`th-seg-${blockIndex}-${cellIndex}-${segmentIndex}`">
+                                <span v-if="segment.kind === 'text'">{{ segment.value }}</span>
+                                <strong v-else-if="segment.kind === 'bold'" class="message-bold-text">{{ segment.value }}</strong>
+                                <em v-else-if="segment.kind === 'italic'" class="message-italic-text">{{ segment.value }}</em>
+                                <s v-else-if="segment.kind === 'strikethrough'" class="message-strikethrough-text">{{ segment.value }}</s>
+                                <a
+                                  v-else-if="segment.kind === 'file'"
+                                  class="message-file-link"
+                                  :href="toBrowseUrl(segment.path)"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  :title="segment.path"
+                                >
+                                  {{ segment.displayPath }}
+                                </a>
+                                <a
+                                  v-else-if="segment.kind === 'url'"
+                                  class="message-file-link"
+                                  :href="segment.href"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  :title="segment.href"
+                                >
+                                  {{ segment.value }}
+                                </a>
+                                <code v-else class="message-inline-code">{{ segment.value }}</code>
+                              </template>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody v-if="block.rows.length > 0">
+                          <tr v-for="(row, rowIndex) in block.rows" :key="`tr-${blockIndex}-${rowIndex}`" class="message-table-body-row">
+                            <td
+                              v-for="(cell, cellIndex) in row"
+                              :key="`td-${blockIndex}-${rowIndex}-${cellIndex}`"
+                              class="message-table-cell"
+                              :style="{ textAlign: block.alignments[cellIndex] ?? 'left' }"
+                            >
+                              <template v-for="(segment, segmentIndex) in getInlineSegments(cell)" :key="`td-seg-${blockIndex}-${rowIndex}-${cellIndex}-${segmentIndex}`">
+                                <span v-if="segment.kind === 'text'">{{ segment.value }}</span>
+                                <strong v-else-if="segment.kind === 'bold'" class="message-bold-text">{{ segment.value }}</strong>
+                                <em v-else-if="segment.kind === 'italic'" class="message-italic-text">{{ segment.value }}</em>
+                                <s v-else-if="segment.kind === 'strikethrough'" class="message-strikethrough-text">{{ segment.value }}</s>
+                                <a
+                                  v-else-if="segment.kind === 'file'"
+                                  class="message-file-link"
+                                  :href="toBrowseUrl(segment.path)"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  :title="segment.path"
+                                >
+                                  {{ segment.displayPath }}
+                                </a>
+                                <a
+                                  v-else-if="segment.kind === 'url'"
+                                  class="message-file-link"
+                                  :href="segment.href"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  :title="segment.href"
+                                >
+                                  {{ segment.value }}
+                                </a>
+                                <code v-else class="message-inline-code">{{ segment.value }}</code>
+                              </template>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div v-else-if="block.kind === 'codeBlock'" class="message-code-block">
+                      <div class="message-code-toolbar">
+                        <span class="message-code-language">{{ formatCodeLanguageLabel(block.language) }}</span>
+                        <button
+                          class="message-code-copy"
+                          type="button"
+                          data-code-copy="true"
+                          aria-label="Copy code"
+                          title="Copy code"
+                        >
+                          <IconCodexCopy class="message-code-copy-icon message-code-copy-icon--copy" aria-hidden="true" />
+                          <IconCodexCheckMd class="message-code-copy-icon message-code-copy-icon--check" aria-hidden="true" />
+                        </button>
+                      </div>
+                      <pre class="message-code-pre"><code class="hljs" v-html="renderCachedHighlightedCodeAsHtml(block.language, block.value)"></code></pre>
+                    </div>
+                    <hr v-else-if="block.kind === 'thematicBreak'" class="message-divider" />
+                    <p v-else-if="isMarkdownImageFailed(message.id, blockIndex)" class="message-text">{{ block.markdown }}</p>
+                    <button
+                      v-else
+                      class="message-image-button"
+                      type="button"
+                      @click="openImageModal(block.url)"
+                    >
+                      <img
+                        class="message-image-preview message-markdown-image"
+                        :src="block.url"
+                        :alt="block.alt || 'Embedded message image'"
+                        loading="lazy"
+                        @error="onMarkdownImageError(message.id, blockIndex)"
+                      />
+                    </button>
+                  </template>
+                </div>
+              </article>
+
+              <section v-if="readAnchoredFileChangeSummary(message)" class="file-change-summary-block file-change-summary-block-inline">
+                <button
+                  type="button"
+                  class="cmd-row cmd-row-group cmd-compact file-change-summary-row"
+                  :class="{ 'cmd-expanded': isFileChangeSummaryExpanded(message) }"
+                  @click="toggleFileChangeSummary(message)"
+                >
+                  <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isFileChangeSummaryExpanded(message) }">▶</span>
+                  <span class="file-change-summary-label">
+                    {{ fileChangeSummaryLabel(readAnchoredFileChangeSummary(message)) }}
+                  </span>
+                  <span class="file-change-summary-status">
+                    <span
+                      v-for="part in fileChangeSummaryStatusParts(readAnchoredFileChangeSummary(message))"
+                      :key="`summary-status:${message.id}:${part.tone}:${part.label}`"
+                      class="file-change-signed-count"
+                      :data-tone="part.tone"
+                    >
+                      {{ part.label }}
+                    </span>
+                  </span>
+                </button>
+                <div class="cmd-group-wrap" :class="{ 'cmd-group-visible': isFileChangeSummaryExpanded(message) }">
+                  <div class="file-change-panel-inner">
+                    <ul class="file-change-list">
+                      <li
+                        v-for="change in readAnchoredFileChangeSummary(message)?.changes ?? []"
+                        :key="`file-change:inline:${message.id}:${change.path}:${change.movedToPath || ''}`"
+                        class="file-change-item"
+                      >
+                        <span class="file-change-badge" :data-operation="fileChangeOperationTone(change)">
+                          {{ fileChangeOperationLabel(change) }}
+                        </span>
+                        <button
+                          type="button"
+                          class="file-change-path-button"
+                          :title="change.path"
+                          @click="openDiffViewer(readAnchoredFileChangeSummary(message), change)"
+                        >
+                          {{ displayFileChangePath(change.path) }}
+                        </button>
+                        <span v-if="change.movedToPath" class="file-change-arrow">→</span>
+                        <button
+                          v-if="change.movedToPath"
+                          type="button"
+                          class="file-change-path-button"
+                          :title="change.movedToPath"
+                          @click="openDiffViewer(readAnchoredFileChangeSummary(message), change)"
+                        >
+                          {{ displayFileChangePath(change.movedToPath) }}
+                        </button>
+                        <span v-if="change.addedLineCount > 0 || change.removedLineCount > 0" class="file-change-delta">
+                          <span
+                            v-for="part in fileChangeDeltaParts(change)"
+                            :key="`change-delta:inline:${message.id}:${change.path}:${part.tone}:${part.label}`"
+                            class="file-change-signed-count"
+                            :data-tone="part.tone"
+                          >
+                            {{ part.label }}
+                          </span>
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </section>
+
+              <div
+                v-if="showMessageToolbar(message)"
+                class="message-toolbar"
+                :data-role="message.role"
+              >
+                <span v-if="formatMessageTime(message)" class="message-toolbar-time">{{ formatMessageTime(message) }}</span>
+                <button
+                  v-if="showCopyResponseButton(message)"
+                  type="button"
+                  class="message-copy-button"
+                  :data-copied="copiedResponseAnchorId === message.id"
+                  :aria-label="copyMessageButtonLabel(message)"
+                  :title="copyMessageButtonLabel(message)"
+                  @click="copyResponse(message.id)"
+                >
+                  <IconCodexCopy class="icon-svg message-copy-icon" />
+                </button>
+                <button
+                  v-if="showEditMessageButton(message)"
+                  type="button"
+                  class="message-edit-button"
+                  aria-label="Edit this message"
+                  title="Edit this message"
+                  @click="editMessage(message.id)"
+                >
+                  <IconCodexEdit class="icon-svg message-edit-icon" />
+                </button>
+                <button
+                  v-if="showForkResponseButton(message)"
+                  type="button"
+                  class="message-fork-button"
+                  aria-label="Fork thread from this response"
+                  title="Fork thread from this response"
+                  @click="forkResponse(message.id)"
+                >
+                  <IconCodexWorktree class="icon-svg message-fork-icon" />
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
+      </li>
+      </template>
+      <li v-if="liveOverlay" class="conversation-item conversation-item-overlay">
+        <div class="message-row">
+          <div class="message-stack">
+            <article class="live-overlay-inline" aria-live="polite">
+              <p class="live-overlay-label">
+                <ThinkingShimmer :message="liveOverlayDisplayLabel" :active="isTextAnimationEnabled && !liveOverlay.errorText" />
+              </p>
+              <p
+                v-if="liveOverlay.reasoningText"
+                class="live-overlay-reasoning"
+              >
+                {{ liveOverlay.reasoningText }}
+              </p>
+              <div v-if="liveOverlay.errorText" class="live-overlay-error">
+                <span>{{ liveOverlay.errorText }}</span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </li>
+      <li ref="bottomAnchorRef" class="conversation-bottom-anchor" />
+    </ul>
+
+    <button
+      v-if="showJumpToLatestButton"
+      type="button"
+      class="jump-to-latest-button"
+      title="Jump to latest"
+      aria-label="Jump to latest output"
+      @click="jumpToLatest"
+    >
+      <IconCodexArrowUp class="icon-svg jump-to-latest-icon" />
+    </button>
+
+    <div v-if="modalImageUrl.length > 0" class="image-modal-backdrop" @click="closeImageModal">
+      <div class="image-modal-content" @click.stop>
+        <button class="image-modal-close" type="button" aria-label="Close image preview" @click="closeImageModal">
+          <IconCodexX class="icon-svg" />
+        </button>
+        <img class="image-modal-image" :src="modalImageUrl" alt="Expanded message image" />
+      </div>
+    </div>
+
+    <div
+      v-if="isFileLinkContextMenuVisible"
+      ref="fileLinkContextMenuRef"
+      class="file-link-context-menu"
+      :style="fileLinkContextMenuStyle"
+      @click.stop
+    >
+      <button type="button" class="file-link-context-menu-item" @click="openFileLinkContextBrowse">
+        Open link
+      </button>
+      <button type="button" class="file-link-context-menu-item" @click="copyFileLinkContextLink">
+        Copy link
+      </button>
+      <button
+        v-if="fileLinkContextEditUrl"
+        type="button"
+        class="file-link-context-menu-item"
+        @click="openFileLinkContextEdit"
+      >
+        Edit file
+      </button>
+    </div>
+
+    <div v-if="activeDiffViewerChange" class="diff-viewer-backdrop" @click="closeDiffViewer">
+      <div class="diff-viewer-shell" @click.stop>
+        <aside v-if="!isMobile" class="diff-viewer-sidebar">
+          <div class="diff-viewer-sidebar-header">
+            <p class="diff-viewer-sidebar-title">Changed files</p>
+            <p class="diff-viewer-sidebar-count">{{ formatFileChangeCountLabel(diffViewerChanges.length) }}</p>
+          </div>
+          <div class="diff-viewer-sidebar-list">
+            <button
+              v-for="change in diffViewerChanges"
+              :key="`diff-viewer:${fileChangeKey(change)}`"
+              type="button"
+              class="diff-viewer-file-button"
+              :data-active="fileChangeKey(change) === fileChangeKey(activeDiffViewerChange)"
+              @click="selectDiffViewerChange(change)"
+            >
+              <span class="file-change-badge" :data-operation="fileChangeOperationTone(change)">
+                {{ fileChangeOperationLabel(change) }}
+              </span>
+              <span class="diff-viewer-file-label">
+                {{ displayFileChangePath(change.path) }}
+                <template v-if="change.movedToPath"> → {{ displayFileChangePath(change.movedToPath) }}</template>
+              </span>
+              <span v-if="formatFileChangeDelta(change)" class="diff-viewer-file-delta">{{ formatFileChangeDelta(change) }}</span>
+            </button>
+          </div>
+        </aside>
+
+        <section class="diff-viewer-main">
+          <div class="diff-viewer-toolbar">
+            <div class="diff-viewer-title-wrap">
+              <p class="diff-viewer-title">
+                {{ displayFileChangePath(activeDiffViewerChange.path) }}
+                <template v-if="activeDiffViewerChange.movedToPath"> → {{ displayFileChangePath(activeDiffViewerChange.movedToPath) }}</template>
+              </p>
+              <p class="diff-viewer-subtitle">
+                {{ fileChangeOperationLabel(activeDiffViewerChange) }}
+                <span v-if="formatFileChangeDelta(activeDiffViewerChange)"> · {{ formatFileChangeDelta(activeDiffViewerChange) }}</span>
+              </p>
+            </div>
+            <div class="diff-viewer-toolbar-actions">
+              <button
+                v-if="isMobile"
+                type="button"
+                class="diff-viewer-mobile-files-button"
+                @click="toggleDiffViewerFileList"
+              >
+                {{ formatFileChangeCountLabel(diffViewerChanges.length) }}
+              </button>
+              <button class="image-modal-close diff-viewer-close" type="button" aria-label="Close diff viewer" @click="closeDiffViewer">
+                <IconCodexX class="icon-svg" />
+              </button>
+            </div>
+          </div>
+
+          <div v-if="!hasDiffViewerContent(activeDiffViewerChange)" class="diff-viewer-empty">
+            <p class="diff-viewer-empty-title">No diff available</p>
+            <p class="diff-viewer-empty-text">This summary was restored from the final answer text, but the thread history does not include patch diff content for this file.</p>
+          </div>
+
+          <div v-else class="diff-viewer-panel">
+            <div class="diff-viewer-meta">
+              <span class="diff-viewer-language">{{ inferDiffViewerLanguage(activeDiffViewerChange) || 'diff' }}</span>
+            </div>
+            <div class="diff-viewer-lines">
+              <div
+                v-for="line in activeDiffViewerLines"
+                :key="line.key"
+                class="diff-viewer-line"
+                :data-kind="line.kind"
+              >
+                <span class="diff-viewer-line-number">{{ line.oldLine ?? '' }}</span>
+                <span class="diff-viewer-line-number">{{ line.newLine ?? '' }}</span>
+                <span class="diff-viewer-line-marker">{{ diffViewerMarker(line) }}</span>
+                <code class="diff-viewer-line-code" v-html="escapeHtml(line.text) || '&nbsp;'"></code>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <Transition name="diff-viewer-sheet">
+          <div
+            v-if="isMobile && isDiffViewerFileListOpen"
+            class="diff-viewer-mobile-sheet-backdrop"
+            @click="closeDiffViewerFileList"
+          >
+            <div class="diff-viewer-mobile-sheet" @click.stop>
+              <div class="diff-viewer-mobile-sheet-handle" aria-hidden="true"></div>
+              <div class="diff-viewer-mobile-sheet-header">
+                <p class="diff-viewer-sidebar-title">Changed files</p>
+                <p class="diff-viewer-sidebar-count">{{ formatFileChangeCountLabel(diffViewerChanges.length) }}</p>
+              </div>
+              <div class="diff-viewer-mobile-sheet-list">
+                <button
+                  v-for="change in diffViewerChanges"
+                  :key="`diff-viewer-sheet:${fileChangeKey(change)}`"
+                  type="button"
+                  class="diff-viewer-file-button"
+                  :data-active="fileChangeKey(change) === fileChangeKey(activeDiffViewerChange)"
+                  @click="selectDiffViewerChange(change)"
+                >
+                  <span class="file-change-badge" :data-operation="fileChangeOperationTone(change)">
+                    {{ fileChangeOperationLabel(change) }}
+                  </span>
+                  <span class="diff-viewer-file-label">
+                    {{ displayFileChangePath(change.path) }}
+                    <template v-if="change.movedToPath"> → {{ displayFileChangePath(change.movedToPath) }}</template>
+                  </span>
+                  <span v-if="formatFileChangeDelta(change)" class="diff-viewer-file-delta">{{ formatFileChangeDelta(change) }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </div>
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { UiFileChange, UiLiveOverlay, UiMessage, UiPlanStep, UiServerRequest } from '../../types/codex'
+import { useMobile } from '../../composables/useMobile'
+import { useUiLanguage } from '../../composables/useUiLanguage'
+import ThinkingShimmer from './ThinkingShimmer.vue'
+import { buildWorkedTurnGroups } from './threadWorkedGrouping'
+import {
+  buildPlanCopyText,
+  isPlanMessage,
+  planCardTitle,
+  planStepStatusIcon,
+  readPlanExplanation,
+  readPlanMarkdown,
+  readPlanSteps,
+  showImplementPlanButton,
+} from './threadPlanUtils'
+import {
+  getBasename,
+  normalizePathSeparators,
+  parseFileReference,
+  parseMarkdownLinkToken,
+  resolveRelativePath,
+  toBrowseUrl as buildBrowseUrl,
+  toEditUrlFromBrowseHref as buildEditUrlFromBrowseHref,
+  toRenderableImageUrl,
+  trimLinkWrappers,
+} from './threadFileLinks'
+import {
+  aggregateFileChanges,
+  buildDiffViewerLines,
+  buildFileChangeCopyText as buildFileChangeCopyTextForCwd,
+  CODE_LANGUAGE_ALIASES,
+  diffViewerMarker,
+  displayFileChangePath as displayFileChangePathForCwd,
+  fileChangeDeltaParts,
+  fileChangeKey,
+  fileChangeOperationLabel,
+  fileChangeOperationTone,
+  fileChangeSummaryLabel as fileChangeSummaryLabelWithTranslator,
+  fileChangeSummaryStatusParts,
+  formatFileChangeCountLabel as formatFileChangeCountLabelWithTranslator,
+  formatFileChangeDelta,
+  hasDiffViewerContent,
+  inferDiffViewerLanguage,
+  isFileChangeMessage,
+  readActiveDiffViewerChange,
+  readFileChangeMessageSummary,
+} from './threadFileChanges'
+import type { DiffViewerLine, TurnFileChangeSummary } from './threadFileChanges'
+import {
+  buildCopyableMessageContentByAnchorId,
+  buildCopyableResponseContentByAnchorId,
+  buildForkableTurnIndexByAnchorId,
+} from './threadMessageActions'
+
+import {
+  IconCodexArrowUp,
+  IconCodexCheckMd,
+  IconCodexChevron,
+  IconCodexCopy,
+  IconCodexDownload,
+  IconCodexEdit,
+  IconCodexWorktree,
+  IconCodexX,
+} from '../icons/codex'
+
+type HighlightJsModule = (typeof import('highlight.js/lib/common'))['default']
+
+const expandedCommandIds = ref<Set<string>>(new Set())
+const collapsedAutoCommandIds = ref<Set<string>>(new Set())
+const expandedCommandGroupIds = ref<Set<string>>(new Set())
+const expandedWorkedIds = ref<Set<string>>(new Set())
+const expandedFileChangeSummaryIds = ref<Set<string>>(new Set())
+const collapsedPlanIds = ref<Set<string>>(new Set())
+const activeDiffViewerSummary = ref<TurnFileChangeSummary | null>(null)
+const activeDiffViewerChangeKey = ref('')
+const isDiffViewerFileListOpen = ref(false)
+const fileLinkContextMenuRef = ref<HTMLElement | null>(null)
+const isFileLinkContextMenuVisible = ref(false)
+const fileLinkContextMenuX = ref(0)
+const fileLinkContextMenuY = ref(0)
+const fileLinkContextBrowseUrl = ref('')
+const fileLinkContextEditUrl = ref('')
+const { isMobile } = useMobile()
+const { t } = useUiLanguage()
+
+function isCommandMessage(message: UiMessage): boolean {
+  return message.messageType === 'commandExecution' && !!message.commandExecution
+}
+
+function isPlanCollapsed(message: UiMessage): boolean {
+  return collapsedPlanIds.value.has(message.id)
+}
+
+function togglePlanCollapsed(message: UiMessage): void {
+  const next = new Set(collapsedPlanIds.value)
+  if (next.has(message.id)) {
+    next.delete(message.id)
+  } else {
+    next.add(message.id)
+  }
+  collapsedPlanIds.value = next
+}
+
+function downloadPlan(message: UiMessage): void {
+  if (typeof document === 'undefined') return
+  const content = readPlanMarkdown(message).trim() || buildPlanCopyText(message)
+  if (!content) return
+
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
+  const url = window.URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = 'plan.md'
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  window.URL.revokeObjectURL(url)
+}
+
+function implementPlan(message: UiMessage): void {
+  const turnId = message.turnId?.trim() ?? ''
+  if (!turnId) return
+  emit('implementPlan', { turnId })
+}
+
+function isCopyableAssistantMessage(message: UiMessage): boolean {
+  return message.role === 'assistant'
+    && !isCommandMessage(message)
+    && message.messageType !== 'worked'
+    && !hiddenWorkedProcessMessageIds.value.has(message.id)
+    && !(message.messageType ?? '').endsWith('.live')
+}
+
+const activeCommandMessageId = computed(() => {
+  for (let index = props.messages.length - 1; index >= 0; index -= 1) {
+    const message = props.messages[index]
+    if (message.messageType === 'commandExecution' && message.commandExecution?.status === 'inProgress') {
+      return message.id
+    }
+  }
+  return ''
+})
+
+const hasLiveAssistantText = computed(() =>
+  props.messages.some((message) =>
+    message.role === 'assistant' &&
+    message.messageType === 'agentMessage.live' &&
+    message.text.trim().length > 0,
+  ),
+)
+
+const isLiveTurnRuntime = computed(() =>
+  Boolean(props.liveOverlay) || activeCommandMessageId.value.length > 0 || hasLiveAssistantText.value,
+)
+
+const groupedCommandsByLatestId = computed<Record<string, UiMessage[]>>(() => {
+  const next: Record<string, UiMessage[]> = {}
+  for (let index = 0; index < props.messages.length;) {
+    const message = props.messages[index]
+    if (!isCommandMessage(message)) {
+      index += 1
+      continue
+    }
+
+    const block: UiMessage[] = []
+    while (index < props.messages.length && isCommandMessage(props.messages[index])) {
+      block.push(props.messages[index])
+      index += 1
+    }
+
+    if (block.length <= 1) continue
+    const latest = block[block.length - 1]
+    next[latest.id] = block.slice(0, -1)
+  }
+  return next
+})
+
+const hiddenGroupedCommandIds = computed(() => {
+  const next = new Set<string>()
+  for (const commands of Object.values(groupedCommandsByLatestId.value)) {
+    for (const command of commands) {
+      next.add(command.id)
+    }
+  }
+  return next
+})
+
+const workedTurnGroups = computed(() => buildWorkedTurnGroups(props.messages))
+
+function getProcessMessagesForWorked(message: UiMessage): UiMessage[] {
+  return workedTurnGroups.value.processMessagesByWorkedId[message.id] ?? []
+}
+
+const hiddenWorkedProcessMessageIds = computed(() => workedTurnGroups.value.hiddenProcessIds)
+
+function isCommandAutoExpanded(message: UiMessage): boolean {
+  return !hasLiveAssistantText.value && message.id === activeCommandMessageId.value
+}
+
+function isCommandExpanded(message: UiMessage): boolean {
+  if (!isCommandMessage(message)) return false
+  return expandedCommandIds.value.has(message.id)
+    || (!collapsedAutoCommandIds.value.has(message.id) && isCommandAutoExpanded(message))
+}
+
+function isCommandCompact(message: UiMessage): boolean {
+  return isCommandMessage(message) && isLiveTurnRuntime.value
+}
+
+function isCommandOutputCondensed(message: UiMessage): boolean {
+  return isCommandMessage(message) && (isLiveTurnRuntime.value || message.commandExecution?.status === 'inProgress')
+}
+
+function toggleCommandExpand(message: UiMessage): void {
+  if (!isCommandMessage(message)) return
+
+  const nextExpanded = new Set(expandedCommandIds.value)
+  const nextCollapsedAuto = new Set(collapsedAutoCommandIds.value)
+  const isAutoExpanded = isCommandAutoExpanded(message)
+  const isManuallyExpanded = nextExpanded.has(message.id)
+
+  if (isManuallyExpanded) {
+    nextExpanded.delete(message.id)
+    if (isAutoExpanded) nextCollapsedAuto.add(message.id)
+  } else if (isAutoExpanded && !nextCollapsedAuto.has(message.id)) {
+    nextCollapsedAuto.add(message.id)
+  } else {
+    nextExpanded.add(message.id)
+    nextCollapsedAuto.delete(message.id)
+  }
+
+  expandedCommandIds.value = nextExpanded
+  collapsedAutoCommandIds.value = nextCollapsedAuto
+}
+
+function getGroupedCommandsForLatest(message: UiMessage): UiMessage[] {
+  return groupedCommandsByLatestId.value[message.id] ?? []
+}
+
+function getCommandBlockForLatest(message: UiMessage): UiMessage[] {
+  if (!isCommandMessage(message)) return []
+  return [...getGroupedCommandsForLatest(message), message]
+}
+
+function toggleCommandGroup(message: UiMessage): void {
+  const groupedCommands = getGroupedCommandsForLatest(message)
+  if (groupedCommands.length === 0) return
+  const next = new Set(expandedCommandGroupIds.value)
+  if (next.has(message.id)) next.delete(message.id)
+  else next.add(message.id)
+  expandedCommandGroupIds.value = next
+}
+
+function isCommandGroupExpanded(message: UiMessage): boolean {
+  return expandedCommandGroupIds.value.has(message.id)
+}
+
+function commandGroupSummaryLabel(message: UiMessage): string {
+  const commands = getCommandBlockForLatest(message)
+  const count = commands.length
+  const latestCommand = message.commandExecution?.command?.trim() || '(command)'
+  const countLabel = count === 1 ? '1 command' : `${count} commands`
+  return `${countLabel} · latest: ${latestCommand}`
+}
+
+function commandGroupSummaryStatus(message: UiMessage): string {
+  return commandStatusLabel(message)
+}
+
+function toggleWorkedExpand(message: UiMessage): void {
+  const next = new Set(expandedWorkedIds.value)
+  if (next.has(message.id)) next.delete(message.id)
+  else next.add(message.id)
+  expandedWorkedIds.value = next
+}
+
+function isWorkedExpanded(message: UiMessage): boolean {
+  return expandedWorkedIds.value.has(message.id)
+}
+
+function toggleFileChangeSummary(message: UiMessage): void {
+  const next = new Set(expandedFileChangeSummaryIds.value)
+  if (next.has(message.id)) next.delete(message.id)
+  else next.add(message.id)
+  expandedFileChangeSummaryIds.value = next
+}
+
+function isFileChangeSummaryExpanded(message: UiMessage): boolean {
+  return expandedFileChangeSummaryIds.value.has(message.id)
+}
+
+function openDiffViewer(summary: TurnFileChangeSummary | null, change: UiFileChange): void {
+  if (!summary) return
+  activeDiffViewerSummary.value = summary
+  activeDiffViewerChangeKey.value = fileChangeKey(change)
+  isDiffViewerFileListOpen.value = false
+}
+
+function closeDiffViewer(): void {
+  activeDiffViewerSummary.value = null
+  activeDiffViewerChangeKey.value = ''
+  isDiffViewerFileListOpen.value = false
+}
+
+function toggleDiffViewerFileList(): void {
+  isDiffViewerFileListOpen.value = !isDiffViewerFileListOpen.value
+}
+
+function closeDiffViewerFileList(): void {
+  isDiffViewerFileListOpen.value = false
+}
+
+function selectDiffViewerChange(change: UiFileChange): void {
+  activeDiffViewerChangeKey.value = fileChangeKey(change)
+  if (isMobile.value) {
+    isDiffViewerFileListOpen.value = false
+  }
+}
+
+function commandStatusLabel(message: UiMessage): string {
+  const ce = message.commandExecution
+  if (!ce) return ''
+  const compact = isCommandCompact(message)
+  switch (ce.status) {
+    case 'inProgress': return compact ? 'Running' : '⟳ Running'
+    case 'completed': return ce.exitCode === 0 ? (compact ? 'Done' : '✓ Completed') : `Exit ${ce.exitCode ?? '?'}`
+    case 'failed': return compact ? 'Failed' : '✗ Failed'
+    case 'declined': return compact ? 'Declined' : '⊘ Declined'
+    case 'interrupted': return compact ? 'Stopped' : '⊘ Interrupted'
+    default: return ''
+  }
+}
+
+function commandStatusClass(message: UiMessage): string {
+  const s = message.commandExecution?.status
+  if (s === 'inProgress') return 'cmd-status-running'
+  if (s === 'completed' && message.commandExecution?.exitCode === 0) return 'cmd-status-ok'
+  return 'cmd-status-error'
+}
+
+function pruneCommandIdSet(source: Set<string>, validIds: Set<string>): Set<string> {
+  if (source.size === 0) return source
+  const next = new Set<string>()
+  for (const id of source) {
+    if (validIds.has(id)) next.add(id)
+  }
+  return next.size === source.size ? source : next
+}
+
+const props = defineProps<{
+  messages: UiMessage[]
+  pendingRequests: UiServerRequest[]
+  liveOverlay: UiLiveOverlay | null
+  isLoading: boolean
+  activeThreadId: string
+  cwd: string
+  hasMorePersistedAbove?: boolean
+  isLoadingPersistedAbove?: boolean
+  loadEarlierMessages?: (threadId: string) => Promise<void>
+  textAnimationsEnabled?: boolean
+}>()
+
+const emit = defineEmits<{
+  forkThread: [payload: { threadId: string; turnIndex: number }]
+  editHistoryMessage: [payload: { turnId: string; text: string }]
+  implementPlan: [payload: { turnId: string }]
+  respondServerRequest: [payload: { id: number; result?: unknown; error?: { code?: number; message: string } }]
+}>()
+
+const liveOverlayNowMs = ref(Date.now())
+let liveOverlayTimer: number | undefined
+const isTextAnimationEnabled = computed(() => props.textAnimationsEnabled !== false)
+
+const liveOverlayDisplayLabel = computed(() => {
+  const overlay = props.liveOverlay
+  const baseLabel = overlay?.activityLabel?.trim() || 'Thinking'
+  const startedAtMs = overlay?.activityStartedAtMs
+  if (typeof startedAtMs !== 'number' || !Number.isFinite(startedAtMs)) return baseLabel
+
+  const elapsedMs = Math.max(0, liveOverlayNowMs.value - startedAtMs)
+  if (elapsedMs < 1000) return baseLabel
+
+  const time = formatLiveOverlayDuration(elapsedMs)
+  if (baseLabel === 'Thinking') {
+    return t('Thinking for {time}', { time })
+  }
+  return t('{label} for {time}', { label: baseLabel, time })
+})
+
+function formatLiveOverlayDuration(durationMs: number): string {
+  const totalSeconds = Math.max(1, Math.round(durationMs / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  const parts: string[] = []
+
+  if (hours > 0) parts.push(`${hours}h`)
+  if (minutes > 0 || hours > 0) parts.push(`${minutes}m`)
+
+  const displaySeconds = seconds > 0 || parts.length === 0 ? seconds : 0
+  parts.push(`${displaySeconds}s`)
+  return parts.join(' ')
+}
+
+function clearLiveOverlayTimer(): void {
+  if (liveOverlayTimer === undefined) return
+  window.clearInterval(liveOverlayTimer)
+  liveOverlayTimer = undefined
+}
+
+function syncLiveOverlayTimer(): void {
+  clearLiveOverlayTimer()
+  const startedAtMs = props.liveOverlay?.activityStartedAtMs
+  if (typeof startedAtMs !== 'number' || !Number.isFinite(startedAtMs)) return
+  liveOverlayNowMs.value = Date.now()
+  liveOverlayTimer = window.setInterval(() => {
+    liveOverlayNowMs.value = Date.now()
+  }, 1000)
+}
+
+watch(
+  () => props.liveOverlay?.activityStartedAtMs ?? null,
+  () => syncLiveOverlayTimer(),
+  { immediate: true },
+)
+
+onBeforeUnmount(clearLiveOverlayTimer)
+
+const conversationListRef = ref<HTMLElement | null>(null)
+const bottomAnchorRef = ref<HTMLElement | null>(null)
+const modalImageUrl = ref('')
+const copiedResponseAnchorId = ref('')
+const toolQuestionAnswers = ref<Record<string, string>>({})
+const toolQuestionOtherAnswers = ref<Record<string, string>>({})
+const mcpElicitationAnswers = ref<Record<string, string | number | boolean | string[]>>({})
+const autoFollowOutput = ref(true)
+const BOTTOM_THRESHOLD_PX = 16
+type InlineSegment =
+  | { kind: 'text'; value: string }
+  | { kind: 'bold'; value: string }
+  | { kind: 'italic'; value: string }
+  | { kind: 'strikethrough'; value: string }
+  | { kind: 'code'; value: string }
+  | { kind: 'url'; value: string; href: string }
+  | { kind: 'file'; value: string; path: string; displayPath: string; downloadName: string }
+type TaskListItem = {
+  text: string
+  checked: boolean
+}
+type TableAlignment = 'left' | 'center' | 'right' | null
+type ListItem = {
+  paragraphs: string[]
+  children?: MessageBlock[]
+}
+type MessageBlock =
+  | { kind: 'paragraph'; value: string }
+  | { kind: 'heading'; level: number; value: string }
+  | { kind: 'blockquote'; value: string }
+  | { kind: 'unorderedList'; items: ListItem[] }
+  | { kind: 'taskList'; items: TaskListItem[] }
+  | { kind: 'orderedList'; items: ListItem[]; start: number }
+  | { kind: 'table'; headers: string[]; rows: string[][]; alignments: TableAlignment[] }
+  | { kind: 'codeBlock'; language: string; value: string }
+  | { kind: 'thematicBreak' }
+  | { kind: 'image'; url: string; alt: string; markdown: string }
+
+let conversationScrollFrame = 0
+let bottomLockFrame = 0
+let bottomLockFramesLeft = 0
+let copiedMessageResetTimer: ReturnType<typeof setTimeout> | null = null
+let copiedCodeBlockResetTimer: ReturnType<typeof setTimeout> | null = null
+let copiedCodeBlockButton: HTMLButtonElement | null = null
+let conversationScrollPromise: Promise<void> | null = null
+const trackedPendingImages = new WeakSet<HTMLImageElement>()
+const highlightJsModule = ref<HighlightJsModule | null>(null)
+const highlightCacheVersion = ref(0)
+const markdownImageFailureVersion = ref(0)
+let highlightJsLoader: Promise<void> | null = null
+const MESSAGE_BLOCK_CACHE_LIMIT = 300
+const INLINE_SEGMENT_CACHE_LIMIT = 1200
+const MARKDOWN_HTML_CACHE_LIMIT = 300
+const HIGHLIGHT_HTML_CACHE_LIMIT = 250
+
+type MessageBlockCacheEntry = {
+  text: string
+  cwd: string
+  blocks: MessageBlock[]
+}
+
+type MarkdownHtmlCacheEntry = {
+  text: string
+  cwd: string
+  highlightVersion: number
+  html: string
+}
+
+const messageBlockCache = new Map<string, MessageBlockCacheEntry>()
+const inlineSegmentCache = new Map<string, InlineSegment[]>()
+const markdownHtmlCache = new Map<string, MarkdownHtmlCacheEntry>()
+const highlightHtmlCache = new Map<string, string>()
+
+function setBoundedCacheEntry<K, V>(cache: Map<K, V>, key: K, value: V, limit: number): V {
+  if (cache.has(key)) cache.delete(key)
+  cache.set(key, value)
+  while (cache.size > limit) {
+    const oldestKey = cache.keys().next().value as K | undefined
+    if (oldestKey === undefined) break
+    cache.delete(oldestKey)
+  }
+  return value
+}
+
+const RENDER_WINDOW_SIZE = 50
+const LOAD_MORE_CHUNK = 30
+const LOAD_MORE_SCROLL_THRESHOLD_PX = 200
+
+const renderWindowStart = ref(0)
+const isLoadingMore = ref(false)
+
+const visibleMessages = computed(() => props.messages.slice(renderWindowStart.value))
+const hasMoreAbove = computed(() => renderWindowStart.value > 0 || props.hasMorePersistedAbove === true)
+
+const showJumpToLatestButton = computed(
+  () => !autoFollowOutput.value && (props.messages.length > 0 || props.pendingRequests.length > 0 || Boolean(props.liveOverlay)),
+)
+
+function ensureHighlightJsLoaded(): Promise<void> {
+  if (highlightJsModule.value) return Promise.resolve()
+  if (!highlightJsLoader) {
+    highlightJsLoader = import('highlight.js/lib/common')
+      .then((module) => {
+        highlightJsModule.value = module.default
+        highlightHtmlCache.clear()
+        markdownHtmlCache.clear()
+        highlightCacheVersion.value += 1
+      })
+      .finally(() => {
+        highlightJsLoader = null
+      })
+  }
+  return highlightJsLoader
+}
+
+type ParsedToolQuestion = {
+  id: string
+  header: string
+  question: string
+  isSecret: boolean
+  isOther: boolean
+  options: Array<{ label: string; description: string }>
+}
+type McpElicitationFieldOption = {
+  value: string
+  label: string
+}
+type McpElicitationField = {
+  key: string
+  label: string
+  description: string
+  required: boolean
+  kind: 'string' | 'number' | 'boolean' | 'singleEnum' | 'multiEnum'
+  inputType: string
+  options: McpElicitationFieldOption[]
+  defaultValue: string | number | boolean | string[]
+}
+
+function headingTag(level: number): string {
+  const normalizedLevel = Math.min(6, Math.max(1, Math.trunc(level)))
+  return `h${String(normalizedLevel)}`
+}
+
+function headingClass(level: number): string {
+  switch (Math.min(6, Math.max(1, Math.trunc(level)))) {
+    case 1:
+      return 'message-heading-h1'
+    case 2:
+      return 'message-heading-h2'
+    case 3:
+      return 'message-heading-h3'
+    case 4:
+      return 'message-heading-h4'
+    case 5:
+      return 'message-heading-h5'
+    default:
+      return 'message-heading-h6'
+  }
+}
+
+const copyableResponseContentByAnchorId = computed<Record<string, string>>(() => {
+  const fileChangeCopyByAnchorId: Record<string, string> = {}
+  for (const [anchorMessageId, summary] of Object.entries(anchoredFileChangeSummaryByAnchorId.value)) {
+    if (summary.source !== 'metadata') continue
+    const fileChangeCopy = buildFileChangeCopyText(summary)
+    if (!fileChangeCopy) continue
+    fileChangeCopyByAnchorId[anchorMessageId] = fileChangeCopy
+  }
+  return buildCopyableResponseContentByAnchorId(props.messages, isCopyableAssistantMessage, fileChangeCopyByAnchorId)
+})
+
+const copyableMessageContentByAnchorId = computed<Record<string, string>>(() => {
+  return buildCopyableMessageContentByAnchorId(props.messages, copyableResponseContentByAnchorId.value)
+})
+
+const forkableTurnIndexByAnchorId = computed<Record<string, number>>(() => {
+  return buildForkableTurnIndexByAnchorId(props.messages, isCopyableAssistantMessage)
+})
+
+function showCopyResponseButton(message: UiMessage): boolean {
+  return typeof copyableMessageContentByAnchorId.value[message.id] === 'string'
+}
+
+function showForkResponseButton(message: UiMessage): boolean {
+  return typeof forkableTurnIndexByAnchorId.value[message.id] === 'number'
+}
+
+function formatMessageTime(message: UiMessage): string {
+  const sentAtIso = message.sentAtIso?.trim() ?? ''
+  if (!sentAtIso) return ''
+  const timestamp = Date.parse(sentAtIso)
+  if (!Number.isFinite(timestamp)) return ''
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(timestamp))
+}
+
+function showMessageToolbar(message: UiMessage): boolean {
+  if (hiddenWorkedProcessMessageIds.value.has(message.id)) return false
+  return Boolean(formatMessageTime(message))
+    || showCopyResponseButton(message)
+    || showEditMessageButton(message)
+    || showForkResponseButton(message)
+}
+
+function copyMessageButtonLabel(message: UiMessage): string {
+  if (copiedResponseAnchorId.value === message.id) {
+    return message.role === 'assistant' ? t('Response copied') : t('Message copied')
+  }
+  return message.role === 'assistant' ? t('Copy response') : t('Copy message')
+}
+
+const anchoredFileChangeSummaryByAnchorId = computed<Record<string, TurnFileChangeSummary>>(() => {
+  const assistantAnchorIdByTurnKey = new Map<string, string>()
+  const assistantSummaryByAnchorId = new Map<string, TurnFileChangeSummary>()
+  const fileChangeMessagesByTurnKey = new Map<string, UiMessage[]>()
+
+  for (const message of props.messages) {
+    if (isCopyableAssistantMessage(message) && typeof message.turnIndex === 'number') {
+      assistantAnchorIdByTurnKey.set(`turn:${message.turnIndex}`, message.id)
+      if (Array.isArray(message.fileChanges) && message.fileChanges.length > 0) {
+        assistantSummaryByAnchorId.set(message.id, {
+          changes: aggregateFileChanges(message.fileChanges),
+          sourceMessageIds: [],
+          source: 'assistant',
+        })
+      }
+    }
+
+    if (!isFileChangeMessage(message)) continue
+    const turnKey = typeof message.turnIndex === 'number' ? `turn:${message.turnIndex}` : `message:${message.id}`
+    const current = fileChangeMessagesByTurnKey.get(turnKey)
+    if (current) current.push(message)
+    else fileChangeMessagesByTurnKey.set(turnKey, [message])
+  }
+
+  const summaries: Record<string, TurnFileChangeSummary> = {}
+  for (const [turnKey, messages] of fileChangeMessagesByTurnKey.entries()) {
+    const anchorId = assistantAnchorIdByTurnKey.get(turnKey)
+    if (!anchorId) continue
+    summaries[anchorId] = {
+      changes: aggregateFileChanges(messages.flatMap((message) => message.fileChanges ?? [])),
+      sourceMessageIds: messages.map((message) => message.id),
+      source: 'metadata',
+    }
+  }
+
+  for (const [anchorId, summary] of assistantSummaryByAnchorId.entries()) {
+    if (!summaries[anchorId]) {
+      summaries[anchorId] = summary
+    }
+  }
+
+  return summaries
+})
+
+const standaloneFileChangeSummaryByMessageId = computed<Record<string, TurnFileChangeSummary>>(() => {
+  const assistantAnchorIdByTurnKey = new Map<string, string>()
+  const fileChangeMessagesByTurnKey = new Map<string, UiMessage[]>()
+
+  for (const message of props.messages) {
+    if (isCopyableAssistantMessage(message) && typeof message.turnIndex === 'number') {
+      assistantAnchorIdByTurnKey.set(`turn:${message.turnIndex}`, message.id)
+    }
+
+    if (!isFileChangeMessage(message)) continue
+    const turnKey = typeof message.turnIndex === 'number' ? `turn:${message.turnIndex}` : `message:${message.id}`
+    const current = fileChangeMessagesByTurnKey.get(turnKey)
+    if (current) current.push(message)
+    else fileChangeMessagesByTurnKey.set(turnKey, [message])
+  }
+
+  const summaries: Record<string, TurnFileChangeSummary> = {}
+  for (const [turnKey, messages] of fileChangeMessagesByTurnKey.entries()) {
+    if (assistantAnchorIdByTurnKey.has(turnKey)) continue
+    const visibleMessage = messages[messages.length - 1]
+    if (!visibleMessage) continue
+    summaries[visibleMessage.id] = {
+      changes: aggregateFileChanges(messages.flatMap((message) => message.fileChanges ?? [])),
+      sourceMessageIds: messages.map((message) => message.id),
+      source: 'metadata',
+    }
+  }
+
+  return summaries
+})
+
+const hiddenFileChangeMessageIds = computed(() => {
+  const next = new Set<string>()
+  for (const summary of Object.values(anchoredFileChangeSummaryByAnchorId.value)) {
+    for (const messageId of summary.sourceMessageIds) {
+      next.add(messageId)
+    }
+  }
+  for (const [messageId, summary] of Object.entries(standaloneFileChangeSummaryByMessageId.value)) {
+    for (const sourceMessageId of summary.sourceMessageIds) {
+      if (sourceMessageId !== messageId) {
+        next.add(sourceMessageId)
+      }
+    }
+  }
+  return next
+})
+
+function readAnchoredFileChangeSummary(message: UiMessage): TurnFileChangeSummary | null {
+  return anchoredFileChangeSummaryByAnchorId.value[message.id] ?? null
+}
+
+function readStandaloneFileChangeSummary(message: UiMessage): TurnFileChangeSummary | null {
+  return standaloneFileChangeSummaryByMessageId.value[message.id] ?? null
+}
+
+function formatFileChangeCountLabel(count: number): string {
+  return formatFileChangeCountLabelWithTranslator(count, t)
+}
+
+function fileChangeSummaryLabel(summary: TurnFileChangeSummary | null): string {
+  return fileChangeSummaryLabelWithTranslator(summary, t)
+}
+
+function displayFileChangePath(pathValue: string): string {
+  return displayFileChangePathForCwd(pathValue, props.cwd)
+}
+
+function buildFileChangeCopyText(summary: TurnFileChangeSummary | null): string {
+  return buildFileChangeCopyTextForCwd(summary, props.cwd)
+}
+
+const diffViewerChanges = computed<UiFileChange[]>(() => activeDiffViewerSummary.value?.changes ?? [])
+
+const activeDiffViewerChange = computed<UiFileChange | null>(() => {
+  return readActiveDiffViewerChange(diffViewerChanges.value, activeDiffViewerChangeKey.value)
+})
+
+const activeDiffViewerLines = computed<DiffViewerLine[]>(() => buildDiffViewerLines(activeDiffViewerChange.value))
+
+function copyTextWithSelectionFallback(text: string): boolean {
+  if (typeof document === 'undefined') return false
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', 'true')
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  textarea.style.opacity = '0'
+  textarea.style.pointerEvents = 'none'
+  document.body.appendChild(textarea)
+  textarea.focus()
+  textarea.select()
+  textarea.setSelectionRange(0, text.length)
+
+  try {
+    return document.execCommand('copy')
+  } catch {
+    return false
+  } finally {
+    document.body.removeChild(textarea)
+  }
+}
+
+function resetCodeCopyButton(button: HTMLButtonElement): void {
+  button.dataset.copied = 'false'
+  button.setAttribute('aria-label', 'Copy code')
+  button.setAttribute('title', 'Copy code')
+}
+
+function markCodeCopyButtonCopied(button: HTMLButtonElement): void {
+  if (copiedCodeBlockResetTimer) {
+    clearTimeout(copiedCodeBlockResetTimer)
+    copiedCodeBlockResetTimer = null
+  }
+  if (copiedCodeBlockButton && copiedCodeBlockButton !== button && copiedCodeBlockButton.isConnected) {
+    resetCodeCopyButton(copiedCodeBlockButton)
+  }
+
+  copiedCodeBlockButton = button
+  button.dataset.copied = 'true'
+  button.setAttribute('aria-label', 'Code copied')
+  button.setAttribute('title', 'Code copied')
+
+  copiedCodeBlockResetTimer = setTimeout(() => {
+    if (copiedCodeBlockButton === button && button.isConnected) {
+      resetCodeCopyButton(button)
+    }
+    copiedCodeBlockButton = null
+    copiedCodeBlockResetTimer = null
+  }, 1600)
+}
+
+async function copyCodeBlock(button: HTMLButtonElement): Promise<void> {
+  const block = button.closest('.message-code-block')
+  const code = block?.querySelector<HTMLElement>('.message-code-pre code')
+  const text = code?.textContent ?? ''
+  if (!text) return
+
+  let copied = false
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      copied = true
+    } catch {
+      copied = false
+    }
+  }
+
+  if (!copied) {
+    copied = copyTextWithSelectionFallback(text)
+  }
+
+  if (copied) markCodeCopyButtonCopied(button)
+}
+
+function onConversationClick(event: MouseEvent): void {
+  const target = event.target
+  if (!(target instanceof Element)) return
+
+  const codeCopyButton = target.closest<HTMLButtonElement>('button[data-code-copy="true"]')
+  if (!codeCopyButton) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  void copyCodeBlock(codeCopyButton)
+}
+
+async function copyResponse(anchorMessageId: string): Promise<void> {
+  const content = copyableMessageContentByAnchorId.value[anchorMessageId] ?? ''
+  if (!content) return
+
+  let copied = false
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(content)
+      copied = true
+    } catch {
+      copied = false
+    }
+  }
+
+  if (!copied) {
+    copied = copyTextWithSelectionFallback(content)
+  }
+
+  if (!copied) return
+
+  copiedResponseAnchorId.value = anchorMessageId
+  if (copiedMessageResetTimer) {
+    clearTimeout(copiedMessageResetTimer)
+  }
+  copiedMessageResetTimer = setTimeout(() => {
+    if (copiedResponseAnchorId.value === anchorMessageId) {
+      copiedResponseAnchorId.value = ''
+    }
+    copiedMessageResetTimer = null
+  }, 1800)
+}
+
+function forkResponse(anchorMessageId: string): void {
+  const turnIndex = forkableTurnIndexByAnchorId.value[anchorMessageId]
+  if (typeof turnIndex !== 'number') return
+  if (!props.activeThreadId) return
+  emit('forkThread', {
+    threadId: props.activeThreadId,
+    turnIndex,
+  })
+}
+
+const editableTurnIdByMessageId = computed<Record<string, string>>(() => {
+  const next: Record<string, string> = {}
+  for (const message of props.messages) {
+    if (message.role !== 'user' || typeof message.turnIndex !== 'number') continue
+    const turnId = typeof message.turnId === 'string' && message.turnId.length > 0 ? message.turnId : ''
+    if (!turnId || message.text.trim().length === 0) continue
+    next[message.id] = turnId
+  }
+  return next
+})
+
+function showEditMessageButton(message: UiMessage): boolean {
+  return typeof editableTurnIdByMessageId.value[message.id] === 'string'
+}
+
+function editMessage(messageId: string): void {
+  const turnId = editableTurnIdByMessageId.value[messageId]
+  if (!turnId) return
+  const message = props.messages.find((item) => item.id === messageId)
+  const text = message?.text ?? ''
+  if (!text.trim()) return
+  emit('editHistoryMessage', { turnId, text })
+}
+
+function splitPlainTextByLinks(text: string): InlineSegment[] {
+  const segments: InlineSegment[] = []
+  const pattern = /https?:\/\/[^\s<>"'`，。；：！？、()[\]{}「」『』《》]+|file:\/\/[^\n<>"'`，。；：！？、[\]{}「」『』《》]+|["'](?:[A-Za-z]:[\\/]|~\/|\.{1,2}\/|\/)[^\n"']+["']|`(?:[A-Za-z]:[\\/]|~\/|\.{1,2}\/|\/)[^`\n]+`/gu
+  let cursor = 0
+
+  for (const match of text.matchAll(pattern)) {
+    if (typeof match.index !== 'number') continue
+    const start = match.index
+    const end = start + match[0].length
+
+    if (start > cursor) {
+      segments.push({ kind: 'text', value: text.slice(cursor, start) })
+    }
+
+    let token = match[0]
+    let trailingPunctuation = ''
+    while (/[.,;:!?，。；：！？、]$/u.test(token)) {
+      trailingPunctuation = token.slice(-1) + trailingPunctuation
+      token = token.slice(0, -1)
+    }
+    const wrapped = trimLinkWrappers(token)
+    token = wrapped.core
+    const leading = wrapped.leading
+    const trailing = wrapped.trailing + trailingPunctuation
+
+    if (leading) {
+      segments.push({ kind: 'text', value: leading })
+    }
+
+    if (token.startsWith('**') && token.endsWith('**') && token.length > 4) {
+      segments.push({ kind: 'bold', value: token.slice(2, -2) })
+      if (trailing) {
+        segments.push({ kind: 'text', value: trailing })
+      }
+    } else if (/^https?:\/\//u.test(token)) {
+      segments.push({ kind: 'url', value: token, href: token })
+      if (trailing) {
+        segments.push({ kind: 'text', value: trailing })
+      }
+    } else {
+      const ref = parseFileReference(token)
+      if (ref) {
+        segments.push({
+          kind: 'file',
+          value: token,
+          path: ref.path,
+          displayPath: token,
+          downloadName: getBasename(ref.path),
+        })
+        if (trailing) {
+          segments.push({ kind: 'text', value: trailing })
+        }
+      } else {
+        segments.push({ kind: 'text', value: match[0] })
+      }
+    }
+
+    cursor = end
+  }
+
+  if (cursor < text.length) {
+    segments.push({ kind: 'text', value: text.slice(cursor) })
+  }
+
+  return applyInlineMarkdownMarkers(segments)
+}
+
+function applyDelimitedMarkersAcrossTextSegments(
+  segments: InlineSegment[],
+  options: {
+    marker: string
+    kind: Extract<InlineSegment['kind'], 'bold' | 'italic' | 'strikethrough'>
+    isValidContent?: (value: string) => boolean
+  },
+): InlineSegment[] {
+  const output: InlineSegment[] = []
+  let isOpen = false
+  let buffer = ''
+
+  const pushText = (value: string): void => {
+    if (!value) return
+    output.push({ kind: 'text', value })
+  }
+
+  for (const segment of segments) {
+    if (segment.kind !== 'text') {
+      if (isOpen) {
+        pushText(`${options.marker}${buffer}`)
+        isOpen = false
+        buffer = ''
+      }
+      output.push(segment)
+      continue
+    }
+
+    let remaining = segment.value
+    while (remaining.length > 0) {
+      const markerIndex = remaining.indexOf(options.marker)
+      if (markerIndex < 0) {
+        if (isOpen) buffer += remaining
+        else pushText(remaining)
+        break
+      }
+
+      const before = remaining.slice(0, markerIndex)
+      if (isOpen) buffer += before
+      else pushText(before)
+
+      remaining = remaining.slice(markerIndex + options.marker.length)
+      if (isOpen) {
+        const content = buffer
+        if (
+          content.length > 0 &&
+          (options.isValidContent ? options.isValidContent(content) : true)
+        ) {
+          output.push({ kind: options.kind, value: content })
+        } else {
+          pushText(`${options.marker}${content}${options.marker}`)
+        }
+        buffer = ''
+        isOpen = false
+      } else {
+        isOpen = true
+      }
+    }
+  }
+
+  if (isOpen) {
+    pushText(`${options.marker}${buffer}`)
+  }
+
+  return output
+}
+
+function applyInlineMarkdownMarkers(segments: InlineSegment[]): InlineSegment[] {
+  const nonWhitespaceWrapped = (value: string): boolean => (
+    value.trim().length > 0 &&
+    !/^\s/u.test(value) &&
+    !/\s$/u.test(value)
+  )
+
+  let next = applyDelimitedMarkersAcrossTextSegments(segments, {
+    marker: '**',
+    kind: 'bold',
+    isValidContent: nonWhitespaceWrapped,
+  })
+
+  next = applyDelimitedMarkersAcrossTextSegments(next, {
+    marker: '~~',
+    kind: 'strikethrough',
+    isValidContent: nonWhitespaceWrapped,
+  })
+
+  next = applyDelimitedMarkersAcrossTextSegments(next, {
+    marker: '*',
+    kind: 'italic',
+    isValidContent: nonWhitespaceWrapped,
+  })
+
+  return next
+}
+
+function splitTextByFileUrls(text: string): InlineSegment[] {
+  const segments: InlineSegment[] = []
+  let cursor = 0
+  let scanFrom = 0
+
+  const findNextMarkdownLink = (
+    source: string,
+    fromIndex: number,
+  ): { start: number; end: number; token: string } | null => {
+    let linkStart = source.indexOf('[', fromIndex)
+    while (linkStart >= 0) {
+      const labelEnd = source.indexOf(']', linkStart + 1)
+      if (labelEnd < 0) return null
+      if (source[labelEnd + 1] !== '(') {
+        linkStart = source.indexOf('[', linkStart + 1)
+        continue
+      }
+
+      let depth = 1
+      let index = labelEnd + 2
+      let hasNewLine = false
+      while (index < source.length) {
+        const char = source[index]
+        if (char === '\n') {
+          hasNewLine = true
+          break
+        }
+        if (char === '(') depth += 1
+        if (char === ')') {
+          depth -= 1
+          if (depth === 0) {
+            const token = source.slice(linkStart, index + 1)
+            if (parseMarkdownLinkToken(token)) {
+              return { start: linkStart, end: index + 1, token }
+            }
+            break
+          }
+        }
+        index += 1
+      }
+
+      if (hasNewLine) {
+        linkStart = source.indexOf('[', linkStart + 1)
+        continue
+      }
+      linkStart = source.indexOf('[', linkStart + 1)
+    }
+    return null
+  }
+
+  while (scanFrom < text.length) {
+    const match = findNextMarkdownLink(text, scanFrom)
+    if (!match) break
+    const { start, end, token } = match
+
+    if (start > cursor) {
+      segments.push(...splitPlainTextByLinks(text.slice(cursor, start)))
+    }
+
+    const markdownToken = parseMarkdownLinkToken(token)
+    if (!markdownToken) {
+      segments.push(...splitPlainTextByLinks(text.slice(start, end)))
+      cursor = end
+      scanFrom = end
+      continue
+    }
+    const label = markdownToken.label
+    const target = markdownToken.target
+
+    if (/^https?:\/\//u.test(target)) {
+      segments.push({ kind: 'url', value: label || target, href: target })
+    } else {
+      const ref = parseFileReference(target)
+      if (ref) {
+        segments.push({
+          kind: 'file',
+          value: target,
+          path: ref.path,
+          displayPath: label || target,
+          downloadName: getBasename(ref.path),
+        })
+      } else {
+        segments.push({ kind: 'text', value: token })
+      }
+    }
+
+    cursor = end
+    scanFrom = end
+  }
+
+  if (cursor < text.length) {
+    segments.push(...splitPlainTextByLinks(text.slice(cursor)))
+  }
+
+  return segments
+}
+
+function parseInlineSegmentsUncached(text: string): InlineSegment[] {
+  const linkFirstSegments = splitTextByFileUrls(text)
+  if (!text.includes('`')) return linkFirstSegments
+  if (!linkFirstSegments.some((segment) => segment.kind === 'text' && segment.value.includes('`'))) {
+    return linkFirstSegments
+  }
+
+  const parseCodeAwareTextSegments = (value: string): InlineSegment[] => {
+    if (!value.includes('`')) return splitPlainTextByLinks(value)
+
+    const segments: InlineSegment[] = []
+    let cursor = 0
+    let textStart = 0
+
+    while (cursor < value.length) {
+      if (value[cursor] !== '`') {
+        cursor += 1
+        continue
+      }
+
+      let openLength = 1
+      while (cursor + openLength < value.length && value[cursor + openLength] === '`') {
+        openLength += 1
+      }
+      const delimiter = '`'.repeat(openLength)
+
+      let searchFrom = cursor + openLength
+      let closingStart = -1
+      while (searchFrom < value.length) {
+        const candidate = value.indexOf(delimiter, searchFrom)
+        if (candidate < 0) break
+
+        const hasBacktickBefore = candidate > 0 && value[candidate - 1] === '`'
+        const hasBacktickAfter =
+          candidate + openLength < value.length && value[candidate + openLength] === '`'
+        const hasNewLineInside = value.slice(cursor + openLength, candidate).includes('\n')
+
+        if (!hasBacktickBefore && !hasBacktickAfter && !hasNewLineInside) {
+          closingStart = candidate
+          break
+        }
+        searchFrom = candidate + 1
+      }
+
+      if (closingStart < 0) {
+        cursor += openLength
+        continue
+      }
+
+      if (cursor > textStart) {
+        segments.push(...splitPlainTextByLinks(value.slice(textStart, cursor)))
+      }
+
+      const token = value.slice(cursor + openLength, closingStart)
+      if (token.length > 0) {
+        const markdownLink = parseMarkdownLinkToken(token)
+        if (markdownLink) {
+          if (/^https?:\/\//u.test(markdownLink.target)) {
+            segments.push({
+              kind: 'url',
+              value: markdownLink.label || markdownLink.target,
+              href: markdownLink.target,
+            })
+          } else {
+            const markdownFileReference = parseFileReference(markdownLink.target)
+            if (markdownFileReference) {
+              segments.push({
+                kind: 'file',
+                value: markdownLink.target,
+                path: markdownFileReference.path,
+                displayPath: markdownLink.label || markdownLink.target,
+                downloadName: getBasename(markdownFileReference.path),
+              })
+            } else {
+              segments.push({ kind: 'code', value: token })
+            }
+          }
+        } else if (/^https?:\/\/[^\s]+$/u.test(token)) {
+          segments.push({
+            kind: 'url',
+            value: token,
+            href: token,
+          })
+        } else {
+          const fileReference = parseFileReference(token)
+          if (fileReference) {
+            const displayPath = fileReference.line
+              ? `${fileReference.path}:${String(fileReference.line)}`
+              : fileReference.path
+            segments.push({
+              kind: 'file',
+              value: token,
+              path: fileReference.path,
+              displayPath,
+              downloadName: getBasename(fileReference.path),
+            })
+          } else {
+            segments.push({ kind: 'code', value: token })
+          }
+        }
+      } else {
+        segments.push({ kind: 'text', value: `${delimiter}${delimiter}` })
+      }
+
+      cursor = closingStart + openLength
+      textStart = cursor
+    }
+
+    if (textStart < value.length) {
+      segments.push(...splitPlainTextByLinks(value.slice(textStart)))
+    }
+
+    return segments
+  }
+
+  return linkFirstSegments.flatMap((segment) => (
+    segment.kind === 'text'
+      ? parseCodeAwareTextSegments(segment.value)
+      : [segment]
+  ))
+}
+
+function getInlineSegments(text: string): InlineSegment[] {
+  const cached = inlineSegmentCache.get(text)
+  if (cached) {
+    inlineSegmentCache.delete(text)
+    inlineSegmentCache.set(text, cached)
+    return cached
+  }
+  return setBoundedCacheEntry(inlineSegmentCache, text, parseInlineSegmentsUncached(text), INLINE_SEGMENT_CACHE_LIMIT)
+}
+
+function toBrowseUrl(pathValue: string): string {
+  return buildBrowseUrl(pathValue, props.cwd)
+}
+
+const fileLinkContextMenuStyle = computed(() => ({
+  left: `${String(fileLinkContextMenuX.value)}px`,
+  top: `${String(fileLinkContextMenuY.value)}px`,
+}))
+
+function toEditUrlFromBrowseHref(href: string): string {
+  return buildEditUrlFromBrowseHref(href, window.location.href)
+}
+
+function onConversationContextMenu(event: MouseEvent): void {
+  const target = event.target
+  if (!(target instanceof Element)) return
+
+  const anchor = target.closest('a.message-file-link')
+  if (!(anchor instanceof HTMLAnchorElement)) return
+
+  const href = (anchor.getAttribute('href') ?? '').trim()
+  if (!href || href === '#') return
+
+  event.preventDefault()
+  event.stopPropagation()
+
+  fileLinkContextBrowseUrl.value = href
+  fileLinkContextEditUrl.value = toEditUrlFromBrowseHref(href)
+  fileLinkContextMenuX.value = event.clientX
+  fileLinkContextMenuY.value = event.clientY
+  isFileLinkContextMenuVisible.value = true
+}
+
+function closeFileLinkContextMenu(): void {
+  if (!isFileLinkContextMenuVisible.value) return
+  isFileLinkContextMenuVisible.value = false
+}
+
+function openFileLinkContextBrowse(): void {
+  const href = fileLinkContextBrowseUrl.value
+  closeFileLinkContextMenu()
+  if (!href || href === '#') return
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
+
+function openFileLinkContextEdit(): void {
+  const href = fileLinkContextEditUrl.value
+  closeFileLinkContextMenu()
+  if (!href || href === '#') return
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
+
+async function copyFileLinkContextLink(): Promise<void> {
+  const href = fileLinkContextBrowseUrl.value
+  closeFileLinkContextMenu()
+  if (!href || href === '#') return
+
+  try {
+    await navigator.clipboard.writeText(href)
+  } catch {
+    const textarea = document.createElement('textarea')
+    textarea.value = href
+    textarea.setAttribute('readonly', 'true')
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+  }
+}
+
+function onWindowPointerDownForFileLinkContextMenu(event: PointerEvent): void {
+  if (!isFileLinkContextMenuVisible.value) return
+  const menu = fileLinkContextMenuRef.value
+  if (!menu) {
+    closeFileLinkContextMenu()
+    return
+  }
+  const target = event.target
+  if (target instanceof Node && menu.contains(target)) return
+  closeFileLinkContextMenu()
+}
+
+function onWindowBlurForFileLinkContextMenu(): void {
+  closeFileLinkContextMenu()
+}
+
+function onWindowKeydownForFileLinkContextMenu(event: KeyboardEvent): void {
+  if (event.key !== 'Escape') return
+  closeFileLinkContextMenu()
+}
+
+function normalizeMarkdownText(text: string): string {
+  return text.replace(/\r\n/gu, '\n')
+}
+
+function leadingIndentWidth(line: string): number {
+  const leadingWhitespace = line.match(/^\s*/u)?.[0] ?? ''
+  return leadingWhitespace.replace(/\t/gu, '    ').length
+}
+
+function stripIndentedContent(line: string, baseIndent: number): string {
+  if (baseIndent <= 0) return line.trimStart()
+
+  let index = 0
+  let width = 0
+  while (index < line.length && width < baseIndent) {
+    const character = line[index]
+    width += character === '\t' ? 4 : 1
+    index += 1
+  }
+
+  return line.slice(index)
+}
+
+function isBlankMarkdownLine(line: string): boolean {
+  return line.trim().length === 0
+}
+
+function readHeading(line: string): { level: number; value: string } | null {
+  const match = line.match(/^\s{0,3}(#{1,6})\s+(.+)$/u)
+  if (!match) return null
+  return {
+    level: match[1].length,
+    value: match[2].trim(),
+  }
+}
+
+function readBlockquoteLine(line: string): string | null {
+  const match = line.match(/^\s{0,3}>\s?(.*)$/u)
+  if (!match) return null
+  return match[1] ?? ''
+}
+
+function readUnorderedListItem(line: string): string | null {
+  const match = line.match(/^\s*[-*+]\s+(.+)$/u)
+  return match?.[1]?.trim() ?? null
+}
+
+function readUnorderedListItemMatch(line: string): { indent: number; text: string } | null {
+  const match = line.match(/^(\s*)[-*+]\s+(.+)$/u)
+  if (!match) return null
+  return {
+    indent: leadingIndentWidth(match[1] ?? ''),
+    text: match[2]?.trim() ?? '',
+  }
+}
+
+function readTaskListItem(line: string): TaskListItem | null {
+  const match = line.match(/^\s*[-*+]\s+\[([ xX])\]\s+(.+)$/u)
+  if (!match) return null
+  return {
+    checked: (match[1] ?? ' ').toLowerCase() === 'x',
+    text: match[2]?.trim() ?? '',
+  }
+}
+
+function readTaskListItemMatch(line: string): { indent: number; item: TaskListItem } | null {
+  const match = line.match(/^(\s*)[-*+]\s+\[([ xX])\]\s+(.+)$/u)
+  if (!match) return null
+  return {
+    indent: leadingIndentWidth(match[1] ?? ''),
+    item: {
+      checked: (match[2] ?? ' ').toLowerCase() === 'x',
+      text: match[3]?.trim() ?? '',
+    },
+  }
+}
+
+function readOrderedListItemData(line: string): { indent: number; text: string; start: number } | null {
+  const match = line.match(/^(\s*)(\d+)[.)]\s+(.+)$/u)
+  if (!match) return null
+  return {
+    indent: leadingIndentWidth(match[1] ?? ''),
+    start: Number.parseInt(match[2] ?? '1', 10) || 1,
+    text: match[3]?.trim() ?? '',
+  }
+}
+
+function readOrderedListItem(line: string): string | null {
+  return readOrderedListItemData(line)?.text ?? null
+}
+
+function readOrderedListItemMatch(line: string): { indent: number; text: string; start: number } | null {
+  return readOrderedListItemData(line)
+}
+
+function splitMarkdownTableRow(line: string): string[] | null {
+  const trimmed = line.trim()
+  if (!trimmed.includes('|')) return null
+
+  let content = trimmed
+  if (content.startsWith('|')) content = content.slice(1)
+  if (content.endsWith('|')) content = content.slice(0, -1)
+
+  const cells: string[] = []
+  let current = ''
+  let codeFenceLength = 0
+
+  for (let index = 0; index < content.length; index += 1) {
+    const character = content[index]
+
+    if (character === '\\' && content[index + 1] === '|') {
+      current += '|'
+      index += 1
+      continue
+    }
+
+    if (character === '`') {
+      let runLength = 1
+      while (content[index + runLength] === '`') runLength += 1
+      current += content.slice(index, index + runLength)
+      if (codeFenceLength === 0) codeFenceLength = runLength
+      else if (codeFenceLength === runLength) codeFenceLength = 0
+      index += runLength - 1
+      continue
+    }
+
+    if (character === '|' && codeFenceLength === 0) {
+      cells.push(current.trim())
+      current = ''
+      continue
+    }
+
+    current += character
+  }
+
+  cells.push(current.trim())
+  return cells.some((cell) => cell.length > 0) ? cells : null
+}
+
+function readTableAlignmentRow(line: string): TableAlignment[] | null {
+  const cells = splitMarkdownTableRow(line)
+  if (!cells || cells.length === 0) return null
+
+  const alignments = cells.map((cell) => {
+    const trimmed = cell.replace(/\s+/gu, '')
+    if (!/^:?-{3,}:?$/u.test(trimmed)) return null
+    const startsWithColon = trimmed.startsWith(':')
+    const endsWithColon = trimmed.endsWith(':')
+    if (startsWithColon && endsWithColon) return 'center'
+    if (endsWithColon) return 'right'
+    if (startsWithColon) return 'left'
+    return null
+  })
+
+  return alignments.every((alignment, index) => alignment !== null || /^-+$/u.test(cells[index].replace(/\s+/gu, '')))
+    ? alignments
+    : null
+}
+
+function normalizeTableCells(cells: string[], width: number): string[] {
+  if (cells.length === width) return cells
+  if (cells.length > width) return cells.slice(0, width)
+  return [...cells, ...Array.from({ length: width - cells.length }, () => '')]
+}
+
+function readTableBlock(lines: string[], startIndex: number): Extract<MessageBlock, { kind: 'table' }> | null {
+  if (startIndex + 1 >= lines.length) return null
+
+  const headerLine = lines[startIndex]
+  const separatorLine = lines[startIndex + 1]
+  const headers = splitMarkdownTableRow(headerLine)
+  const alignments = readTableAlignmentRow(separatorLine)
+  if (!headers || !alignments) return null
+  if (headers.length !== alignments.length) return null
+
+  const trimmedHeader = headerLine.trim()
+  if (!trimmedHeader.startsWith('|') && (trimmedHeader.match(/\|/gu)?.length ?? 0) < 2) return null
+
+  const width = headers.length
+  const rows: string[][] = []
+  let index = startIndex + 2
+  while (index < lines.length) {
+    if (isBlankMarkdownLine(lines[index])) break
+    const row = splitMarkdownTableRow(lines[index])
+    if (!row) break
+    rows.push(normalizeTableCells(row, width))
+    index += 1
+  }
+
+  return {
+    kind: 'table',
+    headers: normalizeTableCells(headers, width),
+    rows,
+    alignments,
+  }
+}
+
+function isParagraphBreakingLine(line: string): boolean {
+  return (
+    isBlankMarkdownLine(line) ||
+    readFenceStart(line) !== null ||
+    isThematicBreakLine(line) ||
+    readHeading(line) !== null ||
+    readBlockquoteLine(line) !== null ||
+    readTaskListItem(line) !== null ||
+    readUnorderedListItem(line) !== null ||
+    readOrderedListItem(line) !== null
+  )
+}
+
+function readListParagraph(
+  lines: string[],
+  startIndex: number,
+  baseIndent = -1,
+): { value: string; nextIndex: number } | null {
+  const paragraphLines: string[] = []
+  let index = startIndex
+
+  while (index < lines.length) {
+    if (isParagraphBreakingLine(lines[index])) break
+    if (baseIndent >= 0 && leadingIndentWidth(lines[index]) <= baseIndent) break
+
+    paragraphLines.push(baseIndent >= 0 ? stripIndentedContent(lines[index], baseIndent + 1) : lines[index])
+    index += 1
+  }
+
+  const value = paragraphLines.join('\n').trim()
+  return value ? { value, nextIndex: index } : null
+}
+
+function findNextNonBlankLineIndex(lines: string[], startIndex: number): number {
+  for (let index = startIndex; index < lines.length; index += 1) {
+    if (!isBlankMarkdownLine(lines[index])) return index
+  }
+  return -1
+}
+
+function readNestedListBlocks(
+  lines: string[],
+  startIndex: number,
+  parentIndent: number,
+  stopAtItem: ((line: string) => { indent: number; text: string } | null) | null = null,
+  allowLooseChildLists = false,
+): { blocks: MessageBlock[]; nextIndex: number } | null {
+  const nestedLines: string[] = []
+  let index = startIndex
+
+  while (index < lines.length) {
+    const line = lines[index]
+    if (isBlankMarkdownLine(line)) {
+      const nextNonBlankIndex = findNextNonBlankLineIndex(lines, index + 1)
+      if (nextNonBlankIndex === -1) {
+        nestedLines.push('')
+        index = lines.length
+        break
+      }
+      const nextStopItem = stopAtItem?.(lines[nextNonBlankIndex])
+      if (nextStopItem && nextStopItem.indent === parentIndent) break
+      if (leadingIndentWidth(lines[nextNonBlankIndex]) <= parentIndent) break
+      nestedLines.push('')
+      index += 1
+      continue
+    }
+
+    const stopItem = stopAtItem?.(line)
+    if (stopItem && stopItem.indent === parentIndent) break
+
+    const lineIndent = leadingIndentWidth(line)
+    const isLooseChildList = allowLooseChildLists && (
+      readTaskListItem(line) !== null ||
+      readUnorderedListItem(line) !== null
+    )
+    if (lineIndent <= parentIndent && !isLooseChildList) break
+
+    nestedLines.push(
+      lineIndent > parentIndent
+        ? stripIndentedContent(line, parentIndent + 1)
+        : line.trimStart(),
+    )
+    index += 1
+  }
+
+  while (nestedLines.length > 0 && isBlankMarkdownLine(nestedLines[0])) nestedLines.shift()
+  while (nestedLines.length > 0 && isBlankMarkdownLine(nestedLines[nestedLines.length - 1])) nestedLines.pop()
+
+  if (nestedLines.length === 0) return null
+
+  return {
+    blocks: parseTextBlocks(nestedLines.join('\n')),
+    nextIndex: index,
+  }
+}
+
+function readListItems(
+  lines: string[],
+  startIndex: number,
+  readItem: (line: string) => { indent: number; text: string } | null,
+  allowLooseChildLists = false,
+): { items: ListItem[]; nextIndex: number } | null {
+  const items: ListItem[] = []
+  let index = startIndex
+  const firstItem = readItem(lines[startIndex])
+  if (!firstItem) return null
+  const baseIndent = firstItem.indent
+
+  while (index < lines.length) {
+    const itemValue = readItem(lines[index])
+    if (itemValue === null || itemValue.indent !== baseIndent) break
+
+    const paragraphs = [itemValue.text]
+    const children: MessageBlock[] = []
+    index += 1
+
+    while (index < lines.length) {
+      if (isBlankMarkdownLine(lines[index])) {
+        const nextNonBlankIndex = findNextNonBlankLineIndex(lines, index + 1)
+        if (nextNonBlankIndex === -1) {
+          index = lines.length
+          break
+        }
+        const nextSameLevelItem = readItem(lines[nextNonBlankIndex])
+        if (nextSameLevelItem && nextSameLevelItem.indent === baseIndent) {
+          index = nextNonBlankIndex
+          break
+        }
+        if (leadingIndentWidth(lines[nextNonBlankIndex]) <= baseIndent) {
+          index = nextNonBlankIndex
+          break
+        }
+        index += 1
+        continue
+      }
+
+      const nextSameLevelItem = readItem(lines[index])
+      if (nextSameLevelItem && nextSameLevelItem.indent === baseIndent) break
+
+      const hasIndentedChildren = leadingIndentWidth(lines[index]) > baseIndent
+      const hasLooseChildList = allowLooseChildLists && (
+        readTaskListItem(lines[index]) !== null ||
+        readUnorderedListItem(lines[index]) !== null
+      )
+      if (hasIndentedChildren || hasLooseChildList) {
+        const nestedBlocks = readNestedListBlocks(lines, index, baseIndent, readItem, allowLooseChildLists)
+        if (nestedBlocks) {
+          children.push(...nestedBlocks.blocks)
+          index = nestedBlocks.nextIndex
+          continue
+        }
+      }
+
+      if (leadingIndentWidth(lines[index]) <= baseIndent) break
+
+      const continuation = readListParagraph(lines, index, baseIndent)
+      if (!continuation) break
+      paragraphs.push(continuation.value)
+      index = continuation.nextIndex
+    }
+
+    items.push(children.length > 0 ? { paragraphs, children } : { paragraphs })
+  }
+
+  return items.length > 0 ? { items, nextIndex: index } : null
+}
+
+function isThematicBreakLine(line: string): boolean {
+  return /^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/u.test(line.trim())
+}
+
+function readFenceStart(line: string): { marker: string; language: string } | null {
+  const match = line.match(/^\s{0,3}(```+|~~~+)\s*([^\s`~][^`]*)?\s*$/u)
+  if (!match) return null
+  return {
+    marker: match[1],
+    language: (match[2] ?? '').trim(),
+  }
+}
+
+function parseTextBlocks(text: string): MessageBlock[] {
+  const normalizedText = normalizeMarkdownText(text)
+  const lines = normalizedText.split('\n')
+  const blocks: MessageBlock[] = []
+  let index = 0
+
+  while (index < lines.length) {
+    if (isBlankMarkdownLine(lines[index])) {
+      index += 1
+      continue
+    }
+
+    const fence = readFenceStart(lines[index])
+    if (fence) {
+      index += 1
+      const codeLines: string[] = []
+      while (index < lines.length) {
+        if (lines[index].trim() === fence.marker) {
+          index += 1
+          break
+        }
+        codeLines.push(lines[index])
+        index += 1
+      }
+      blocks.push({
+        kind: 'codeBlock',
+        language: fence.language,
+        value: codeLines.join('\n'),
+      })
+      continue
+    }
+
+    if (isThematicBreakLine(lines[index])) {
+      blocks.push({ kind: 'thematicBreak' })
+      index += 1
+      continue
+    }
+
+    const heading = readHeading(lines[index])
+    if (heading) {
+      blocks.push({ kind: 'heading', level: heading.level, value: heading.value })
+      index += 1
+      continue
+    }
+
+    const quoteLine = readBlockquoteLine(lines[index])
+    if (quoteLine !== null) {
+      const quoteLines: string[] = []
+      while (index < lines.length) {
+        const nextQuoteLine = readBlockquoteLine(lines[index])
+        if (nextQuoteLine === null) break
+        quoteLines.push(nextQuoteLine)
+        index += 1
+      }
+      blocks.push({ kind: 'blockquote', value: quoteLines.join('\n').trim() })
+      continue
+    }
+
+    const table = readTableBlock(lines, index)
+    if (table) {
+      blocks.push(table)
+      index += 2 + table.rows.length
+      continue
+    }
+
+    const taskItem = readTaskListItem(lines[index])
+    if (taskItem !== null) {
+      const items: TaskListItem[] = []
+      const baseIndent = readTaskListItemMatch(lines[index])?.indent ?? 0
+      while (index < lines.length) {
+        const nextItem = readTaskListItemMatch(lines[index])
+        if (nextItem === null || nextItem.indent !== baseIndent) break
+        items.push(nextItem.item)
+        index += 1
+      }
+      if (items.length > 0) {
+        blocks.push({ kind: 'taskList', items })
+        continue
+      }
+    }
+
+    const unorderedItem = readUnorderedListItem(lines[index])
+    if (unorderedItem !== null) {
+      const parsedList = readListItems(lines, index, readUnorderedListItemMatch)
+      if (parsedList) {
+        blocks.push({ kind: 'unorderedList', items: parsedList.items })
+        index = parsedList.nextIndex
+        continue
+      }
+      if (unorderedItem.length > 0) {
+        blocks.push({ kind: 'unorderedList', items: [{ paragraphs: [unorderedItem] }] })
+        index += 1
+        continue
+      }
+    }
+
+    const orderedItem = readOrderedListItem(lines[index])
+    if (orderedItem !== null) {
+      const orderedItemMatch = readOrderedListItemMatch(lines[index])
+      const parsedList = readListItems(lines, index, readOrderedListItemMatch, true)
+      if (parsedList) {
+        blocks.push({
+          kind: 'orderedList',
+          items: parsedList.items,
+          start: orderedItemMatch?.start ?? 1,
+        })
+        index = parsedList.nextIndex
+        continue
+      }
+      if (orderedItem.length > 0) {
+        blocks.push({
+          kind: 'orderedList',
+          items: [{ paragraphs: [orderedItem] }],
+          start: orderedItemMatch?.start ?? 1,
+        })
+        index += 1
+        continue
+      }
+    }
+
+    const paragraphLines: string[] = []
+    while (index < lines.length) {
+      if (isBlankMarkdownLine(lines[index])) break
+      if (
+        readFenceStart(lines[index]) ||
+        isThematicBreakLine(lines[index]) ||
+        readHeading(lines[index]) ||
+        readTableBlock(lines, index) ||
+        readBlockquoteLine(lines[index]) !== null ||
+        readTaskListItem(lines[index]) !== null ||
+        readUnorderedListItem(lines[index]) !== null ||
+        readOrderedListItem(lines[index]) !== null
+      ) break
+      paragraphLines.push(lines[index])
+      index += 1
+    }
+
+    const value = paragraphLines.join('\n').trim()
+    if (value) {
+      blocks.push({ kind: 'paragraph', value })
+    }
+  }
+
+  return blocks
+}
+
+function parseNonCodeMessageBlocks(text: string): MessageBlock[] {
+  if (!text.includes('![') || !text.includes('](')) {
+    return parseTextBlocks(text)
+  }
+
+  const blocks: MessageBlock[] = []
+  const imagePattern = /!\[([^\]]*)\]\(([^)\n]+)\)/gu
+  let cursor = 0
+
+  for (const match of text.matchAll(imagePattern)) {
+    const [fullMatch, altRaw, urlRaw] = match
+    if (typeof match.index !== 'number') continue
+
+    const start = match.index
+    const end = start + fullMatch.length
+    const imageUrl = toRenderableImageUrl(urlRaw.trim())
+    if (!imageUrl) continue
+
+    if (start > cursor) {
+      blocks.push(...parseTextBlocks(text.slice(cursor, start)))
+    }
+
+    blocks.push({ kind: 'image', url: imageUrl, alt: altRaw.trim(), markdown: fullMatch })
+    cursor = end
+  }
+
+  if (cursor < text.length) {
+    blocks.push(...parseTextBlocks(text.slice(cursor)))
+  }
+
+  return blocks
+}
+
+function parseMessageBlocks(text: string): MessageBlock[] {
+  const normalizedText = normalizeMarkdownText(text)
+  const lines = normalizedText.split('\n')
+  const blocks: MessageBlock[] = []
+  let index = 0
+  let chunkStart = 0
+
+  const flushChunk = (endExclusive: number): void => {
+    if (endExclusive <= chunkStart) return
+    const chunk = lines.slice(chunkStart, endExclusive).join('\n')
+    blocks.push(...parseNonCodeMessageBlocks(chunk))
+  }
+
+  while (index < lines.length) {
+    const fence = readFenceStart(lines[index])
+    if (!fence) {
+      index += 1
+      continue
+    }
+
+    flushChunk(index)
+
+    index += 1
+    const codeLines: string[] = []
+    while (index < lines.length) {
+      if (lines[index].trim() === fence.marker) {
+        index += 1
+        break
+      }
+      codeLines.push(lines[index])
+      index += 1
+    }
+
+    blocks.push({
+      kind: 'codeBlock',
+      language: fence.language,
+      value: codeLines.join('\n'),
+    })
+    chunkStart = index
+  }
+
+  flushChunk(lines.length)
+  return blocks.length > 0 ? blocks : [{ kind: 'paragraph', value: text }]
+}
+
+function getMessageBlocks(message: UiMessage): MessageBlock[] {
+  const cached = messageBlockCache.get(message.id)
+  if (cached && cached.text === message.text && cached.cwd === props.cwd) {
+    messageBlockCache.delete(message.id)
+    messageBlockCache.set(message.id, cached)
+    return cached.blocks
+  }
+  const blocks = parseMessageBlocks(message.text)
+  return setBoundedCacheEntry(
+    messageBlockCache,
+    message.id,
+    { text: message.text, cwd: props.cwd, blocks },
+    MESSAGE_BLOCK_CACHE_LIMIT,
+  ).blocks
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/gu, '&amp;')
+    .replace(/</gu, '&lt;')
+    .replace(/>/gu, '&gt;')
+    .replace(/"/gu, '&quot;')
+    .replace(/'/gu, '&#39;')
+}
+
+function normalizeCodeLanguage(language: string): string {
+  const token = language.trim().split(/\s+/u)[0]?.toLowerCase() ?? ''
+  if (!token) return ''
+  return CODE_LANGUAGE_ALIASES[token] ?? token
+}
+
+function formatCodeLanguageLabel(language: string): string {
+  const raw = language.trim()
+  if (!raw) return 'text'
+  return raw.split(/\s+/u)[0]?.toLowerCase() ?? 'text'
+}
+
+function renderHighlightedCodeAsHtmlUncached(language: string, value: string): string {
+  const normalizedLanguage = normalizeCodeLanguage(language)
+  if (!normalizedLanguage) return escapeHtml(value)
+  const highlighter = highlightJsModule.value
+  if (!highlighter) return escapeHtml(value)
+
+  try {
+    if (highlighter.getLanguage(normalizedLanguage)) {
+      return highlighter.highlight(value, {
+        language: normalizedLanguage,
+        ignoreIllegals: true,
+      }).value
+    }
+  } catch {
+    // Fall back to plain escaped code when highlighting fails.
+  }
+
+  return escapeHtml(value)
+}
+
+function renderCachedHighlightedCodeAsHtml(language: string, value: string): string {
+  const cacheKey = `${highlightCacheVersion.value}\u0000${normalizeCodeLanguage(language)}\u0000${language}\u0000${value}`
+  const cached = highlightHtmlCache.get(cacheKey)
+  if (cached !== undefined) {
+    highlightHtmlCache.delete(cacheKey)
+    highlightHtmlCache.set(cacheKey, cached)
+    return cached
+  }
+  return setBoundedCacheEntry(
+    highlightHtmlCache,
+    cacheKey,
+    renderHighlightedCodeAsHtmlUncached(language, value),
+    HIGHLIGHT_HTML_CACHE_LIMIT,
+  )
+}
+
+function renderInlineSegmentsAsHtml(text: string): string {
+  return getInlineSegments(text)
+    .map((segment) => {
+      if (segment.kind === 'text') {
+        return escapeHtml(segment.value)
+      }
+      if (segment.kind === 'bold') {
+        return `<strong class="message-bold-text">${escapeHtml(segment.value)}</strong>`
+      }
+      if (segment.kind === 'italic') {
+        return `<em class="message-italic-text">${escapeHtml(segment.value)}</em>`
+      }
+      if (segment.kind === 'strikethrough') {
+        return `<s class="message-strikethrough-text">${escapeHtml(segment.value)}</s>`
+      }
+      if (segment.kind === 'file') {
+        return `<a class="message-file-link" href="${escapeHtml(toBrowseUrl(segment.path))}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(segment.path)}">${escapeHtml(segment.displayPath)}</a>`
+      }
+      if (segment.kind === 'url') {
+        return `<a class="message-file-link" href="${escapeHtml(segment.href)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(segment.href)}">${escapeHtml(segment.value)}</a>`
+      }
+      return `<code class="message-inline-code">${escapeHtml(segment.value)}</code>`
+    })
+    .join('')
+}
+
+function renderListItemParagraphsAsHtml(item: ListItem): string {
+  return item.paragraphs
+    .map((paragraph) => `<div class="message-list-item-text message-list-item-paragraph">${renderInlineSegmentsAsHtml(paragraph)}</div>`)
+    .join('')
+}
+
+function renderListItemContentAsHtml(item: ListItem): string {
+  const paragraphsHtml = renderListItemParagraphsAsHtml(item)
+  const childrenHtml = item.children?.map((block) => renderMessageBlockAsHtml(block)).join('') ?? ''
+  return paragraphsHtml + childrenHtml
+}
+
+function tableCellAlignmentStyle(alignment: TableAlignment): string {
+  if (!alignment) return ''
+  return ` style="text-align:${alignment}"`
+}
+
+const CODE_COPY_ICON_HTML = `
+<svg class="message-code-copy-icon message-code-copy-icon--copy" width="1em" height="1em" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <path d="M13.468 11.1216C13.468 10.4107 13.468 9.91717 13.4367 9.53369C13.4137 9.25191 13.3758 9.0622 13.3244 8.91846L13.2687 8.78858C13.1148 8.48652 12.8803 8.23344 12.593 8.05713L12.466 7.98584C12.308 7.90546 12.0963 7.84854 11.7209 7.81787C11.3374 7.78656 10.8439 7.78662 10.133 7.78662H7.29999C6.58895 7.78662 6.09562 7.78654 5.7121 7.81787C5.43015 7.84091 5.24064 7.87872 5.09686 7.93018L4.96698 7.98584C4.66487 8.13977 4.41184 8.37419 4.23554 8.66162L4.16522 8.78858C4.08477 8.94657 4.02794 9.15811 3.99725 9.53369C3.96594 9.91718 3.96503 10.4107 3.96503 11.1216V13.9546C3.96503 14.6656 3.96592 15.159 3.99725 15.5425C4.02796 15.9182 4.08471 16.1296 4.16522 16.2876L4.23554 16.4136C4.41185 16.7012 4.66472 16.9353 4.96698 17.0894L5.09686 17.146C5.24061 17.1974 5.43024 17.2343 5.7121 17.2573C6.09562 17.2887 6.58895 17.2896 7.29999 17.2896H10.133C10.8439 17.2896 11.3374 17.2886 11.7209 17.2573C12.0965 17.2266 12.308 17.1698 12.466 17.0894L12.593 17.019C12.8804 16.8427 13.1148 16.5897 13.2687 16.2876L13.3244 16.1577C13.3759 16.0139 13.4137 15.8244 13.4367 15.5425C13.468 15.159 13.468 14.6656 13.468 13.9546V11.1216ZM14.798 13.1196C15.2528 13.118 15.6011 13.1147 15.8879 13.0913C16.2634 13.0606 16.475 13.0038 16.633 12.9233L16.759 12.8521C17.0466 12.6757 17.2808 12.4228 17.4348 12.1206L17.4914 11.9907C17.5428 11.847 17.5797 11.6572 17.6027 11.3755C17.634 10.992 17.6349 10.4985 17.6349 9.7876V6.95459C17.6349 6.24355 17.6341 5.75022 17.6027 5.3667C17.5797 5.08484 17.5428 4.89522 17.4914 4.75147L17.4348 4.62158C17.2807 4.31933 17.0466 4.06645 16.759 3.89014L16.633 3.81982C16.475 3.73932 16.2636 3.68256 15.8879 3.65186C15.5044 3.62052 15.011 3.61963 14.3 3.61963H11.467C10.7561 3.61963 10.2626 3.62054 9.87909 3.65186C9.59738 3.67487 9.40759 3.71179 9.26386 3.76318L9.13397 3.81982C8.83175 3.97382 8.57885 4.20802 8.40253 4.49561L8.33124 4.62158C8.25079 4.77957 8.19396 4.99114 8.16327 5.3667C8.13984 5.65352 8.13561 6.00178 8.13397 6.45654H10.133C10.822 6.45654 11.3791 6.4559 11.8293 6.49268C12.2873 6.5301 12.6937 6.6093 13.0705 6.80127L13.2883 6.92334C13.7839 7.22739 14.1878 7.66313 14.4533 8.18408L14.5197 8.32666C14.6642 8.66318 14.7291 9.02433 14.7619 9.42529C14.7987 9.8755 14.798 10.4326 14.798 11.1216V13.1196ZM18.965 9.7876C18.965 10.4766 18.9657 11.0337 18.9289 11.4839C18.8961 11.8848 18.8311 12.246 18.6867 12.5825L18.6203 12.7251C18.3548 13.246 17.9509 13.6818 17.4553 13.9858L17.2365 14.1079C16.8599 14.2998 16.4541 14.3791 15.9963 14.4165C15.6592 14.444 15.2624 14.4481 14.7951 14.4497C14.7935 14.917 14.7894 15.3138 14.7619 15.6509C14.7292 16.0516 14.664 16.4122 14.5197 16.7485L14.4533 16.8911C14.1878 17.4122 13.7841 17.8487 13.2883 18.1528L13.0705 18.2749C12.6937 18.4669 12.2873 18.5461 11.8293 18.5835C11.3791 18.6203 10.822 18.6196 10.133 18.6196H7.29999C6.6109 18.6196 6.05394 18.6203 5.6037 18.5835C5.20305 18.5508 4.84233 18.4855 4.50604 18.3413L4.36347 18.2749C3.84243 18.0094 3.40584 17.6056 3.10175 17.1099L2.97968 16.8911C2.78787 16.5145 2.70849 16.1087 2.67108 15.6509C2.6343 15.2006 2.63495 14.6437 2.63495 13.9546V11.1216C2.63495 10.4326 2.63431 9.8755 2.67108 9.42529C2.7085 8.96729 2.78771 8.56084 2.97968 8.18408L3.10175 7.96631C3.40585 7.47049 3.84235 7.06679 4.36347 6.80127L4.50604 6.73486C4.84236 6.59059 5.20302 6.52542 5.6037 6.49268C5.9405 6.46516 6.33707 6.4601 6.80389 6.4585C6.8055 5.99167 6.81056 5.5951 6.83807 5.2583C6.87549 4.80047 6.95482 4.39471 7.14667 4.01807L7.26874 3.79932C7.5728 3.30371 8.00855 2.89973 8.52948 2.63428L8.67206 2.56787C9.00854 2.42345 9.36978 2.35844 9.77069 2.32568C10.2209 2.28891 10.778 2.28955 11.467 2.28955H14.3C14.9891 2.28955 15.546 2.2889 15.9963 2.32568C16.4541 2.3631 16.8599 2.44247 17.2365 2.63428L17.4553 2.75635C17.951 3.06044 18.3548 3.49703 18.6203 4.01807L18.6867 4.16065C18.8309 4.49694 18.8962 4.85765 18.9289 5.2583C18.9657 5.70854 18.965 6.2655 18.965 6.95459V9.7876Z" fill="currentColor" />
+</svg>`.trim()
+const CODE_COPIED_ICON_HTML = `
+<svg class="message-code-copy-icon message-code-copy-icon--check" width="1em" height="1em" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <path d="M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z" fill="currentColor" />
+</svg>`.trim()
+
+function renderMessageBlockAsHtml(block: MessageBlock): string {
+  if (block.kind === 'paragraph') {
+    return `<p class="message-text">${renderInlineSegmentsAsHtml(block.value)}</p>`
+  }
+  if (block.kind === 'heading') {
+    const level = Math.min(6, Math.max(1, Math.trunc(block.level)))
+    const tag = headingTag(level)
+    const classes = `message-heading ${headingClass(level)}`
+    return `<${tag} class="${classes}">${renderInlineSegmentsAsHtml(block.value)}</${tag}>`
+  }
+  if (block.kind === 'blockquote') {
+    return `<blockquote class="message-blockquote">${renderInlineSegmentsAsHtml(block.value)}</blockquote>`
+  }
+  if (block.kind === 'unorderedList') {
+    const items = block.items
+      .map((item) => `<li class="message-list-item"><div class="message-list-item-content">${renderListItemContentAsHtml(item)}</div></li>`)
+      .join('')
+    return `<ul class="message-list message-list-unordered">${items}</ul>`
+  }
+  if (block.kind === 'taskList') {
+    const items = block.items
+      .map((item) => (
+        `<li class="message-task-item">` +
+        `<span class="message-task-checkbox" data-checked="${item.checked ? 'true' : 'false'}">${item.checked ? '☑' : '☐'}</span>` +
+        `<div class="message-list-item-text">${renderInlineSegmentsAsHtml(item.text)}</div>` +
+        `</li>`
+      ))
+      .join('')
+    return `<ul class="message-list message-task-list">${items}</ul>`
+  }
+  if (block.kind === 'orderedList') {
+    const items = block.items
+      .map((item) => `<li class="message-list-item"><div class="message-list-item-content">${renderListItemContentAsHtml(item)}</div></li>`)
+      .join('')
+    return `<ol class="message-list message-list-ordered" start="${block.start}">${items}</ol>`
+  }
+  if (block.kind === 'table') {
+    const headerCells = block.headers
+      .map((cell, index) => `<th class="message-table-head-cell"${tableCellAlignmentStyle(block.alignments[index] ?? null)}>${renderInlineSegmentsAsHtml(cell)}</th>`)
+      .join('')
+    const rows = block.rows
+      .map((row) => (
+        `<tr class="message-table-body-row">` +
+        row.map((cell, index) => `<td class="message-table-cell"${tableCellAlignmentStyle(block.alignments[index] ?? null)}>${renderInlineSegmentsAsHtml(cell)}</td>`).join('') +
+        `</tr>`
+      ))
+      .join('')
+    const body = rows ? `<tbody>${rows}</tbody>` : ''
+    return `<div class="message-table-wrap"><table class="message-table"><thead><tr>${headerCells}</tr></thead>${body}</table></div>`
+  }
+  if (block.kind === 'codeBlock') {
+    const language = `<span class="message-code-language">${escapeHtml(formatCodeLanguageLabel(block.language))}</span>`
+    const copyButton = (
+      '<button class="message-code-copy" type="button" data-code-copy="true" aria-label="Copy code" title="Copy code">' +
+      CODE_COPY_ICON_HTML +
+      CODE_COPIED_ICON_HTML +
+      '</button>'
+    )
+    return `<div class="message-code-block"><div class="message-code-toolbar">${language}${copyButton}</div><pre class="message-code-pre"><code class="hljs">${renderCachedHighlightedCodeAsHtml(block.language, block.value)}</code></pre></div>`
+  }
+  if (block.kind === 'thematicBreak') {
+    return '<hr class="message-divider">'
+  }
+  return `<img class="message-image-preview message-markdown-image" src="${escapeHtml(block.url)}" alt="${escapeHtml(block.alt || 'Embedded message image')}" loading="lazy">`
+}
+
+function renderMarkdownBlocksAsHtml(text: string): string {
+  const cacheKey = `${props.cwd}\u0000${highlightCacheVersion.value}\u0000${text}`
+  const cached = markdownHtmlCache.get(cacheKey)
+  if (cached && cached.text === text && cached.cwd === props.cwd && cached.highlightVersion === highlightCacheVersion.value) {
+    markdownHtmlCache.delete(cacheKey)
+    markdownHtmlCache.set(cacheKey, cached)
+    return cached.html
+  }
+  const html = parseMessageBlocks(text)
+    .map((block) => renderMessageBlockAsHtml(block))
+    .join('')
+  return setBoundedCacheEntry(
+    markdownHtmlCache,
+    cacheKey,
+    {
+      text,
+      cwd: props.cwd,
+      highlightVersion: highlightCacheVersion.value,
+      html,
+    },
+    MARKDOWN_HTML_CACHE_LIMIT,
+  ).html
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function formatIsoTime(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleTimeString()
+}
+
+function readRequestReason(request: UiServerRequest): string {
+  const params = asRecord(request.params)
+  const reason = typeof params?.reason === 'string' ? params.reason.trim() : ''
+  if (reason) return reason
+  const message = typeof params?.message === 'string' ? params.message.trim() : ''
+  if (message) return message
+  return typeof params?.prompt === 'string' ? params.prompt.trim() : ''
+}
+
+function requestDisplayTitle(request: UiServerRequest): string {
+  if (request.method === 'item/commandExecution/requestApproval') return 'Command approval required'
+  if (request.method === 'item/fileChange/requestApproval') return 'File change approval required'
+  if (request.method === 'item/permissions/requestApproval') return 'Permissions approval required'
+  if (request.method === 'mcpServer/elicitation/request') return 'MCP server input required'
+  if (request.method === 'item/tool/requestUserInput') return 'Input required'
+  if (request.method === 'item/tool/call') return 'Tool call waiting for response'
+  return request.method
+}
+
+function readMcpElicitationServerName(request: UiServerRequest): string {
+  const params = asRecord(request.params)
+  return typeof params?.serverName === 'string' ? params.serverName.trim() : ''
+}
+
+function readMcpElicitationUrl(request: UiServerRequest): string {
+  const params = asRecord(request.params)
+  return typeof params?.url === 'string' ? params.url.trim() : ''
+}
+
+function mcpElicitationAnswerKey(requestId: number, fieldKey: string): string {
+  return `${String(requestId)}:${fieldKey}`
+}
+
+function readMcpElicitationFields(request: UiServerRequest): McpElicitationField[] {
+  const params = asRecord(request.params)
+  const requestedSchema = asRecord(params?.requestedSchema)
+  const properties = asRecord(requestedSchema?.properties)
+  if (!properties) return []
+
+  const required = new Set(
+    Array.isArray(requestedSchema?.required)
+      ? requestedSchema.required.filter((entry): entry is string => typeof entry === 'string')
+      : [],
+  )
+
+  return Object.entries(properties)
+    .map(([key, value]) => parseMcpElicitationField(key, asRecord(value), required.has(key)))
+    .filter((field): field is McpElicitationField => field !== null)
+}
+
+function parseMcpElicitationField(
+  key: string,
+  schema: Record<string, unknown> | null,
+  required: boolean,
+): McpElicitationField | null {
+  if (!schema) return null
+
+  const label = typeof schema.title === 'string' && schema.title.trim().length > 0 ? schema.title.trim() : key
+  const description = typeof schema.description === 'string' ? schema.description.trim() : ''
+  const type = typeof schema.type === 'string' ? schema.type.trim() : ''
+
+  if (type === 'boolean') {
+    return { key, label, description, required, kind: 'boolean', inputType: 'checkbox', options: [], defaultValue: schema.default === true }
+  }
+
+  if (type === 'number' || type === 'integer') {
+    return {
+      key,
+      label,
+      description,
+      required,
+      kind: 'number',
+      inputType: 'number',
+      options: [],
+      defaultValue: typeof schema.default === 'number' ? schema.default : '',
+    }
+  }
+
+  const options = readMcpElicitationOptions(schema)
+  if (type === 'array') {
+    return {
+      key,
+      label,
+      description,
+      required,
+      kind: 'multiEnum',
+      inputType: 'checkbox',
+      options,
+      defaultValue: Array.isArray(schema.default)
+        ? schema.default.filter((entry): entry is string => typeof entry === 'string')
+        : [],
+    }
+  }
+
+  if (options.length > 0) {
+    return {
+      key,
+      label,
+      description,
+      required,
+      kind: 'singleEnum',
+      inputType: 'select',
+      options,
+      defaultValue: (typeof schema.default === 'string' ? schema.default : '') || options[0]?.value || '',
+    }
+  }
+
+  return {
+    key,
+    label,
+    description,
+    required,
+    kind: 'string',
+    inputType: readMcpElicitationInputType(schema),
+    options: [],
+    defaultValue: typeof schema.default === 'string' ? schema.default : '',
+  }
+}
+
+function readMcpElicitationOptions(schema: Record<string, unknown>): McpElicitationFieldOption[] {
+  const titledSource = Array.isArray(schema.oneOf) ? schema.oneOf : Array.isArray(schema.anyOf) ? schema.anyOf : []
+  const titledOptions = titledSource
+    .map((option) => asRecord(option))
+    .map((option) => ({
+      value: typeof option?.const === 'string' ? option.const : '',
+      label: typeof option?.title === 'string' && option.title.trim().length > 0 ? option.title : (typeof option?.const === 'string' ? option.const : ''),
+    }))
+    .filter((option) => option.value.length > 0)
+  if (titledOptions.length > 0) return titledOptions
+
+  const items = asRecord(schema.items)
+  if (items) {
+    const nestedOptions = readMcpElicitationOptions(items)
+    if (nestedOptions.length > 0) return nestedOptions
+  }
+
+  const values = Array.isArray(schema.enum) ? schema.enum.filter((entry): entry is string => typeof entry === 'string') : []
+  const names = Array.isArray(schema.enumNames) ? schema.enumNames.filter((entry): entry is string => typeof entry === 'string') : []
+  return values.map((value, index) => ({ value, label: names[index] || value }))
+}
+
+function readMcpElicitationInputType(schema: Record<string, unknown>): string {
+  const format = typeof schema.format === 'string' ? schema.format.trim() : ''
+  if (format === 'email') return 'email'
+  if (format === 'uri') return 'url'
+  if (format === 'date') return 'date'
+  if (format === 'date-time') return 'datetime-local'
+  return 'text'
+}
+
+function readMcpElicitationFieldValue(requestId: number, field: McpElicitationField): string | number | boolean | string[] {
+  const saved = mcpElicitationAnswers.value[mcpElicitationAnswerKey(requestId, field.key)]
+  return saved === undefined ? field.defaultValue : saved
+}
+
+function readMcpElicitationMultiValue(requestId: number, field: McpElicitationField): string[] {
+  const value = readMcpElicitationFieldValue(requestId, field)
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : []
+}
+
+function toolQuestionKey(requestId: number, questionId: string): string {
+  return `${String(requestId)}:${questionId}`
+}
+
+function readToolQuestions(request: UiServerRequest): ParsedToolQuestion[] {
+  const params = asRecord(request.params)
+  const questions = Array.isArray(params?.questions) ? params.questions : []
+  const parsed: ParsedToolQuestion[] = []
+
+  for (const row of questions) {
+    const question = asRecord(row)
+    if (!question) continue
+    const id = typeof question.id === 'string' ? question.id : ''
+    if (!id) continue
+
+    const options = Array.isArray(question.options)
+      ? question.options
+        .map((option) => asRecord(option))
+        .map((option) => ({
+          label: typeof option?.label === 'string' ? option.label : '',
+          description: typeof option?.description === 'string' ? option.description : '',
+        }))
+        .filter((option) => option.label.length > 0)
+      : []
+
+    parsed.push({
+      id,
+      header: typeof question.header === 'string' ? question.header : '',
+      question: typeof question.question === 'string' ? question.question : '',
+      isSecret: question.isSecret === true,
+      isOther: question.isOther === true,
+      options,
+    })
+  }
+
+  return parsed
+}
+
+function readQuestionAnswer(requestId: number, questionId: string, fallback: string): string {
+  const key = toolQuestionKey(requestId, questionId)
+  const saved = toolQuestionAnswers.value[key]
+  if (typeof saved === 'string' && saved.length > 0) return saved
+  return fallback
+}
+
+function onQuestionAnswerInput(requestId: number, questionId: string, event: Event): void {
+  const target = event.target
+  if (!(target instanceof HTMLInputElement)) return
+  const key = toolQuestionKey(requestId, questionId)
+  toolQuestionAnswers.value = {
+    ...toolQuestionAnswers.value,
+    [key]: target.value,
+  }
+}
+
+function readQuestionOptionDescription(requestId: number, question: ParsedToolQuestion): string {
+  const selected = readQuestionAnswer(requestId, question.id, question.options[0]?.label || '')
+  const match = question.options.find((option) => option.label === selected)
+  return match?.description ?? ''
+}
+
+function readQuestionOtherAnswer(requestId: number, questionId: string): string {
+  const key = toolQuestionKey(requestId, questionId)
+  return toolQuestionOtherAnswers.value[key] ?? ''
+}
+
+function onQuestionAnswerChange(requestId: number, questionId: string, event: Event): void {
+  const target = event.target
+  if (!(target instanceof HTMLSelectElement)) return
+  const key = toolQuestionKey(requestId, questionId)
+  toolQuestionAnswers.value = {
+    ...toolQuestionAnswers.value,
+    [key]: target.value,
+  }
+}
+
+function onQuestionOtherAnswerInput(requestId: number, questionId: string, event: Event): void {
+  const target = event.target
+  if (!(target instanceof HTMLInputElement)) return
+  const key = toolQuestionKey(requestId, questionId)
+  toolQuestionOtherAnswers.value = {
+    ...toolQuestionOtherAnswers.value,
+    [key]: target.value,
+  }
+}
+
+function onMcpElicitationFieldInput(requestId: number, field: McpElicitationField, event: Event): void {
+  const target = event.target
+  if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) return
+  mcpElicitationAnswers.value = {
+    ...mcpElicitationAnswers.value,
+    [mcpElicitationAnswerKey(requestId, field.key)]: target.value,
+  }
+}
+
+function onMcpElicitationBooleanToggle(requestId: number, field: McpElicitationField, event: Event): void {
+  const target = event.target
+  if (!(target instanceof HTMLInputElement)) return
+  mcpElicitationAnswers.value = {
+    ...mcpElicitationAnswers.value,
+    [mcpElicitationAnswerKey(requestId, field.key)]: target.checked,
+  }
+}
+
+function onMcpElicitationMultiToggle(
+  requestId: number,
+  field: McpElicitationField,
+  optionValue: string,
+  event: Event,
+): void {
+  const target = event.target
+  if (!(target instanceof HTMLInputElement)) return
+  const next = new Set(readMcpElicitationMultiValue(requestId, field))
+  if (target.checked) next.add(optionValue)
+  else next.delete(optionValue)
+  mcpElicitationAnswers.value = {
+    ...mcpElicitationAnswers.value,
+    [mcpElicitationAnswerKey(requestId, field.key)]: Array.from(next),
+  }
+}
+
+function onRespondApproval(requestId: number, decision: 'accept' | 'acceptForSession' | 'decline' | 'cancel'): void {
+  emit('respondServerRequest', {
+    id: requestId,
+    result: { decision },
+  })
+}
+
+function onRespondPermissionsApproval(request: UiServerRequest, scope: 'turn' | 'session'): void {
+  const params = asRecord(request.params)
+  const permissions = asRecord(params?.permissions) ?? {}
+  emit('respondServerRequest', {
+    id: request.id,
+    result: {
+      permissions,
+      scope,
+    },
+  })
+}
+
+function buildMcpElicitationContent(request: UiServerRequest): Record<string, unknown> {
+  const content: Record<string, unknown> = {}
+  for (const field of readMcpElicitationFields(request)) {
+    const value = readMcpElicitationFieldValue(request.id, field)
+    if (field.kind === 'multiEnum') {
+      const arrayValue = Array.isArray(value) ? value : []
+      if (arrayValue.length > 0 || field.required) content[field.key] = arrayValue
+      continue
+    }
+    if (field.kind === 'boolean') {
+      content[field.key] = Boolean(value)
+      continue
+    }
+    if (field.kind === 'number') {
+      const numberValue = typeof value === 'number' ? value : Number(String(value).trim())
+      if (!Number.isNaN(numberValue)) content[field.key] = numberValue
+      continue
+    }
+    const textValue = String(value ?? '').trim()
+    if (textValue.length > 0 || field.required) content[field.key] = textValue
+  }
+  return content
+}
+
+function onRespondMcpElicitation(request: UiServerRequest, action: 'accept' | 'decline' | 'cancel'): void {
+  const params = asRecord(request.params)
+  const result: Record<string, unknown> = { action }
+  if (action === 'accept' && typeof params?.mode === 'string' && params.mode === 'form') {
+    result.content = buildMcpElicitationContent(request)
+  }
+  emit('respondServerRequest', {
+    id: request.id,
+    result,
+  })
+}
+
+function onRespondToolRequestUserInput(request: UiServerRequest): void {
+  const questions = readToolQuestions(request)
+  const answers: Record<string, { answers: string[] }> = {}
+
+  for (const question of questions) {
+    const selected = readQuestionAnswer(request.id, question.id, question.options[0]?.label || '')
+    const other = readQuestionOtherAnswer(request.id, question.id).trim()
+    const values = [selected, other].map((value) => value.trim()).filter((value) => value.length > 0)
+    answers[question.id] = { answers: values }
+  }
+
+  emit('respondServerRequest', {
+    id: request.id,
+    result: { answers },
+  })
+}
+
+function onRespondToolCallFailure(requestId: number): void {
+  emit('respondServerRequest', {
+    id: requestId,
+    result: {
+      success: false,
+      contentItems: [
+        {
+          type: 'inputText',
+          text: 'Tool call rejected from codex-web-local UI.',
+        },
+      ],
+    },
+  })
+}
+
+function onRespondToolCallSuccess(requestId: number): void {
+  emit('respondServerRequest', {
+    id: requestId,
+    result: {
+      success: true,
+      contentItems: [],
+    },
+  })
+}
+
+function onRespondEmptyResult(requestId: number): void {
+  emit('respondServerRequest', {
+    id: requestId,
+    result: {},
+  })
+}
+
+function onRejectUnknownRequest(requestId: number): void {
+  emit('respondServerRequest', {
+    id: requestId,
+    error: {
+      code: -32000,
+      message: 'Rejected from codex-web-local UI.',
+    },
+  })
+}
+
+function scrollToBottom(): void {
+  const container = conversationListRef.value
+  const anchor = bottomAnchorRef.value
+  if (!container || !anchor) return
+  container.scrollTop = container.scrollHeight
+  anchor.scrollIntoView({ block: 'end' })
+}
+
+function isAtBottom(container: HTMLElement): boolean {
+  const distance = container.scrollHeight - (container.scrollTop + container.clientHeight)
+  return distance <= BOTTOM_THRESHOLD_PX
+}
+
+function applyConversationScrollState(): void {
+  const container = conversationListRef.value
+  if (!container) return
+
+  if (autoFollowOutput.value) {
+    enforceBottomState()
+    return
+  }
+}
+
+function enforceBottomState(): void {
+  const container = conversationListRef.value
+  if (!container) return
+  scrollToBottom()
+}
+
+function shouldLockToBottom(): boolean {
+  return autoFollowOutput.value
+}
+
+function runBottomLockFrame(): void {
+  if (!shouldLockToBottom()) {
+    bottomLockFramesLeft = 0
+    bottomLockFrame = 0
+    return
+  }
+
+  enforceBottomState()
+  bottomLockFramesLeft -= 1
+  if (bottomLockFramesLeft <= 0) {
+    bottomLockFrame = 0
+    return
+  }
+  bottomLockFrame = requestAnimationFrame(runBottomLockFrame)
+}
+
+function scheduleBottomLock(frames = 6): void {
+  if (!shouldLockToBottom()) return
+  if (bottomLockFrame) {
+    cancelAnimationFrame(bottomLockFrame)
+    bottomLockFrame = 0
+  }
+  bottomLockFramesLeft = Math.max(frames, 1)
+  bottomLockFrame = requestAnimationFrame(runBottomLockFrame)
+}
+
+function onPendingImageSettled(): void {
+  scheduleBottomLock(3)
+}
+
+function jumpToLatest(): void {
+  autoFollowOutput.value = true
+  enforceBottomState()
+  scheduleBottomLock(4)
+}
+
+async function loadMoreAbove(): Promise<void> {
+  const container = conversationListRef.value
+  if (!container || !hasMoreAbove.value || isLoadingMore.value || props.isLoadingPersistedAbove === true) return
+
+  isLoadingMore.value = true
+  const threadIdAtStart = props.activeThreadId
+
+  const prevScrollHeight = container.scrollHeight
+  const prevScrollTop = container.scrollTop
+
+  try {
+    if (renderWindowStart.value > 0) {
+      renderWindowStart.value = Math.max(0, renderWindowStart.value - LOAD_MORE_CHUNK)
+    } else if (props.hasMorePersistedAbove === true) {
+      await props.loadEarlierMessages?.(threadIdAtStart)
+    }
+
+    await nextTick()
+
+    // Discard scroll restoration if the thread changed while we were awaiting.
+    if (props.activeThreadId === threadIdAtStart) {
+      container.scrollTop = prevScrollTop + (container.scrollHeight - prevScrollHeight)
+    }
+  } finally {
+    isLoadingMore.value = false
+  }
+}
+
+defineExpose({
+  jumpToLatest,
+})
+
+function bindPendingImageHandlers(): void {
+  if (!shouldLockToBottom()) return
+  const container = conversationListRef.value
+  if (!container) return
+
+  const images = container.querySelectorAll<HTMLImageElement>('img.message-image-preview')
+  for (const image of images) {
+    if (image.complete || trackedPendingImages.has(image)) continue
+    trackedPendingImages.add(image)
+    image.addEventListener('load', onPendingImageSettled, { once: true })
+    image.addEventListener('error', onPendingImageSettled, { once: true })
+  }
+}
+
+async function scheduleConversationScroll(): Promise<void> {
+  if (conversationScrollPromise) return conversationScrollPromise
+
+  conversationScrollPromise = nextTick().then(() => new Promise<void>((resolve) => {
+    if (conversationScrollFrame) {
+      cancelAnimationFrame(conversationScrollFrame)
+    }
+    conversationScrollFrame = requestAnimationFrame(() => {
+      conversationScrollFrame = 0
+      conversationScrollPromise = null
+      applyConversationScrollState()
+      bindPendingImageHandlers()
+      scheduleBottomLock()
+      resolve()
+    })
+  }))
+
+  return conversationScrollPromise
+}
+
+function clearRenderCaches(): void {
+  messageBlockCache.clear()
+  inlineSegmentCache.clear()
+  markdownHtmlCache.clear()
+  highlightHtmlCache.clear()
+}
+
+watch(
+  () => props.messages,
+  async (next) => {
+    if (props.isLoading) return
+
+    const commandIds = new Set(
+      next
+        .filter((message) => message.messageType === 'commandExecution' && message.commandExecution)
+        .map((message) => message.id),
+    )
+    expandedCommandIds.value = pruneCommandIdSet(expandedCommandIds.value, commandIds)
+    collapsedAutoCommandIds.value = pruneCommandIdSet(collapsedAutoCommandIds.value, commandIds)
+    expandedCommandGroupIds.value = pruneCommandIdSet(
+      expandedCommandGroupIds.value,
+      new Set(Object.keys(groupedCommandsByLatestId.value)),
+    )
+    expandedFileChangeSummaryIds.value = pruneCommandIdSet(
+      expandedFileChangeSummaryIds.value,
+      new Set([
+        ...Object.keys(anchoredFileChangeSummaryByAnchorId.value),
+        ...Object.keys(standaloneFileChangeSummaryByMessageId.value),
+      ]),
+    )
+
+    // Keep renderWindowStart in bounds whenever the message list changes length.
+    // Following output: always pin the window to the last RENDER_WINDOW_SIZE messages so
+    //   the rendered count stays bounded (handles both growth and shrink/rollback).
+    // Scrolled up: only clamp downward so renderWindowStart never exceeds the list length
+    //   (prevents visibleMessages from becoming empty after a rollback).
+    if (autoFollowOutput.value) {
+      renderWindowStart.value = Math.max(0, next.length - RENDER_WINDOW_SIZE)
+    } else {
+      renderWindowStart.value = Math.min(renderWindowStart.value, Math.max(0, next.length - 1))
+    }
+
+    await scheduleConversationScroll()
+  },
+)
+
+watch(
+  () => props.messages.some((message) => message.text.includes('```')),
+  (hasCodeBlocks) => {
+    if (!hasCodeBlocks || highlightJsModule.value) return
+    void ensureHighlightJsLoaded()
+  },
+  { immediate: true },
+)
+
+watch(
+  activeCommandMessageId,
+  (nextId, prevId) => {
+    if (!prevId || prevId === nextId) return
+    if (!collapsedAutoCommandIds.value.has(prevId)) return
+    const nextCollapsedAuto = new Set(collapsedAutoCommandIds.value)
+    nextCollapsedAuto.delete(prevId)
+    collapsedAutoCommandIds.value = nextCollapsedAuto
+  },
+)
+
+watch(
+  () => props.pendingRequests,
+  async () => {
+    if (props.isLoading) return
+    await scheduleConversationScroll()
+  },
+  { deep: true },
+)
+
+watch(
+  () => props.liveOverlay,
+  async (overlay) => {
+    if (!overlay) return
+    if (!autoFollowOutput.value) return
+    await nextTick()
+    enforceBottomState()
+    scheduleBottomLock(8)
+  },
+  { deep: true },
+)
+
+watch(
+  () => props.isLoading,
+  async (loading) => {
+    if (loading) return
+    renderWindowStart.value = Math.max(0, props.messages.length - RENDER_WINDOW_SIZE)
+    await scheduleConversationScroll()
+  },
+)
+
+watch(
+  () => props.activeThreadId,
+  async () => {
+    autoFollowOutput.value = true
+    modalImageUrl.value = ''
+    isLoadingMore.value = false
+    // Apply immediately for cached threads where isLoading never toggles.
+    renderWindowStart.value = Math.max(0, props.messages.length - RENDER_WINDOW_SIZE)
+    await scheduleConversationScroll()
+  },
+  { flush: 'post' },
+)
+
+function onConversationScroll(): void {
+  const container = conversationListRef.value
+  if (!container || props.isLoading) return
+  autoFollowOutput.value = isAtBottom(container)
+  if (hasMoreAbove.value && !isLoadingMore.value && container.scrollTop < LOAD_MORE_SCROLL_THRESHOLD_PX) {
+    void loadMoreAbove()
+  }
+}
+
+const failedMarkdownImages = ref(new Set<string>())
+
+function markdownImageKey(messageId: string, blockIndex: number): string {
+  return `${messageId}:${blockIndex}`
+}
+
+function isMarkdownImageFailed(messageId: string, blockIndex: number): boolean {
+  return failedMarkdownImages.value.has(markdownImageKey(messageId, blockIndex))
+}
+
+function onMarkdownImageError(messageId: string, blockIndex: number): void {
+  const next = new Set(failedMarkdownImages.value)
+  next.add(markdownImageKey(messageId, blockIndex))
+  failedMarkdownImages.value = next
+  markdownImageFailureVersion.value += 1
+}
+
+function openImageModal(imageUrl: string): void {
+  modalImageUrl.value = imageUrl
+}
+
+function closeImageModal(): void {
+  modalImageUrl.value = ''
+}
+
+onMounted(() => {
+  window.addEventListener('pointerdown', onWindowPointerDownForFileLinkContextMenu)
+  window.addEventListener('blur', onWindowBlurForFileLinkContextMenu)
+  window.addEventListener('keydown', onWindowKeydownForFileLinkContextMenu)
+})
+
+onBeforeUnmount(() => {
+  clearRenderCaches()
+  if (conversationScrollFrame) {
+    cancelAnimationFrame(conversationScrollFrame)
+    conversationScrollFrame = 0
+  }
+  if (bottomLockFrame) {
+    cancelAnimationFrame(bottomLockFrame)
+    bottomLockFrame = 0
+  }
+  if (copiedMessageResetTimer) {
+    clearTimeout(copiedMessageResetTimer)
+    copiedMessageResetTimer = null
+  }
+  if (copiedCodeBlockResetTimer) {
+    clearTimeout(copiedCodeBlockResetTimer)
+    copiedCodeBlockResetTimer = null
+  }
+  copiedCodeBlockButton = null
+  window.removeEventListener('pointerdown', onWindowPointerDownForFileLinkContextMenu)
+  window.removeEventListener('blur', onWindowBlurForFileLinkContextMenu)
+  window.removeEventListener('keydown', onWindowKeydownForFileLinkContextMenu)
+})
+</script>
+
+<style scoped>
+@reference "tailwindcss";
+
+.conversation-root {
+  @apply relative h-full min-h-0 min-w-0 p-0 flex flex-col overflow-y-hidden overflow-x-hidden bg-transparent border-none rounded-none;
+}
+
+.conversation-loading {
+  @apply m-0 px-6 text-sm text-slate-500;
+}
+
+.conversation-empty {
+  @apply m-0 px-6 text-sm text-slate-500;
+}
+
+.conversation-list {
+  @apply h-full min-h-0 list-none m-0 px-2 sm:px-6 py-0 overflow-y-auto overflow-x-visible flex flex-col gap-2 sm:gap-3;
+}
+
+.conversation-load-more {
+  @apply flex justify-center py-3 m-0;
+}
+
+.load-more-button {
+  @apply px-4 py-1.5 text-xs rounded-full border border-slate-300 dark:border-slate-600
+         text-slate-500 dark:text-slate-400 bg-transparent
+         hover:bg-slate-100 dark:hover:bg-slate-800
+         disabled:opacity-40 disabled:cursor-not-allowed
+         transition-colors cursor-pointer;
+}
+
+.conversation-item {
+  @apply m-0 w-full min-w-0 flex;
+}
+
+.conversation-item-request {
+  @apply justify-center;
+}
+
+.conversation-item-overlay {
+  @apply justify-center;
+}
+
+.message-row {
+  @apply relative w-full min-w-0 max-w-[min(var(--chat-column-max,45rem),100%)] mx-auto flex;
+}
+
+.message-row[data-role='user'] {
+  @apply justify-end;
+}
+
+.message-row[data-role='assistant'],
+.message-row[data-role='system'] {
+  @apply justify-start;
+}
+
+.conversation-bottom-anchor {
+  @apply h-px;
+}
+
+.jump-to-latest-button {
+  @apply absolute left-1/2 bottom-4 z-20 inline-flex h-[32.4px] w-[32.4px] -translate-x-1/2 items-center justify-center rounded-full border border-slate-300 bg-white/96 text-slate-700 shadow-sm shadow-slate-900/10 transition hover:-translate-x-1/2 hover:-translate-y-px hover:bg-white hover:text-slate-900;
+}
+
+.jump-to-latest-icon {
+  @apply h-[14.4px] w-[14.4px];
+  transform: rotate(180deg);
+}
+
+.message-stack {
+  @apply flex flex-col w-full min-w-0;
+}
+
+.request-card {
+  @apply w-full max-w-[min(var(--chat-column-max,45rem),100%)] rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex flex-col gap-2;
+}
+
+.request-title {
+  @apply m-0 text-sm leading-5 font-semibold text-amber-900;
+}
+
+.request-meta {
+  @apply m-0 text-xs leading-4 text-amber-700;
+}
+
+.request-reason {
+  @apply m-0 text-sm leading-5 text-amber-900 whitespace-pre-wrap break-words;
+  overflow-wrap: anywhere;
+}
+
+.request-actions {
+  @apply flex flex-wrap gap-2;
+}
+
+.request-button {
+  @apply rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs text-amber-900 hover:bg-amber-100 transition;
+}
+
+.request-button-primary {
+  @apply border-amber-500 bg-amber-500 text-white hover:bg-amber-600;
+}
+
+.request-user-input {
+  @apply flex flex-col gap-3;
+}
+
+.request-question {
+  @apply flex flex-col gap-1;
+}
+
+.request-question-title {
+  @apply m-0 text-sm leading-5 font-medium text-amber-900;
+}
+
+.request-question-text {
+  @apply m-0 text-xs leading-4 text-amber-800;
+}
+
+.request-question-option-description {
+  @apply m-0 text-xs leading-4 text-amber-700;
+}
+
+.request-link {
+  @apply inline-flex w-fit rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs text-amber-900 hover:bg-amber-100 transition;
+}
+
+.request-select {
+  @apply h-8 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-900;
+}
+
+.request-input {
+  @apply h-8 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-900 placeholder:text-amber-500;
+}
+
+.request-checkbox-list {
+  @apply flex flex-col gap-1.5;
+}
+
+.request-checkbox-row {
+  @apply flex items-center gap-2 text-sm text-amber-900;
+}
+
+.live-overlay-inline {
+  @apply w-full max-w-[min(var(--chat-column-max,45rem),100%)] px-0 py-1 flex flex-col gap-1;
+}
+
+.live-overlay-label {
+  @apply m-0 text-sm leading-5 font-medium text-zinc-600;
+}
+
+.live-overlay-reasoning {
+  @apply m-0 text-sm leading-5 text-zinc-500 whitespace-pre-wrap break-words;
+  display: block;
+  max-height: calc(1.25rem * 5);
+  overflow: auto;
+  overflow-wrap: anywhere;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to top, black 75%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, black 75%, transparent 100%);
+}
+
+.live-overlay-reasoning::-webkit-scrollbar {
+  display: none;
+}
+
+.live-overlay-error {
+  @apply m-0 flex items-start justify-between gap-3 text-sm leading-5 text-rose-600 whitespace-pre-wrap;
+}
+
+.message-body {
+  @apply flex flex-col min-w-0 max-w-full;
+  width: fit-content;
+}
+
+.message-body[data-role='assistant'],
+.message-body[data-role='system'] {
+  width: 100%;
+}
+
+.message-body[data-role='user'] {
+  @apply ml-auto items-end;
+  align-self: flex-end;
+}
+
+.message-toolbar {
+  @apply mt-1.5 self-start inline-flex items-center gap-0.5 opacity-0 transition-opacity duration-150;
+}
+
+.message-toolbar[data-role='user'] {
+  @apply self-end;
+}
+
+.message-row:hover .message-toolbar,
+.message-toolbar:focus-within {
+  @apply opacity-100;
+}
+
+@media (hover: none) {
+  .message-toolbar {
+    @apply opacity-100;
+  }
+}
+
+.message-copy-button,
+.message-fork-button {
+  @apply inline-flex h-6 w-6 items-center justify-center rounded-md border border-transparent p-0 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300;
+}
+
+.message-toolbar-time {
+  @apply px-1 text-xs leading-6 tabular-nums text-zinc-500;
+}
+
+.message-copy-button[data-copied='true'] {
+  @apply bg-emerald-50 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-700;
+}
+
+.message-edit-button {
+  @apply inline-flex h-6 w-6 items-center justify-center rounded-md border border-transparent p-0 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300;
+}
+
+.message-fork-icon,
+.message-copy-icon {
+  @apply h-4 w-4;
+}
+
+.message-edit-icon {
+  @apply h-4 w-4;
+}
+
+.message-image-list {
+  @apply list-none m-0 mb-2 p-0 flex flex-wrap gap-2;
+}
+
+.message-image-list[data-role='user'] {
+  @apply ml-auto justify-end;
+}
+
+.message-generated-image-list {
+  @apply gap-3;
+}
+
+.message-image-item {
+  @apply m-0;
+}
+
+.message-image-button {
+  @apply block rounded-xl overflow-hidden border border-slate-300 bg-white p-0 transition hover:border-slate-400;
+}
+
+.message-image-preview {
+  @apply block w-16 h-16 object-cover;
+}
+
+.message-generated-image-preview {
+  @apply w-auto h-auto max-w-[min(560px,85vw)] max-h-[min(460px,62vh)] object-contain bg-white;
+}
+
+.message-file-attachments {
+  @apply mb-2 flex flex-wrap gap-1.5;
+}
+
+.message-skill-attachments {
+  @apply mb-2 flex flex-wrap justify-end gap-1.5;
+}
+
+.message-file-chip {
+  @apply inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-700;
+}
+
+.message-skill-chip {
+  @apply inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs no-underline transition;
+  border-color: var(--codex-skill-border);
+  background-color: var(--codex-skill-bg);
+  color: var(--codex-skill-fg);
+}
+
+.message-skill-chip:hover {
+  border-color: var(--codex-skill);
+  background-color: color-mix(in srgb, var(--codex-skill-bg) 78%, var(--codex-skill) 22%);
+  color: var(--codex-skill-fg);
+}
+
+.message-skill-chip-prefix {
+  @apply shrink-0 font-medium;
+  color: var(--codex-skill-fg);
+}
+
+.message-skill-chip-name {
+  @apply min-w-0 max-w-48 truncate font-mono;
+}
+
+.message-file-chip-icon {
+  @apply text-[10px] leading-none;
+}
+
+.message-file-chip-name {
+  @apply truncate max-w-48 font-mono;
+}
+
+.message-card {
+  @apply max-w-[min(var(--chat-card-max,76ch),100%)] px-0 py-0 bg-transparent border-none rounded-none;
+}
+
+.message-text-flow {
+  @apply flex flex-col gap-2;
+}
+
+.plan-card {
+  --plan-card-bg: color-mix(in srgb, var(--codex-text) 5%, transparent);
+  --plan-card-hover-bg: color-mix(in srgb, var(--codex-text) 8%, transparent);
+  @apply relative flex max-w-[min(var(--chat-card-max,76ch),100%)] flex-col;
+  gap: 0;
+  overflow: clip;
+  border: 0;
+  border-radius: var(--codex-radius-lg);
+  background-color: var(--plan-card-bg);
+  color: var(--codex-text);
+}
+
+@supports not (overflow: clip) {
+  .plan-card {
+    overflow: hidden;
+  }
+}
+
+.plan-card-header {
+  @apply relative flex flex-wrap items-center justify-between gap-2 px-3 py-2;
+  min-height: 2.5rem;
+}
+
+.plan-card-title {
+  @apply m-0 min-w-0 flex-1 font-semibold;
+  color: var(--codex-text);
+  font-size: 1rem;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.plan-card-title :deep(.thinking-shimmer) {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.plan-card-header-actions {
+  @apply ml-auto flex shrink-0 items-center gap-1;
+}
+
+.plan-card-icon-button {
+  @apply inline-flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent p-0 transition;
+  color: var(--codex-muted-text);
+}
+
+.plan-card-icon-button:hover {
+  background-color: var(--plan-card-hover-bg);
+  color: var(--codex-text);
+}
+
+.plan-card-icon-button:focus-visible {
+  outline: 2px solid var(--codex-focus-ring);
+  outline-offset: 2px;
+}
+
+.plan-card-action-icon.icon-svg {
+  @apply h-3.5 w-3.5;
+}
+
+.plan-card-collapse-icon {
+  transition: transform 160ms ease;
+}
+
+.plan-card-collapse-icon.is-collapsed {
+  transform: rotate(180deg);
+}
+
+.plan-card-content {
+  @apply relative overflow-hidden px-3 pb-3;
+}
+
+.plan-card-content[data-collapsed='true'] {
+  max-height: 20rem;
+}
+
+.plan-card-collapse-fade {
+  @apply pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-3 pt-16;
+  background: linear-gradient(
+    to top,
+    var(--plan-card-bg) 0%,
+    color-mix(in srgb, var(--plan-card-bg) 92%, transparent) 48%,
+    transparent 100%
+  );
+}
+
+.plan-card-expand-button {
+  @apply pointer-events-auto inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition;
+  border-color: color-mix(in srgb, var(--codex-text) 14%, transparent);
+  background-color: color-mix(in srgb, var(--codex-bg) 88%, var(--codex-text) 12%);
+  color: var(--codex-text);
+}
+
+.plan-card-expand-button:hover {
+  background-color: color-mix(in srgb, var(--codex-bg) 80%, var(--codex-text) 20%);
+}
+
+.plan-card-expand-button:focus-visible {
+  outline: 2px solid var(--codex-focus-ring);
+  outline-offset: 2px;
+}
+
+.plan-card-markdown {
+  @apply flex flex-col gap-2;
+  color: var(--codex-text);
+}
+
+.plan-card-markdown :deep(.message-text),
+.plan-card-markdown :deep(.message-heading),
+.plan-card-markdown :deep(.message-blockquote),
+.plan-card-markdown :deep(.message-list),
+.plan-card-markdown :deep(.message-table-wrap),
+.plan-card-markdown :deep(.message-code-block),
+.plan-card-markdown :deep(.message-divider) {
+  @apply m-0;
+}
+
+.plan-card-markdown :deep(.message-text) {
+  @apply whitespace-pre-wrap;
+  color: var(--codex-text);
+  font-size: var(--codex-chat-font-size);
+  line-height: var(--codex-chat-line-height);
+}
+
+.plan-card-markdown :deep(.message-heading) {
+  color: var(--codex-text);
+  letter-spacing: 0;
+}
+
+.plan-card-markdown :deep(.message-heading-h1) {
+  @apply text-2xl font-semibold leading-tight;
+}
+
+.plan-card-markdown :deep(.message-heading-h2) {
+  @apply text-xl font-semibold leading-tight;
+}
+
+.plan-card-markdown :deep(.message-heading-h3) {
+  @apply text-lg font-semibold leading-snug;
+}
+
+.plan-card-markdown :deep(.message-heading-h4) {
+  @apply text-base font-semibold leading-snug;
+}
+
+.plan-card-markdown :deep(.message-heading-h5) {
+  @apply text-sm font-semibold leading-snug uppercase;
+  letter-spacing: 0;
+}
+
+.plan-card-markdown :deep(.message-heading-h6) {
+  @apply text-xs font-semibold leading-snug uppercase;
+  color: var(--codex-muted-text);
+  letter-spacing: 0;
+}
+
+.plan-card-markdown :deep(.message-blockquote) {
+  @apply pl-4 py-1 whitespace-pre-wrap rounded-r-lg;
+  border-left: 3px solid color-mix(in srgb, var(--codex-text) 20%, transparent);
+  background-color: color-mix(in srgb, var(--codex-text) 4%, transparent);
+  color: var(--codex-muted-text);
+  font-size: var(--codex-chat-font-size);
+  line-height: var(--codex-chat-line-height);
+}
+
+.plan-card-markdown :deep(.message-list) {
+  @apply flex flex-col gap-1.5 pl-5;
+  color: var(--codex-text);
+  font-size: var(--codex-chat-font-size);
+  line-height: var(--codex-chat-line-height);
+}
+
+.plan-card-markdown :deep(.message-list-unordered) {
+  @apply list-disc;
+}
+
+.plan-card-markdown :deep(.message-list-ordered) {
+  @apply list-decimal;
+}
+
+.plan-card-markdown :deep(.message-list-item) {
+  @apply pl-1;
+}
+
+.plan-card-markdown :deep(.message-list-item-text) {
+  @apply whitespace-pre-wrap;
+}
+
+.plan-card-markdown :deep(.message-list-item-paragraph + .message-list-item-paragraph) {
+  @apply mt-2;
+}
+
+.plan-card-markdown :deep(.message-task-list) {
+  @apply list-none pl-0;
+}
+
+.plan-card-markdown :deep(.message-task-item) {
+  @apply flex items-start gap-2;
+}
+
+.plan-card-markdown :deep(.message-task-checkbox) {
+  @apply mt-0.5 select-none text-sm leading-none;
+  color: var(--codex-muted-text);
+}
+
+.plan-card-markdown :deep(.message-code-block) {
+  @apply relative overflow-hidden rounded-lg border shadow-none;
+  background-color: var(--codex-code-block-bg);
+  border-color: var(--codex-code-block-border);
+  color: var(--codex-code-text);
+  box-shadow: none;
+}
+
+.plan-card-markdown :deep(.message-code-toolbar) {
+  @apply pointer-events-none absolute inset-x-0 top-0 z-10 flex h-10 items-center justify-between gap-3 px-3 pt-2;
+}
+
+.plan-card-markdown :deep(.message-code-language) {
+  @apply min-w-0 truncate font-mono text-xs font-medium normal-case text-zinc-500;
+}
+
+.plan-card-markdown :deep(.message-code-copy) {
+  @apply pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent p-0 transition focus:outline-none focus-visible:ring-2;
+  --tw-ring-color: var(--codex-focus-ring);
+  color: var(--codex-muted-text);
+}
+
+.plan-card-markdown :deep(.message-code-copy:hover) {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
+}
+
+.plan-card-markdown :deep(.message-code-copy[data-copied='true']) {
+  @apply bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-700;
+}
+
+.plan-card-markdown :deep(.message-code-copy-icon) {
+  @apply h-4 w-4 shrink-0;
+}
+
+.plan-card-markdown :deep(.message-code-copy-icon--check) {
+  @apply hidden;
+}
+
+.plan-card-markdown :deep(.message-code-copy[data-copied='true'] .message-code-copy-icon--copy) {
+  @apply hidden;
+}
+
+.plan-card-markdown :deep(.message-code-copy[data-copied='true'] .message-code-copy-icon--check) {
+  @apply block;
+}
+
+.plan-card-markdown :deep(.message-code-pre) {
+  @apply m-0 overflow-x-auto px-4 pb-3 pt-10 leading-6;
+  font-size: var(--codex-code-font-size);
+}
+
+.plan-card-markdown :deep(.message-inline-code) {
+  @apply rounded-md px-1.5 py-0.5 font-mono text-[0.9em];
+  background-color: var(--codex-inline-code-bg);
+  color: var(--codex-text);
+  font-size: var(--codex-code-font-size);
+  box-shadow: none;
+}
+
+.plan-card-markdown :deep(.message-file-link) {
+  @apply underline underline-offset-2;
+  color: var(--codex-link);
+  text-decoration-color: var(--codex-accent);
+}
+
+.plan-card-markdown :deep(.message-table) {
+  background-color: var(--codex-surface);
+}
+
+.plan-card-actions {
+  @apply flex justify-end px-3 pb-3;
+}
+
+.plan-card-implement-button {
+  @apply inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition;
+  border-color: color-mix(in srgb, var(--codex-text) 14%, transparent);
+  background-color: color-mix(in srgb, var(--codex-bg) 88%, var(--codex-text) 12%);
+  color: var(--codex-text);
+}
+
+.plan-card-implement-button:hover {
+  border-color: color-mix(in srgb, var(--codex-text) 22%, transparent);
+  background-color: color-mix(in srgb, var(--codex-bg) 80%, var(--codex-text) 20%);
+}
+
+.plan-card-implement-button:focus-visible {
+  outline: 2px solid var(--codex-focus-ring);
+  outline-offset: 2px;
+}
+
+.message-text {
+  @apply m-0 whitespace-pre-wrap break-words text-slate-800;
+  font-size: var(--codex-chat-font-size);
+  line-height: var(--codex-chat-line-height);
+  overflow-wrap: anywhere;
+}
+
+.message-heading {
+  @apply m-0 text-slate-900 tracking-tight;
+}
+
+.message-heading-h1 {
+  @apply text-2xl font-semibold leading-tight;
+}
+
+.message-heading-h2 {
+  @apply text-xl font-semibold leading-tight;
+}
+
+.message-heading-h3 {
+  @apply text-lg font-semibold leading-snug;
+}
+
+.message-heading-h4 {
+  @apply text-base font-semibold leading-snug;
+}
+
+.message-heading-h5 {
+  @apply text-sm font-semibold leading-snug uppercase tracking-[0.02em];
+}
+
+.message-heading-h6 {
+  @apply text-xs font-semibold leading-snug uppercase tracking-[0.04em] text-slate-600;
+}
+
+.message-blockquote {
+  @apply m-0 border-l-4 border-slate-300 pl-4 py-1 whitespace-pre-wrap break-words text-slate-700 bg-slate-50/70 rounded-r-lg;
+  font-size: var(--codex-chat-font-size);
+  line-height: var(--codex-chat-line-height);
+  overflow-wrap: anywhere;
+}
+
+.message-list {
+  @apply m-0 pl-5 text-slate-800 flex flex-col gap-1.5;
+  font-size: var(--codex-chat-font-size);
+  line-height: var(--codex-chat-line-height);
+}
+
+.message-list-unordered {
+  @apply list-disc;
+}
+
+.message-list-ordered {
+  @apply list-decimal;
+}
+
+.message-list-item {
+  @apply pl-1;
+}
+
+.message-list-item-content {
+  @apply flex flex-col gap-1.5;
+}
+
+.message-list-item-text {
+  @apply whitespace-pre-wrap break-words;
+  overflow-wrap: anywhere;
+}
+
+.message-list-item-paragraph + .message-list-item-paragraph {
+  @apply mt-2;
+}
+
+.message-task-list {
+  @apply list-none pl-0;
+}
+
+.message-task-item {
+  @apply flex items-start gap-2;
+}
+
+.message-task-checkbox {
+  @apply mt-0.5 text-sm leading-none text-slate-500 select-none;
+}
+
+.message-table-wrap {
+  @apply w-full overflow-x-auto;
+}
+
+.message-table {
+  @apply min-w-full border-separate border-spacing-0 overflow-hidden rounded-xl border border-slate-200 bg-white text-sm text-slate-800;
+}
+
+.message-table-head-cell,
+.message-table-cell {
+  @apply border-b border-l border-slate-200 px-3 py-2 align-top whitespace-pre-wrap break-words;
+  overflow-wrap: anywhere;
+}
+
+.message-table-head-cell:first-child,
+.message-table-cell:first-child {
+  @apply border-l-0;
+}
+
+.message-table-head-cell {
+  @apply bg-slate-100 font-semibold text-slate-900;
+}
+
+.message-table-body-row:last-child .message-table-cell {
+  @apply border-b-0;
+}
+
+.message-bold-text {
+  @apply font-semibold text-slate-900;
+}
+
+.message-italic-text {
+  @apply italic;
+}
+
+.message-strikethrough-text {
+  @apply line-through text-slate-500;
+}
+
+.message-markdown-image {
+  @apply w-auto h-auto max-w-[min(560px,85vw)] max-h-[min(460px,62vh)] object-contain bg-white;
+}
+
+.message-inline-code {
+  @apply rounded-md px-1.5 py-0.5 leading-[1.4] text-zinc-950 font-mono;
+  background-color: var(--codex-inline-code-bg);
+  font-size: var(--codex-code-font-size);
+  box-shadow: none;
+}
+
+.message-code-block {
+  @apply relative max-w-full overflow-hidden rounded-lg border text-zinc-950 shadow-none;
+  background-color: var(--codex-code-block-bg);
+  border-color: var(--codex-code-block-border);
+  box-shadow: none;
+}
+
+.message-code-toolbar {
+  @apply pointer-events-none absolute inset-x-0 top-0 z-10 flex h-10 items-center justify-between gap-3 px-3 pt-2;
+}
+
+.message-code-language {
+  @apply min-w-0 truncate font-mono text-xs font-medium normal-case text-zinc-500;
+}
+
+.message-code-copy {
+  @apply pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent p-0 transition focus:outline-none focus-visible:ring-2;
+  --tw-ring-color: var(--codex-focus-ring);
+  color: var(--codex-muted-text);
+}
+
+.message-code-copy:hover {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
+}
+
+.message-code-copy[data-copied='true'] {
+  @apply bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-700;
+}
+
+.message-code-copy-icon {
+  @apply h-4 w-4 shrink-0;
+}
+
+.message-code-copy-icon--check {
+  @apply hidden;
+}
+
+.message-code-copy[data-copied='true'] .message-code-copy-icon--copy {
+  @apply hidden;
+}
+
+.message-code-copy[data-copied='true'] .message-code-copy-icon--check {
+  @apply block;
+}
+
+.message-code-pre {
+  @apply m-0 overflow-x-auto px-4 pb-3 pt-10 leading-relaxed whitespace-pre;
+  font-family: var(--codex-code-font-family);
+  font-size: var(--codex-code-font-size);
+}
+
+.message-code-pre :deep(.hljs) {
+  @apply block bg-transparent p-0 text-inherit;
+}
+
+.message-code-pre :deep(.hljs),
+.message-code-pre :deep(.hljs-subst) {
+  color: var(--codex-code-text);
+}
+
+.message-code-pre :deep(.hljs-comment),
+.message-code-pre :deep(.hljs-quote) {
+  color: var(--codex-code-comment);
+}
+
+.message-code-pre :deep(.hljs-keyword),
+.message-code-pre :deep(.hljs-selector-tag),
+.message-code-pre :deep(.hljs-meta .hljs-keyword),
+.message-code-pre :deep(.hljs-doctag),
+.message-code-pre :deep(.hljs-built_in),
+.message-code-pre :deep(.hljs-type) {
+  color: var(--codex-code-keyword);
+}
+
+.message-code-pre :deep(.hljs-string),
+.message-code-pre :deep(.hljs-attr),
+.message-code-pre :deep(.hljs-symbol),
+.message-code-pre :deep(.hljs-bullet) {
+  color: var(--codex-code-string);
+}
+
+.message-code-pre :deep(.hljs-title),
+.message-code-pre :deep(.hljs-section),
+.message-code-pre :deep(.hljs-name),
+.message-code-pre :deep(.hljs-selector-id),
+.message-code-pre :deep(.hljs-selector-class),
+.message-code-pre :deep(.hljs-function .hljs-title),
+.message-code-pre :deep(.hljs-class .hljs-title) {
+  color: var(--codex-code-title);
+}
+
+.message-code-pre :deep(.hljs-number),
+.message-code-pre :deep(.hljs-literal),
+.message-code-pre :deep(.hljs-variable),
+.message-code-pre :deep(.hljs-template-variable) {
+  color: var(--codex-code-number);
+}
+
+.message-code-pre :deep(.hljs-addition) {
+  color: var(--codex-diff-added);
+}
+
+.message-code-pre :deep(.hljs-deletion) {
+  color: var(--codex-diff-removed);
+}
+
+.message-file-link {
+  @apply text-sm leading-relaxed no-underline hover:underline underline-offset-2;
+  color: var(--codex-link);
+}
+
+.message-file-link:hover {
+  color: var(--codex-link-hover);
+}
+
+.file-link-context-menu {
+  @apply fixed z-50 min-w-36 rounded-lg border border-zinc-200 bg-white p-1 shadow-xl;
+}
+
+.file-link-context-menu-item {
+  @apply block w-full rounded-md px-2 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100;
+}
+
+.message-divider {
+  @apply m-0 border-0 h-px bg-slate-300/80;
+}
+
+.message-stack[data-role='user'] {
+  @apply items-end;
+}
+
+.message-stack[data-role='assistant'],
+.message-stack[data-role='system'] {
+  @apply items-start;
+}
+
+.message-card[data-role='user'] {
+  @apply rounded-2xl px-4 py-3 max-w-[min(560px,100%)];
+  background-color: var(--codex-message-bubble-bg);
+  width: fit-content;
+  margin-left: auto;
+  align-self: flex-end;
+}
+
+.automation-message-label {
+  @apply mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500;
+}
+
+.automation-message-label code {
+  @apply rounded-full bg-white/70 px-2 py-0.5 text-[10px] normal-case tracking-normal text-slate-600;
+}
+
+.message-card[data-role='assistant'],
+.message-card[data-role='system'] {
+  @apply px-0 py-0 bg-transparent border-none rounded-none;
+}
+
+:global(.dark) .message-file-chip {
+  @apply border-zinc-700 bg-zinc-900 text-zinc-200;
+}
+
+:global(.dark) .message-skill-chip {
+  border-color: var(--codex-skill-border);
+  background-color: var(--codex-skill-bg);
+  color: var(--codex-skill-fg);
+}
+
+:global(.dark) .message-skill-chip-prefix {
+  color: var(--codex-skill-fg);
+}
+
+.conversation-item[data-message-type='worked'] .message-stack,
+.conversation-item[data-message-type='worked'] .message-body,
+.conversation-item[data-message-type='worked'] .message-card {
+  @apply w-full max-w-full;
+}
+
+.conversation-item[data-message-type='fileChange'] .message-stack,
+.conversation-item[data-message-type='fileChange'] .message-body,
+.conversation-item[data-message-type='fileChange'] .message-card,
+.message-stack:has(.file-change-summary-block),
+.message-card:has(.file-change-summary-block) {
+  @apply w-full max-w-full;
+}
+
+.worked-separator-wrap {
+  @apply w-full flex flex-col gap-0;
+}
+
+.worked-separator {
+  @apply w-full flex items-center gap-3 bg-transparent border-none cursor-pointer p-0;
+}
+
+.worked-chevron {
+  @apply text-[9px] text-zinc-400 transition-transform duration-200 flex-shrink-0;
+}
+
+.worked-chevron-open {
+  transform: rotate(90deg);
+}
+
+.worked-separator-line {
+  @apply h-px bg-zinc-300/80 flex-1;
+}
+
+.worked-separator-text {
+  @apply m-0 font-normal text-slate-800;
+  font-size: var(--codex-chat-font-size);
+  line-height: var(--codex-chat-line-height);
+}
+
+.worked-details {
+  @apply flex flex-col gap-1.5 pt-2;
+}
+
+.worked-cmd-item {
+  @apply flex flex-col;
+}
+
+.worked-process-text {
+  @apply m-0 max-w-full text-sm leading-6 text-zinc-700;
+}
+
+.worked-process-text :deep(p) {
+  @apply my-0;
+}
+
+.image-modal-backdrop {
+  @apply fixed inset-0 z-50 bg-black/40 p-6 flex items-center justify-center;
+}
+
+.image-modal-content {
+  @apply relative max-w-[min(92vw,1100px)] max-h-[92vh];
+}
+
+.image-modal-close {
+  @apply absolute top-2 right-2 z-10 w-10 h-10 rounded-full bg-white/90 text-slate-900 border border-slate-300 flex items-center justify-center;
+}
+
+.image-modal-image {
+  @apply block max-w-full max-h-[90vh] rounded-2xl shadow-2xl bg-white;
+}
+
+.icon-svg {
+  @apply w-5 h-5;
+}
+
+.message-fork-icon.icon-svg,
+.message-copy-icon.icon-svg {
+  @apply h-4 w-4;
+}
+
+.message-edit-icon.icon-svg {
+  @apply h-4 w-4;
+}
+
+.cmd-row {
+  @apply w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer transition text-left;
+  background-color: var(--codex-file-summary-bg);
+  border-color: var(--codex-file-summary-border);
+}
+
+.cmd-row:hover {
+  background-color: var(--codex-file-summary-hover);
+}
+
+.cmd-row.cmd-row-group {
+  color: var(--codex-text);
+}
+
+.cmd-row.cmd-compact {
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.625rem;
+}
+
+.cmd-row.cmd-compact .cmd-chevron {
+  font-size: 9px;
+}
+
+.cmd-row.cmd-compact .cmd-label {
+  font-size: 0.75rem;
+}
+
+.cmd-row.cmd-compact .cmd-status {
+  max-width: 4.5rem;
+  font-size: 0.75rem;
+}
+
+.cmd-row.cmd-expanded {
+  @apply rounded-b-none;
+}
+
+.cmd-chevron {
+  @apply text-[10px] text-zinc-400 transition-transform duration-150 flex-shrink-0;
+}
+
+.cmd-chevron-open {
+  transform: rotate(90deg);
+}
+
+.cmd-label {
+  @apply flex-1 min-w-0 truncate text-xs font-mono text-zinc-700;
+}
+
+.cmd-group-label {
+  @apply flex-1 min-w-0 truncate text-xs font-mono text-zinc-700;
+}
+
+.cmd-status {
+  @apply max-w-24 truncate text-right text-[11px] font-medium flex-shrink-0;
+}
+
+.cmd-status-running .cmd-status {
+  @apply text-amber-600;
+}
+
+.cmd-status-ok .cmd-status {
+  @apply text-emerald-600;
+}
+
+.cmd-status-error .cmd-status {
+  @apply text-rose-600;
+}
+
+.cmd-output-wrap {
+  @apply rounded-b-lg;
+  background-color: transparent;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms ease-out, border-color 300ms ease-out;
+  border: 0 solid transparent;
+  border-top: none;
+}
+
+.cmd-output-wrap.cmd-output-visible {
+  grid-template-rows: 1fr;
+  background-color: var(--color-zinc-900);
+  border-width: 0 1px 1px;
+  border-color: #e4e4e7;
+}
+
+.cmd-group-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms ease-out;
+}
+
+.cmd-group-wrap.cmd-group-visible {
+  grid-template-rows: 1fr;
+}
+
+.cmd-group-inner {
+  @apply mb-1 flex min-h-0 flex-col gap-0 overflow-hidden rounded-b-xl border pl-0;
+  background-color: var(--codex-file-summary-bg);
+  border-color: var(--codex-file-summary-border);
+  border-top: 0;
+}
+
+.cmd-group-inner .worked-cmd-item {
+  border-top: 1px solid var(--codex-file-row-border);
+}
+
+.cmd-group-inner .cmd-row {
+  @apply min-h-10 rounded-none border-0 px-3 py-2 shadow-none;
+  background-color: transparent;
+}
+
+.cmd-group-inner .cmd-row:hover {
+  background-color: var(--codex-file-summary-hover);
+}
+
+.cmd-group-inner .cmd-row.cmd-expanded {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.cmd-group-inner .cmd-label {
+  @apply text-[13px];
+}
+
+.cmd-group-inner .cmd-status {
+  @apply ml-auto max-w-28 text-xs font-medium;
+}
+
+.cmd-group-inner .cmd-output-wrap.cmd-output-visible {
+  border-width: 1px 0 0;
+  border-color: var(--codex-file-row-border);
+}
+
+.cmd-output-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.cmd-output {
+  @apply m-0 px-3 py-2 text-zinc-200 whitespace-pre-wrap break-words max-h-60 overflow-y-auto;
+  font-family: var(--codex-code-font-family);
+  font-size: var(--codex-code-font-size);
+}
+
+.cmd-output.cmd-output-condensed {
+  max-height: 9rem;
+}
+
+.file-change-summary-block {
+  @apply mt-3 flex flex-col gap-0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.file-change-summary-block-inline {
+  @apply mt-4;
+}
+
+.cmd-row.command-group-summary-row,
+.cmd-row.file-change-summary-row {
+  @apply min-h-11 rounded-xl px-3 py-2 shadow-none;
+  background-color: var(--codex-file-summary-bg);
+  border: 1px solid var(--codex-file-summary-border);
+  color: var(--codex-text);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.02);
+}
+
+.cmd-row.command-group-summary-row:hover,
+.cmd-row.file-change-summary-row:hover {
+  background-color: var(--codex-file-summary-hover);
+}
+
+.cmd-row.command-group-summary-row.cmd-expanded,
+.cmd-row.file-change-summary-row.cmd-expanded {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.cmd-row.command-group-summary-row .cmd-group-label {
+  @apply text-[13px] font-medium;
+  color: var(--codex-text);
+  font-family: var(--codex-ui-font-family);
+}
+
+.cmd-row.command-group-summary-row .cmd-status {
+  @apply inline-flex max-w-28 items-center justify-end text-xs font-medium;
+}
+
+.file-change-summary-label {
+  @apply flex-1 min-w-0 truncate text-[13px] font-medium;
+  color: var(--codex-text);
+}
+
+.file-change-summary-status {
+  @apply inline-flex max-w-28 items-center justify-end gap-1.5 text-right text-xs font-medium flex-shrink-0;
+  color: var(--codex-muted-text);
+}
+
+.file-change-panel-inner {
+  @apply mb-1 min-h-0 overflow-hidden pl-0;
+}
+
+.file-change-list {
+  @apply m-0 flex list-none flex-col gap-0 rounded-b-xl border p-0 overflow-hidden;
+  background-color: var(--codex-file-summary-bg);
+  border-color: var(--codex-file-summary-border);
+  border-top: 0;
+}
+
+.file-change-item {
+  @apply flex flex-wrap items-center gap-2 px-3 py-2 text-sm;
+  color: var(--codex-text);
+  border-top: 1px solid var(--codex-file-row-border);
+}
+
+.file-change-item:hover {
+  background-color: var(--codex-file-summary-hover);
+}
+
+.file-change-badge {
+  @apply inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-normal;
+}
+
+.file-change-badge[data-operation='add'] {
+  background-color: var(--codex-diff-added-bg);
+  color: var(--codex-diff-added);
+}
+
+.file-change-badge[data-operation='update'] {
+  @apply bg-sky-50 text-sky-700;
+}
+
+.file-change-badge[data-operation='delete'] {
+  background-color: var(--codex-diff-removed-bg);
+  color: var(--codex-diff-removed);
+}
+
+.file-change-badge[data-operation='move'] {
+  @apply bg-amber-50 text-amber-700;
+}
+
+.file-change-path {
+  @apply min-w-0 break-all font-mono text-[13px];
+}
+
+.file-change-path-button {
+  @apply min-w-0 border-0 bg-transparent p-0 text-left font-mono text-[13px] hover:underline underline-offset-2;
+  color: var(--codex-link);
+}
+
+.file-change-path-button:hover {
+  color: var(--codex-link-hover);
+}
+
+.file-change-arrow {
+  @apply text-zinc-400;
+}
+
+.file-change-delta {
+  @apply ml-auto inline-flex items-center gap-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium;
+  background-color: var(--codex-control-bg);
+  color: var(--codex-muted-text);
+}
+
+.file-change-signed-count {
+  @apply inline-flex items-center whitespace-nowrap;
+}
+
+.file-change-signed-count[data-tone='add'] {
+  color: var(--codex-diff-added);
+}
+
+.file-change-signed-count[data-tone='remove'] {
+  color: var(--codex-diff-removed);
+}
+
+.diff-viewer-backdrop {
+  @apply fixed inset-0 z-50 bg-black/45 p-3 sm:p-6 flex items-center justify-center;
+}
+
+.diff-viewer-shell {
+  @apply relative grid h-[min(88vh,920px)] w-[min(96vw,1320px)] grid-cols-1 overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl lg:grid-cols-[320px_minmax(0,1fr)];
+}
+
+.diff-viewer-sidebar {
+  @apply flex min-h-0 flex-col border-b border-zinc-200 bg-zinc-50 lg:border-b-0 lg:border-r;
+}
+
+.diff-viewer-sidebar-header {
+  @apply flex items-center justify-between gap-3 border-b border-zinc-200 px-4 py-4;
+}
+
+.diff-viewer-sidebar-title {
+  @apply m-0 text-sm font-semibold text-zinc-900;
+}
+
+.diff-viewer-sidebar-count {
+  @apply m-0 text-xs font-medium text-zinc-500;
+}
+
+.diff-viewer-sidebar-list {
+  @apply flex min-h-0 flex-col gap-2 overflow-y-auto p-3;
+}
+
+.diff-viewer-file-button {
+  @apply flex w-full flex-col items-start gap-2 rounded-2xl border border-transparent bg-transparent px-3 py-3 text-left transition hover:border-zinc-200 hover:bg-white;
+}
+
+.diff-viewer-file-button[data-active='true'] {
+  @apply border-sky-200 bg-white shadow-sm;
+}
+
+.diff-viewer-file-label {
+  @apply break-all font-mono text-[13px] text-zinc-700;
+}
+
+.diff-viewer-file-delta {
+  @apply inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-600;
+}
+
+.diff-viewer-main {
+  @apply flex min-h-0 flex-col bg-white;
+}
+
+.diff-viewer-toolbar {
+  @apply flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4;
+}
+
+.diff-viewer-toolbar-actions {
+  @apply flex items-center gap-2 shrink-0;
+}
+
+.diff-viewer-title-wrap {
+  @apply min-w-0;
+}
+
+.diff-viewer-title {
+  @apply m-0 break-all text-base font-semibold text-zinc-900;
+}
+
+.diff-viewer-subtitle {
+  @apply mt-1 mb-0 text-sm text-zinc-500;
+}
+
+.diff-viewer-close {
+  @apply static shrink-0 border-zinc-200 bg-zinc-100 text-zinc-700;
+}
+
+.diff-viewer-mobile-files-button {
+  @apply inline-flex items-center rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700;
+}
+
+.diff-viewer-empty {
+  @apply flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center;
+}
+
+.diff-viewer-empty-title {
+  @apply m-0 text-base font-semibold text-zinc-900;
+}
+
+.diff-viewer-empty-text {
+  @apply mt-2 max-w-2xl text-sm leading-relaxed text-zinc-500;
+}
+
+.diff-viewer-panel {
+  @apply flex min-h-0 flex-1 flex-col;
+}
+
+.diff-viewer-meta {
+  @apply border-b border-zinc-200 bg-zinc-50 px-5 py-2;
+}
+
+.diff-viewer-language {
+  @apply inline-flex items-center rounded-full bg-zinc-200 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700;
+}
+
+.diff-viewer-lines {
+  @apply min-h-0 flex-1 overflow-auto bg-zinc-950;
+}
+
+.diff-viewer-line {
+  display: grid;
+  grid-template-columns: 4rem 4rem 2rem minmax(0, 1fr);
+  align-items: stretch;
+  min-width: fit-content;
+}
+
+.diff-viewer-line-number {
+  @apply border-r border-zinc-800 px-3 py-1.5 text-right font-mono text-xs text-zinc-500 select-none;
+}
+
+.diff-viewer-line-marker {
+  @apply border-r border-zinc-800 px-2 py-1.5 text-center font-mono text-xs text-zinc-500 select-none;
+}
+
+.diff-viewer-line-code {
+  @apply block whitespace-pre px-3 py-1.5 leading-5 text-zinc-100;
+  font-family: var(--codex-code-font-family);
+  font-size: var(--codex-code-font-size);
+}
+
+.diff-viewer-line[data-kind='meta'] {
+  @apply bg-zinc-900;
+}
+
+.diff-viewer-line[data-kind='meta'] .diff-viewer-line-code,
+.diff-viewer-line[data-kind='meta'] .diff-viewer-line-marker {
+  @apply text-sky-300;
+}
+
+.diff-viewer-line[data-kind='hunk'] {
+  @apply bg-sky-950/40;
+}
+
+.diff-viewer-line[data-kind='hunk'] .diff-viewer-line-code,
+.diff-viewer-line[data-kind='hunk'] .diff-viewer-line-marker {
+  @apply text-sky-300;
+}
+
+.diff-viewer-line[data-kind='add'] {
+  background: var(--codex-diff-added-bg);
+}
+
+.diff-viewer-line[data-kind='add'] .diff-viewer-line-marker,
+.diff-viewer-line[data-kind='add'] .diff-viewer-line-code {
+  color: var(--codex-diff-added);
+}
+
+.diff-viewer-line[data-kind='remove'] {
+  background: var(--codex-diff-removed-bg);
+}
+
+.diff-viewer-line[data-kind='remove'] .diff-viewer-line-marker,
+.diff-viewer-line[data-kind='remove'] .diff-viewer-line-code {
+  color: var(--codex-diff-removed);
+}
+
+.diff-viewer-line[data-kind='context'] {
+  @apply bg-zinc-950;
+}
+
+.diff-viewer-line[data-kind='context'] .diff-viewer-line-code {
+  @apply text-zinc-100;
+}
+
+.diff-viewer-mobile-sheet-backdrop {
+  @apply absolute inset-0 z-20 bg-black/35 flex items-end;
+}
+
+.diff-viewer-mobile-sheet {
+  @apply w-full max-h-[70vh] rounded-t-3xl bg-white shadow-2xl border-t border-zinc-200 flex flex-col overflow-hidden;
+}
+
+.diff-viewer-mobile-sheet-handle {
+  @apply mx-auto mt-3 h-1.5 w-12 rounded-full bg-zinc-300;
+}
+
+.diff-viewer-mobile-sheet-header {
+  @apply flex items-center justify-between gap-3 px-4 pt-3 pb-2 border-b border-zinc-200;
+}
+
+.diff-viewer-mobile-sheet-list {
+  @apply flex min-h-0 flex-col gap-2 overflow-y-auto px-3 py-3;
+}
+
+.diff-viewer-sheet-enter-active,
+.diff-viewer-sheet-leave-active {
+  @apply transition-opacity duration-200;
+}
+
+.diff-viewer-sheet-enter-active .diff-viewer-mobile-sheet,
+.diff-viewer-sheet-leave-active .diff-viewer-mobile-sheet {
+  transition: transform 200ms ease;
+}
+
+.diff-viewer-sheet-enter-from,
+.diff-viewer-sheet-leave-to {
+  @apply opacity-0;
+}
+
+.diff-viewer-sheet-enter-from .diff-viewer-mobile-sheet,
+.diff-viewer-sheet-leave-to .diff-viewer-mobile-sheet {
+  transform: translateY(100%);
+}
+
+@media (max-width: 767px) {
+  .diff-viewer-backdrop {
+    @apply p-0 items-stretch;
+  }
+
+  .diff-viewer-shell {
+    @apply h-[100dvh] w-screen rounded-none border-0 shadow-none;
+  }
+
+  .diff-viewer-main {
+    @apply min-w-0;
+  }
+
+  .diff-viewer-toolbar {
+    @apply sticky top-0 z-10 bg-white px-3 py-3;
+  }
+
+  .diff-viewer-title {
+    @apply text-sm leading-5;
+  }
+
+  .diff-viewer-subtitle {
+    @apply text-xs;
+  }
+
+  .diff-viewer-meta {
+    @apply px-3 py-2;
+  }
+
+  .diff-viewer-language {
+    @apply text-[10px];
+  }
+
+  .diff-viewer-line {
+    grid-template-columns: 2.75rem 2.75rem 1.5rem minmax(0, 1fr);
+  }
+
+  .diff-viewer-line-number {
+    @apply px-1.5 py-1 text-[10px];
+  }
+
+  .diff-viewer-line-marker {
+    @apply px-1 py-1 text-[10px];
+  }
+
+  .diff-viewer-line-code {
+    @apply px-2 py-1 text-[11px] leading-5;
+  }
+}
+</style>
