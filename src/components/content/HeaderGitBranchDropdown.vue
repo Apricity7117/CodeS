@@ -359,7 +359,7 @@ onBeforeUnmount(() => {
 }
 
 .header-git-status.is-error {
-  @apply bg-red-50 text-red-700;
+  @apply bg-red-50 text-zinc-700;
 }
 
 .header-git-search-wrap {
@@ -445,6 +445,6 @@ onBeforeUnmount(() => {
 }
 
 .header-git-commits-empty.is-error {
-  @apply flex items-start justify-between gap-2 text-red-700;
+  @apply flex items-start justify-between gap-2 text-zinc-700;
 }
 </style>

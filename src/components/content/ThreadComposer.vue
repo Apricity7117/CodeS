@@ -273,16 +273,6 @@
             @create="onCreatePrompt"
             @remove="onRemovePrompt"
           />
-
-          <ComposerDropdown
-            class="thread-composer-control"
-            :model-value="selectedReasoningEffort"
-            :options="reasoningOptions"
-            :placeholder="t('Thinking')"
-            open-direction="up"
-            :disabled="isComposerConfigDisabled"
-            @update:model-value="onReasoningEffortSelect"
-          />
         </template>
 
         <div
@@ -297,19 +287,80 @@
             {{ dictationDurationLabel }}
           </span>
 
-          <ComposerDropdown
+          <div
             v-if="!isDictationRecording"
-            class="thread-composer-control thread-composer-model-control"
-            :model-value="selectedModel"
-            :options="modelOptions"
-            :selected-prefix-icon="showFastModeModelIcon ? IconCodexLightningBolt : null"
-            :placeholder="t('Model')"
-            open-direction="up"
-            :disabled="isComposerConfigDisabled || models.length === 0"
-            enable-search
-            :search-placeholder="t('Search models...')"
-            @update:model-value="onModelSelect"
-          />
+            ref="modelReasoningMenuRootRef"
+            class="thread-composer-model-menu-root"
+          >
+            <button
+              class="thread-composer-model-summary-trigger"
+              type="button"
+              :aria-label="composerModelSummaryLabel"
+              :title="composerModelSummaryLabel"
+              :disabled="isComposerConfigDisabled"
+              @click="toggleModelReasoningMenu"
+            >
+              <span class="thread-composer-model-summary-label">{{ composerModelSummaryLabel }}</span>
+              <IconCodexChevron class="thread-composer-model-summary-chevron" />
+            </button>
+
+            <div
+              v-if="isModelReasoningMenuOpen"
+              class="thread-composer-model-menu"
+              @keydown.esc.prevent.stop="closeModelReasoningMenu"
+            >
+              <div class="thread-composer-model-menu-title">{{ t('Reasoning') }}</div>
+              <button
+                v-for="option in reasoningMenuOptions"
+                :key="option.value"
+                class="thread-composer-model-menu-option"
+                :class="{ 'is-selected': option.value === selectedReasoningEffort }"
+                type="button"
+                @click="onReasoningEffortSelect(option.value)"
+              >
+                <span class="thread-composer-model-menu-option-label">{{ t(option.label) }}</span>
+                <IconCodexCheckMd
+                  v-if="option.value === selectedReasoningEffort"
+                  class="thread-composer-model-menu-check"
+                />
+              </button>
+              <div class="thread-composer-model-menu-separator" />
+              <div class="thread-composer-model-submenu-anchor" @mouseenter="openModelSubmenu">
+                <button
+                  class="thread-composer-model-menu-option thread-composer-model-row"
+                  type="button"
+                  :disabled="models.length === 0"
+                  @click="openModelSubmenu"
+                >
+                  <span class="thread-composer-model-row-copy">
+                    <span class="thread-composer-model-row-title">{{ t('Model') }}</span>
+                    <span class="thread-composer-model-row-value">{{ selectedFullModelLabel }}</span>
+                  </span>
+                  <IconCodexChevronRight class="thread-composer-model-row-chevron" />
+                </button>
+
+                <div v-if="isModelSubmenuOpen" class="thread-composer-model-submenu">
+                  <button
+                    v-for="option in modelOptions"
+                    :key="option.value"
+                    class="thread-composer-model-menu-option"
+                    :class="{ 'is-selected': option.value === selectedModel }"
+                    type="button"
+                    @click="onModelSelect(option.value)"
+                  >
+                    <span class="thread-composer-model-menu-option-label">{{ option.label }}</span>
+                    <IconCodexCheckMd
+                      v-if="option.value === selectedModel"
+                      class="thread-composer-model-menu-check"
+                    />
+                  </button>
+                  <div v-if="modelOptions.length === 0" class="thread-composer-model-menu-empty">
+                    {{ t('No models available') }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <span
             v-if="!isDictationRecording && contextUsageView"
@@ -447,14 +498,15 @@ import {
 import IconTablerMicrophone from '../icons/IconTablerMicrophone.vue'
 import {
   IconCodexArrowUp,
+  IconCodexCheckMd,
+  IconCodexChevron,
+  IconCodexChevronRight,
   IconCodexEdit,
   IconCodexExpand,
   IconCodexExpand2,
   IconCodexFolder,
-  IconCodexLightningBolt,
   IconCodexStop,
 } from '../icons/codex'
-import ComposerDropdown from './ComposerDropdown.vue'
 import ComposerSearchDropdown from './ComposerSearchDropdown.vue'
 import { isImeComposingKeydown } from './threadComposerKeyboard'
 
@@ -618,6 +670,9 @@ const isFileMentionOpen = ref(false)
 const fileMentionHighlightedIndex = ref(0)
 const isComposerExpanded = ref(false)
 const isDraftOverflowing = ref(false)
+const modelReasoningMenuRootRef = ref<HTMLElement | null>(null)
+const isModelReasoningMenuOpen = ref(false)
+const isModelSubmenuOpen = ref(false)
 let composerOverflowMeasurementQueued = false
 const draftGeneration = ref(0)
 let fileMentionSearchToken = 0
@@ -628,20 +683,51 @@ let attachmentSessionToken = 0
 const DRAFT_STORAGE_PREFIX = 'codex-web-local.thread-draft.v1.'
 let lastActiveThreadId = ''
 
-const reasoningOptions: Array<{ value: ReasoningEffort; label: string }> = [
-  { value: 'none', label: 'None' },
-  { value: 'minimal', label: 'Minimal' },
+const reasoningEffortLabels: Record<ReasoningEffort, string> = {
+  none: 'None',
+  minimal: 'Minimal',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra High',
+}
+
+const reasoningMenuOptions: Array<{ value: ReasoningEffort; label: string }> = [
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
-  { value: 'xhigh', label: 'Extra high' },
+  { value: 'xhigh', label: 'Extra High' },
 ]
 function formatModelLabel(modelId: string): string {
-  return modelId.trim().replace(/^gpt/i, 'GPT')
+  return modelId
+    .trim()
+    .replace(/^gpt/i, 'GPT')
+    .replace(/-mini\b/gi, '-Mini')
+    .replace(/-codex\b/gi, '-Codex')
+}
+
+function formatCompactModelLabel(modelId: string): string {
+  return formatModelLabel(modelId).replace(/^GPT-/i, '')
+}
+
+function readReasoningEffortLabel(effort: ReasoningEffort | ''): string {
+  return effort ? reasoningEffortLabels[effort] : reasoningEffortLabels.medium
 }
 
 const modelOptions = computed(() =>
   props.models.map((modelId) => ({ value: modelId, label: formatModelLabel(modelId) })),
+)
+const selectedFullModelLabel = computed(() => {
+  const selected = props.selectedModel.trim()
+  return selected ? formatModelLabel(selected) : t('Model')
+})
+const selectedCompactModelLabel = computed(() => {
+  const selected = props.selectedModel.trim()
+  return selected ? formatCompactModelLabel(selected) : t('Model')
+})
+const selectedReasoningLabel = computed(() => t(readReasoningEffortLabel(props.selectedReasoningEffort)))
+const composerModelSummaryLabel = computed(() =>
+  `${selectedCompactModelLabel.value} ${selectedReasoningLabel.value}`,
 )
 const isPlanModeSelected = computed(() => props.selectedCollaborationMode === 'plan')
 
@@ -701,9 +787,6 @@ const standaloneFileAttachments = computed(() => {
 const isInteractionDisabled = computed(() => props.disabled || !props.activeThreadId)
 const isComposerConfigDisabled = computed(() => props.disabled || !props.activeThreadId)
 const isFastModeSupported = computed(() => /^gpt-5\.(?:4|5)(?:$|-)/.test(props.selectedModel.trim()))
-const showFastModeModelIcon = computed(() =>
-  props.selectedSpeedMode === 'fast' && isFastModeSupported.value,
-)
 const isSpeedToggleDisabled = computed(() =>
   isInteractionDisabled.value || props.isUpdatingSpeedMode === true,
 )
@@ -1188,6 +1271,7 @@ function toggleComposerExpanded(): void {
 
 function onModelSelect(value: string): void {
   emit('update:selected-model', value)
+  closeModelReasoningMenu()
 }
 
 function toggleCollaborationMode(): void {
@@ -1196,6 +1280,25 @@ function toggleCollaborationMode(): void {
 
 function onReasoningEffortSelect(value: string): void {
   emit('update:selected-reasoning-effort', value as ReasoningEffort)
+  closeModelReasoningMenu()
+}
+
+function toggleModelReasoningMenu(): void {
+  if (isComposerConfigDisabled.value) return
+  isModelReasoningMenuOpen.value = !isModelReasoningMenuOpen.value
+  if (!isModelReasoningMenuOpen.value) {
+    isModelSubmenuOpen.value = false
+  }
+}
+
+function closeModelReasoningMenu(): void {
+  isModelReasoningMenuOpen.value = false
+  isModelSubmenuOpen.value = false
+}
+
+function openModelSubmenu(): void {
+  if (props.models.length === 0) return
+  isModelSubmenuOpen.value = true
 }
 
 function onToggleSpeedMode(): void {
@@ -1865,12 +1968,18 @@ function onSkillDropdownToggle(path: string, checked: boolean): void {
 }
 
 function onDocumentClick(event: MouseEvent): void {
-  if (!isAttachMenuOpen.value) return
-  const root = attachMenuRootRef.value
-  if (!root) return
   const target = event.target as Node | null
-  if (!target || root.contains(target)) return
-  isAttachMenuOpen.value = false
+  if (!target) return
+
+  const attachRoot = attachMenuRootRef.value
+  if (isAttachMenuOpen.value && attachRoot && !attachRoot.contains(target)) {
+    isAttachMenuOpen.value = false
+  }
+
+  const modelRoot = modelReasoningMenuRootRef.value
+  if (isModelReasoningMenuOpen.value && modelRoot && !modelRoot.contains(target)) {
+    closeModelReasoningMenu()
+  }
 }
 
 onMounted(() => {
@@ -2352,22 +2461,96 @@ watch(
   @apply truncate;
 }
 
-.thread-composer-model-control {
-  @apply max-w-[13rem] shrink min-w-0;
+.thread-composer-model-menu-root {
+  @apply relative min-w-0 shrink;
 }
 
-.thread-composer-model-control :deep(.composer-dropdown-trigger) {
-  @apply h-8 max-w-full rounded-full px-2 text-sm transition;
+.thread-composer-model-summary-trigger {
+  @apply inline-flex h-8 max-w-[13rem] min-w-0 items-center gap-1 rounded-full border-0 bg-transparent px-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50;
   color: var(--codex-muted-text);
 }
 
-.thread-composer-model-control :deep(.composer-dropdown-trigger:hover:not(:disabled)) {
+.thread-composer-model-summary-trigger:hover:not(:disabled) {
   background-color: var(--codex-control-hover);
   color: var(--codex-text);
 }
 
-.thread-composer-model-control :deep(.composer-dropdown-value) {
-  @apply max-w-[10.5rem] truncate;
+.thread-composer-model-summary-label {
+  @apply min-w-0 truncate whitespace-nowrap pb-px;
+}
+
+.thread-composer-model-summary-chevron {
+  @apply mt-px h-3.5 w-3.5 shrink-0;
+}
+
+.thread-composer-model-menu,
+.thread-composer-model-submenu {
+  @apply absolute z-40 w-60 rounded-xl border p-1 text-left shadow-xl;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-popover-surface);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+}
+
+.thread-composer-model-menu {
+  @apply bottom-11 right-0;
+}
+
+.thread-composer-model-submenu-anchor {
+  @apply relative;
+}
+
+.thread-composer-model-submenu {
+  @apply bottom-0 max-h-72 overflow-y-auto;
+  right: calc(100% + 0.5rem);
+}
+
+.thread-composer-model-menu-title {
+  @apply px-2 py-1.5 text-sm font-medium leading-5;
+  color: var(--codex-muted-text);
+}
+
+.thread-composer-model-menu-option {
+  @apply flex min-h-8 w-full items-center justify-between gap-3 rounded-lg border-0 bg-transparent px-2 py-1.5 text-left text-sm leading-5 transition disabled:cursor-not-allowed disabled:opacity-50;
+  color: var(--codex-text);
+}
+
+.thread-composer-model-menu-option:hover:not(:disabled),
+.thread-composer-model-menu-option.is-selected {
+  background-color: var(--codex-control-hover);
+}
+
+.thread-composer-model-menu-option-label {
+  @apply min-w-0 truncate;
+}
+
+.thread-composer-model-menu-check,
+.thread-composer-model-row-chevron {
+  @apply h-4 w-4 shrink-0;
+  color: var(--codex-muted-text);
+}
+
+.thread-composer-model-menu-separator {
+  @apply my-1 h-px;
+  background-color: var(--codex-border-heavy);
+}
+
+.thread-composer-model-row-copy {
+  @apply flex min-w-0 flex-1 flex-col;
+}
+
+.thread-composer-model-row-title {
+  @apply text-[11px] leading-4;
+  color: var(--codex-muted-text);
+}
+
+.thread-composer-model-row-value {
+  @apply truncate text-sm leading-5;
+  color: var(--codex-text);
+}
+
+.thread-composer-model-menu-empty {
+  @apply px-2 py-1.5 text-xs;
+  color: var(--codex-muted-text);
 }
 
 
@@ -2392,11 +2575,11 @@ watch(
 
 .thread-composer-mic.thread-composer-mic--active {
   background-color: var(--color-red-100);
-  color: var(--color-red-600);
+  color: var(--codex-text);
 }
 .thread-composer-mic.thread-composer-mic--active:hover:not(:disabled) {
   background-color: var(--color-red-200);
-  color: var(--color-red-700);
+  color: var(--codex-text);
 }
 
 .thread-composer-mic-icon {
@@ -2470,12 +2653,18 @@ watch(
     @apply order-last w-full justify-end;
   }
 
-  .thread-composer-model-control {
-    max-width: min(11rem, 44vw);
+  .thread-composer-model-summary-trigger {
+    max-width: min(12rem, 52vw);
   }
 
-  .thread-composer-model-control :deep(.composer-dropdown-value) {
-    max-width: min(8.5rem, 35vw);
+  .thread-composer-model-menu {
+    width: min(15rem, calc(100vw - 1rem));
+  }
+
+  .thread-composer-model-submenu {
+    right: 0;
+    bottom: calc(100% + 0.5rem);
+    width: min(15rem, calc(100vw - 1rem));
   }
 
   .thread-composer-context-popover {

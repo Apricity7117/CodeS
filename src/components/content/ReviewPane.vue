@@ -1191,7 +1191,7 @@ onBeforeUnmount(() => {
 }
 
 .review-pane-banner.is-error {
-  @apply border-rose-200 bg-rose-50 text-rose-700;
+  @apply border-rose-200 bg-rose-50 text-zinc-700;
 }
 
 .review-pane-meta {
@@ -1207,7 +1207,7 @@ onBeforeUnmount(() => {
 }
 
 .review-pane-summary-pill.review-pane-summary-pill-remove {
-  @apply bg-rose-100 text-rose-700;
+  @apply bg-rose-100 text-zinc-700;
 }
 
 .review-pane-content,
@@ -1304,7 +1304,7 @@ onBeforeUnmount(() => {
 }
 
 .review-pane-file-op[data-operation='delete'] {
-  @apply bg-rose-100 text-rose-700;
+  @apply bg-rose-100 text-zinc-700;
 }
 
 .review-pane-file-op[data-operation='rename'] {
@@ -1328,7 +1328,7 @@ onBeforeUnmount(() => {
 }
 
 .review-pane-delta-remove {
-  @apply text-rose-600;
+  @apply text-zinc-600;
 }
 
 .review-pane-delta-separator {
@@ -1407,7 +1407,7 @@ onBeforeUnmount(() => {
 }
 
 .review-pane-line[data-kind='remove'] {
-  @apply bg-rose-950/60 text-rose-100;
+  @apply bg-rose-950/60 text-zinc-100;
 }
 
 .review-pane-line[data-kind='add'] .review-pane-line-marker,
@@ -1417,7 +1417,7 @@ onBeforeUnmount(() => {
 
 .review-pane-line[data-kind='remove'] .review-pane-line-marker,
 .review-pane-line[data-kind='remove'] .review-pane-line-code {
-  @apply text-rose-300;
+  @apply text-zinc-300;
 }
 
 .review-pane-line[data-kind='hunk'] {

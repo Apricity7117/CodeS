@@ -130,7 +130,7 @@ onBeforeUnmount(() => {
 }
 
 .account-menu-error {
-  @apply rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700;
+  @apply rounded-xl bg-rose-50 px-3 py-2 text-xs text-zinc-700;
 }
 
 .account-menu-empty {

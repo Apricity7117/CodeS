@@ -3775,7 +3775,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 
 
 .content-error {
-  @apply m-0 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700;
+  @apply m-0 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-zinc-700;
 }
 
 .content-grid {
@@ -3819,7 +3819,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .composer-runtime-error {
-  @apply flex w-full items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800 shadow-sm;
+  @apply flex w-full items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-zinc-800 shadow-sm;
 }
 
 .content-header-inspector-toggle {
@@ -4291,7 +4291,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-open-folder-error {
-  @apply m-0 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700;
+  @apply m-0 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-zinc-700;
 }
 
 .new-thread-open-folder-error-actions {
@@ -4378,7 +4378,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .worktree-init-status.is-error {
-  @apply border-rose-300 bg-rose-50 text-rose-800;
+  @apply border-rose-300 bg-rose-50 text-zinc-800;
 }
 
 .worktree-init-status-title {
@@ -4474,7 +4474,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .sidebar-settings-telegram-error {
-  @apply mt-2 rounded-md bg-rose-50 px-2.5 py-2 text-xs text-rose-700;
+  @apply mt-2 rounded-md bg-rose-50 px-2.5 py-2 text-xs text-zinc-700;
 }
 
 .sidebar-settings-telegram-actions {
@@ -4514,7 +4514,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .sidebar-settings-account-error {
-  @apply mb-2 rounded-md bg-rose-50 px-2 py-1.5 text-xs text-rose-700;
+  @apply mb-2 rounded-md bg-rose-50 px-2 py-1.5 text-xs text-zinc-700;
 }
 
 .sidebar-settings-account-refresh {
@@ -4570,7 +4570,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .codex-login-modal-error {
-  @apply rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700;
+  @apply rounded-md bg-rose-50 px-3 py-2 text-xs text-zinc-700;
 }
 
 .codex-login-modal-actions {
@@ -4612,7 +4612,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 :global(:root.dark) .codex-login-modal-error {
-  @apply bg-rose-950/40 text-rose-200;
+  @apply bg-rose-950/40 text-zinc-200;
 }
 
 :global(:root.dark) .codex-login-modal-submit {
@@ -4664,7 +4664,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .sidebar-settings-account-item.is-unavailable .sidebar-settings-account-id {
-  @apply bg-rose-100 text-rose-800;
+  @apply bg-rose-100 text-zinc-700;
 }
 
 .sidebar-settings-account-switch {
@@ -4736,7 +4736,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .sidebar-settings-context-value[data-state='danger'] {
-  @apply text-rose-700;
+  @apply text-zinc-700;
 }
 
 .sidebar-settings-context-meta {

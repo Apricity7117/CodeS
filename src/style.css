@@ -31,7 +31,7 @@
   --shimmer-text-secondary: var(--codex-muted-text);
   --shimmer-contrast: var(--codex-text);
   --codex-diff-added: #008000;
-  --codex-diff-removed: #ee0000;
+  --codex-diff-removed: #5f6368;
   --codex-diff-added-bg: rgba(0, 128, 0, 0.1);
   --codex-diff-removed-bg: rgba(238, 0, 0, 0.1);
   --codex-skill: #0000ff;
@@ -101,7 +101,7 @@
   --shimmer-text-secondary: var(--codex-muted-text);
   --shimmer-contrast: var(--codex-text);
   --codex-diff-added: #369432;
-  --codex-diff-removed: #f44747;
+  --codex-diff-removed: #d4d4d4;
   --codex-diff-added-bg: rgba(54, 148, 50, 0.18);
   --codex-diff-removed-bg: rgba(244, 71, 71, 0.18);
   --codex-skill: #000080;
@@ -209,7 +209,7 @@ samp {
 }
 
 :root.dark .sidebar-settings-context-value[data-state='danger'] {
-  @apply text-rose-300;
+  @apply text-zinc-300;
 }
 
 :root.dark .sidebar-settings-context-meta {
@@ -245,7 +245,7 @@ samp {
 }
 
 :root.dark .sidebar-settings-account-error {
-  @apply bg-rose-950/40 text-rose-200;
+  @apply bg-rose-950/40 text-zinc-200;
 }
 
 :root.dark .sidebar-settings-account-refresh,
@@ -305,7 +305,7 @@ samp {
 }
 
 :root.dark .sidebar-settings-account-item.is-unavailable .sidebar-settings-account-id {
-  @apply bg-rose-500/15 text-rose-200;
+  @apply bg-rose-500/15 text-zinc-200;
 }
 
 :root.dark .sidebar-settings-account-remove {
@@ -358,7 +358,7 @@ samp {
 }
 
 :root.dark .thread-tree-action-error {
-  @apply border-rose-800/80 bg-rose-950 text-rose-100;
+  @apply border-rose-800/80 bg-rose-950 text-zinc-100;
 }
 
 :root.dark .section-toggle-row {
@@ -414,7 +414,7 @@ samp {
 }
 
 :root.dark .composer-runtime-error {
-  @apply border-rose-800/70 bg-rose-950/70 text-rose-100 shadow-none;
+  @apply border-rose-800/70 bg-rose-950/70 text-zinc-100 shadow-none;
 }
 
 :root.dark .composer-dropdown-trigger {
@@ -682,7 +682,7 @@ samp {
 }
 
 :root.dark .thread-menu-item-danger {
-  @apply text-rose-300 hover:bg-rose-900/40;
+  @apply text-zinc-300 hover:bg-rose-900/40;
 }
 
 :root.dark .thread-menu-trigger {
@@ -917,7 +917,7 @@ samp {
 }
 
 :root.dark .cmd-status-error .cmd-status {
-  @apply text-rose-300;
+  @apply text-zinc-400;
 }
 
 :root.dark .cmd-output-wrap.cmd-output-visible {
@@ -1167,7 +1167,7 @@ samp {
 
 :root.dark .header-git-status.is-error,
 :root.dark .header-git-commits-empty.is-error {
-  @apply bg-red-950/40 text-red-300;
+  @apply bg-red-950/40 text-zinc-300;
 }
 
 :root.dark .review-pane {
@@ -1273,7 +1273,7 @@ samp {
 }
 
 :root.dark .review-pane-summary-pill.review-pane-summary-pill-remove {
-  @apply bg-rose-500/15 text-rose-300;
+  @apply bg-rose-500/15 text-zinc-300;
 }
 
 :root.dark .review-pane-file-list {
@@ -1325,7 +1325,7 @@ samp {
 }
 
 :root.dark .review-pane-file-op[data-operation='delete'] {
-  @apply bg-rose-500/15 text-rose-200;
+  @apply bg-rose-500/15 text-zinc-200;
 }
 
 :root.dark .review-pane-file-op[data-operation='rename'] {
@@ -1342,7 +1342,7 @@ samp {
 }
 
 :root.dark .review-pane-delta-remove {
-  @apply text-rose-300;
+  @apply text-zinc-300;
 }
 
 :root.dark .review-pane-delta-separator {
@@ -1378,7 +1378,7 @@ samp {
 
 :root.dark .review-pane-line[data-kind='remove'] .review-pane-line-marker,
 :root.dark .review-pane-line[data-kind='remove'] .review-pane-line-code {
-  @apply text-rose-300;
+  @apply text-zinc-300;
 }
 
 :root.dark .review-pane-sheet-handle {
@@ -1576,7 +1576,7 @@ samp {
 }
 
 :root.dark .new-thread-open-folder-error {
-  @apply border-rose-900 bg-rose-950/60 text-rose-200;
+  @apply border-rose-900 bg-rose-950/60 text-zinc-200;
 }
 
 :root.dark .runtime-toggle {
@@ -1612,7 +1612,7 @@ samp {
 }
 
 :root.dark .worktree-init-status.is-error {
-  @apply border-rose-700 bg-rose-950/40 text-rose-200;
+  @apply border-rose-700 bg-rose-950/40 text-zinc-200;
 }
 
 :root.dark .skills-hub-title {
@@ -1674,7 +1674,7 @@ samp {
 }
 
 :root.dark .skills-sync-error {
-  @apply border-rose-800 bg-rose-950/40 text-rose-200;
+  @apply border-rose-800 bg-rose-950/40 text-zinc-200;
 }
 
 :root.dark .skills-search-panel {
@@ -1707,7 +1707,7 @@ samp {
 }
 
 :root.dark .skills-hub-error {
-  @apply border-rose-800 bg-rose-950/40 text-rose-200;
+  @apply border-rose-800 bg-rose-950/40 text-zinc-200;
 }
 
 :root.dark .directory-title,

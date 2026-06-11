@@ -1068,7 +1068,7 @@ function onRejectUnknownRequest(request: UiServerRequest): void {
 }
 
 .thread-pending-request-validation-error {
-  @apply m-0 mt-3 text-sm leading-relaxed text-rose-300;
+  @apply m-0 mt-3 text-sm leading-relaxed text-zinc-300;
 }
 
 .thread-pending-request-question-options,

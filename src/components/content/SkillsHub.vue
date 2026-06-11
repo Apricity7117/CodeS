@@ -203,7 +203,7 @@ onMounted(() => {
 }
 
 .skills-hub-toast-error {
-  @apply border border-rose-200 bg-rose-50 text-rose-700;
+  @apply border border-rose-200 bg-rose-50 text-zinc-700;
 }
 
 .skills-hub-section {
@@ -235,7 +235,7 @@ onMounted(() => {
 }
 
 .skills-hub-error {
-  @apply flex items-start justify-between gap-3 text-sm text-rose-600 p-4 text-left rounded-lg border border-rose-200 bg-rose-50;
+  @apply flex items-start justify-between gap-3 text-sm text-zinc-700 p-4 text-left rounded-lg border border-rose-200 bg-rose-50;
 }
 
 .skills-hub-empty {

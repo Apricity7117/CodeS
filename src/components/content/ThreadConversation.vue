@@ -4078,7 +4078,8 @@ onBeforeUnmount(() => {
 }
 
 .live-overlay-error {
-  @apply m-0 flex items-start justify-between gap-3 text-sm leading-5 text-rose-600 whitespace-pre-wrap;
+  @apply m-0 flex items-start justify-between gap-3 text-sm leading-5 whitespace-pre-wrap;
+  color: var(--codex-muted-text);
 }
 
 .message-body {
@@ -4964,7 +4965,7 @@ onBeforeUnmount(() => {
 }
 
 .cmd-status-error .cmd-status {
-  @apply text-rose-600;
+  color: var(--codex-muted-text);
 }
 
 .cmd-output-wrap {
