@@ -1,104 +1,11 @@
 <template>
   <div class="skills-hub">
     <div class="skills-hub-header">
-      <h2 class="skills-hub-title">{{ t('Skills Hub') }}</h2>
-      <p class="skills-hub-subtitle">{{ t('Manage installed skills on this machine') }}</p>
-    </div>
-
-    <div class="skills-sync-panel">
-      <div class="skills-sync-header">
-        <strong>{{ t('Skills Sync (GitHub)') }}</strong>
-        <a
-          v-if="syncStatus.configured && githubRepoUrl"
-          class="skills-sync-badge skills-sync-badge-link"
-          :href="githubRepoUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {{ t('Connected') }}: {{ syncStatus.repoOwner }}/{{ syncStatus.repoName }}
-        </a>
-        <span v-else-if="syncStatus.loggedIn" class="skills-sync-badge">{{ t('Logged in as') }} {{ syncStatus.githubUsername }}</span>
-        <span v-else class="skills-sync-badge">{{ t('Not connected') }}</span>
-      </div>
-      <div class="skills-sync-meta">
-        <span>{{ t('Startup') }}: {{ syncStatus.startup.mode }}</span>
-        <span>{{ t('Branch') }}: {{ syncStatus.startup.branch }}</span>
-        <span>{{ t('Action') }}: {{ syncStatus.startup.lastAction }}</span>
-      </div>
-      <div v-if="syncStatus.startup.lastError" class="skills-sync-error">
-        <span>{{ syncStatus.startup.lastError }}</span>
-      </div>
-      <div v-if="syncActionStatus" class="skills-sync-meta">
-        <span>{{ t('Manual sync') }}: {{ syncActionStatus }}</span>
-      </div>
-      <div v-if="syncActionError" class="skills-sync-error">
-        <span>{{ syncActionError }}</span>
-      </div>
-      <div v-if="deviceLogin" class="skills-sync-device">
-        <span>{{ t('Open') }} <a :href="deviceLogin.verification_uri" target="_blank" rel="noreferrer">{{ t('GitHub device login') }}</a> {{ t('and enter code:') }}</span>
-        <code>{{ deviceLogin.user_code }}</code>
-      </div>
-      <div class="skills-sync-actions">
-        <button v-if="!syncStatus.loggedIn" class="skills-hub-sort" type="button" @click="startGithubFirebaseLogin">{{ t('Login with GitHub') }}</button>
-        <button v-if="!syncStatus.loggedIn" class="skills-hub-sort" type="button" @click="startGithubLogin">{{ t('Device Login') }}</button>
-        <button v-if="syncStatus.loggedIn" class="skills-hub-sort" type="button" @click="logoutGithub" :disabled="isSyncActionInFlight">{{ t('Logout GitHub') }}</button>
-        <button class="skills-hub-sort" type="button" @click="startupSkillsSync" :disabled="isSyncActionInFlight">{{ isStartupSyncInFlight ? t('Syncing...') : t('Startup Sync') }}</button>
-        <button class="skills-hub-sort" type="button" @click="pullSkillsSync" :disabled="isSyncActionInFlight">{{ isPullInFlight ? t('Pulling...') : t('Pull') }}</button>
-        <button v-if="syncStatus.loggedIn" class="skills-hub-sort" type="button" @click="pushSkillsSync" :disabled="!syncStatus.configured || isSyncActionInFlight">{{ isPushInFlight ? t('Pushing...') : t('Push') }}</button>
-      </div>
+      <h2 class="skills-hub-title">{{ t('Skills') }}</h2>
+      <p class="skills-hub-subtitle">{{ t('Manage installed local skills on this machine') }}</p>
     </div>
 
     <div v-if="toast" class="skills-hub-toast" :class="toastClass">{{ toast.text }}</div>
-
-    <div class="skills-search-panel">
-      <div class="skills-search-header">
-        <div class="skills-search-copy">
-          <strong>{{ t('Find skills') }}</strong>
-          <span>{{ t('Search the Skills registry with npx skills find.') }}</span>
-        </div>
-        <a
-          class="skills-directory-link"
-          href="https://skills.anyclaw.store/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {{ t('Skills directory') }}
-        </a>
-      </div>
-      <form class="skills-search-form" @submit.prevent="searchSkills">
-        <input
-          v-model="skillSearchQuery"
-          class="skills-search-input"
-          type="search"
-          :placeholder="t('Search skills...')"
-          aria-label="Search skills"
-        />
-        <button class="skills-hub-sort" type="submit" :disabled="isSearchingSkills || skillSearchQuery.trim().length < 2">
-          {{ isSearchingSkills ? t('Searching...') : t('Search') }}
-        </button>
-      </form>
-      <div v-if="skillSearchError" class="skills-hub-error">
-        <span>{{ skillSearchError }}</span>
-      </div>
-    </div>
-
-    <div v-if="skillSearchResults.length > 0" class="skills-hub-section">
-      <button class="skills-hub-section-toggle" type="button" @click="isSearchResultsOpen = !isSearchResultsOpen">
-        <span class="skills-hub-section-title">{{ t('Search results ({count})', { count: skillSearchResults.length }) }}</span>
-        <IconCodexChevronRight class="skills-hub-section-chevron" :class="{ 'is-open': isSearchResultsOpen }" />
-      </button>
-      <div v-if="isSearchResultsOpen" class="skills-hub-grid">
-        <SkillCard
-          v-for="skill in skillSearchResults"
-          :key="skill.source || `${skill.owner}/${skill.name}`"
-          :skill="skill"
-          :show-browse-action="false"
-          @select="(skill) => openDetail(skill as HubSkill)"
-        />
-      </div>
-    </div>
-
-    <slot name="before-installed" />
 
     <div v-if="filteredInstalled.length > 0" class="skills-hub-section">
       <button class="skills-hub-section-toggle" type="button" @click="isInstalledOpen = !isInstalledOpen">
@@ -108,11 +15,11 @@
       <div v-if="isInstalledOpen" class="skills-hub-grid">
         <SkillCard
           v-for="skill in filteredInstalled"
-          :key="skill.name"
+          :key="skill.path || skill.name"
           :skill="skill"
           :show-status-badge="false"
           :show-owner="false"
-          @select="(skill) => openDetail(skill as HubSkill)"
+          @select="openDetail"
         />
       </div>
     </div>
@@ -128,11 +35,9 @@
     <SkillDetailModal
       :skill="detailSkill"
       :visible="isDetailOpen"
-      :is-installing="isDetailInstalling"
       :is-uninstalling="isDetailUninstalling"
       :is-trying="props.tryInFlightKey === skillTryKey(detailSkill)"
       @close="isDetailOpen = false"
-      @install="handleInstall"
       @uninstall="handleUninstall"
       @toggle-enabled="handleToggleEnabled"
       @try="handleTrySkill"
@@ -145,27 +50,19 @@ import { computed, onMounted, ref } from 'vue'
 import { IconCodexChevronRight } from '../icons/codex'
 import SkillCard from './SkillCard.vue'
 import SkillDetailModal, { type HubSkill } from './SkillDetailModal.vue'
-import { useGithubSkillsSync } from '../../composables/useGithubSkillsSync'
 import { useUiLanguage } from '../../composables/useUiLanguage'
 
 const EMPTY_SKILL: HubSkill = { name: '', owner: '', description: '', url: '', installed: false }
 type SkillsHubPayload = { installed?: HubSkill[] }
-type SkillsSearchPayload = { results?: HubSkill[]; error?: string }
 
 const installedSkills = ref<HubSkill[]>([])
-const skillSearchResults = ref<HubSkill[]>([])
 const isLoading = ref(false)
-const isSearchingSkills = ref(false)
 const error = ref('')
-const skillSearchQuery = ref('')
-const skillSearchError = ref('')
 const isInstalledOpen = ref(true)
-const isSearchResultsOpen = ref(true)
 const isDetailOpen = ref(false)
 const detailSkill = ref<HubSkill>(EMPTY_SKILL)
 const toast = ref<{ text: string; type: 'success' | 'error' } | null>(null)
 const actionSkillKey = ref('')
-const isInstallActionInFlight = ref(false)
 const isUninstallActionInFlight = ref(false)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 const { t } = useUiLanguage()
@@ -180,20 +77,10 @@ const emit = defineEmits<{
 }>()
 
 const toastClass = computed(() => toast.value?.type === 'error' ? 'skills-hub-toast-error' : 'skills-hub-toast-success')
-const currentDetailSkillKey = computed(() => `${detailSkill.value.owner}/${detailSkill.value.name}`)
-const isDetailInstalling = computed(() =>
-  isInstallActionInFlight.value && actionSkillKey.value === currentDetailSkillKey.value,
-)
+const currentDetailSkillKey = computed(() => skillKey(detailSkill.value))
 const isDetailUninstalling = computed(() =>
   isUninstallActionInFlight.value && actionSkillKey.value === currentDetailSkillKey.value,
 )
-const githubRepoUrl = computed(() => {
-  if (!syncStatus.value.configured) return ''
-  const owner = syncStatus.value.repoOwner.trim()
-  const repo = syncStatus.value.repoName.trim()
-  if (!owner || !repo) return ''
-  return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
-})
 const filteredInstalled = computed(() => installedSkills.value)
 
 function showToast(text: string, type: 'success' | 'error' = 'success'): void {
@@ -204,31 +91,6 @@ function showToast(text: string, type: 'success' | 'error' = 'success'): void {
 
 function applySkillsPayload(payload: SkillsHubPayload): void {
   installedSkills.value = payload.installed ?? []
-  if (skillSearchResults.value.length > 0) {
-    const installedByName = new Map(installedSkills.value.map((skill) => [skill.name, skill]))
-    skillSearchResults.value = skillSearchResults.value.map((skill) => {
-      const installed = installedByName.get(skill.name)
-      return installed ? registrySearchSkillWithLocalState(skill, installed) : skill
-    })
-  }
-}
-
-function registrySearchSkillWithLocalState(registrySkill: HubSkill, installed: HubSkill): HubSkill {
-  return {
-    ...registrySkill,
-    installed: true,
-    path: installed.path,
-    enabled: installed.enabled,
-  }
-}
-
-function localSearchSkill(installed: HubSkill, registrySkill: HubSkill): HubSkill {
-  return {
-    ...installed,
-    installed: true,
-    source: registrySkill.source,
-    publishedAt: registrySkill.publishedAt,
-  }
 }
 
 async function fetchSkills(): Promise<void> {
@@ -247,67 +109,12 @@ async function fetchSkills(): Promise<void> {
 }
 
 function openDetail(skill: HubSkill): void {
-  const installedSkill = skill.installed ? installedSkills.value.find((candidate) => candidate.name === skill.name) : undefined
-  detailSkill.value = installedSkill ? localSearchSkill(installedSkill, skill) : skill
+  detailSkill.value = skill
   isDetailOpen.value = true
 }
 
-async function searchSkills(): Promise<void> {
-  const query = skillSearchQuery.value.trim()
-  if (query.length < 2) return
-  isSearchingSkills.value = true
-  skillSearchError.value = ''
-  try {
-    const params = new URLSearchParams({ q: query })
-    const resp = await fetch(`/codex-api/skills-hub/search?${params}`)
-    const data = (await resp.json()) as SkillsSearchPayload
-    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`)
-    const installedByName = new Map(installedSkills.value.map((skill) => [skill.name, skill]))
-    skillSearchResults.value = (data.results ?? []).map((skill) => {
-      const installed = installedByName.get(skill.name)
-      return installed ? registrySearchSkillWithLocalState(skill, installed) : skill
-    })
-    isSearchResultsOpen.value = true
-    if (skillSearchResults.value.length === 0) {
-      showToast(t('No matching skills found.'), 'error')
-    }
-  } catch (e) {
-    skillSearchError.value = e instanceof Error ? e.message : 'Failed to search skills'
-  } finally {
-    isSearchingSkills.value = false
-  }
-}
-
-async function handleInstall(skill: HubSkill): Promise<void> {
-  actionSkillKey.value = `${skill.owner}/${skill.name}`
-  isInstallActionInFlight.value = true
-  try {
-    const resp = await fetch('/codex-api/skills-hub/install', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ owner: skill.owner, name: skill.name, source: skill.source }),
-    })
-    const data = (await resp.json()) as { ok?: boolean; error?: string; path?: string }
-    if (!data.ok) throw new Error(data.error || 'Install failed')
-    if (!data.path) throw new Error('Install completed but no local skill path was returned')
-    await fetchSkills()
-    const installed = installedSkills.value.find((candidate) => candidate.name === skill.name)
-    if (!installed?.path) {
-      throw new Error('Install completed but the local skill was not found after refresh')
-    }
-    detailSkill.value = localSearchSkill(installed, skill)
-    showToast(`${skill.displayName || skill.name} skill installed`)
-    isDetailOpen.value = false
-    emit('skills-changed')
-  } catch (e) {
-    showToast(e instanceof Error ? e.message : 'Failed to install skill', 'error')
-  } finally {
-    isInstallActionInFlight.value = false
-  }
-}
-
 async function handleUninstall(skill: HubSkill): Promise<void> {
-  actionSkillKey.value = `${skill.owner}/${skill.name}`
+  actionSkillKey.value = skillKey(skill)
   isUninstallActionInFlight.value = true
   try {
     const resp = await fetch('/codex-api/skills-hub/uninstall', {
@@ -317,7 +124,7 @@ async function handleUninstall(skill: HubSkill): Promise<void> {
     })
     const data = (await resp.json()) as { ok?: boolean; error?: string }
     if (!data.ok) throw new Error(data.error || 'Uninstall failed')
-    installedSkills.value = installedSkills.value.filter((s) => s.name !== skill.name)
+    installedSkills.value = installedSkills.value.filter((candidate) => skillKey(candidate) !== skillKey(skill))
     showToast(`${skill.displayName || skill.name} skill uninstalled`)
     isDetailOpen.value = false
     emit('skills-changed')
@@ -336,7 +143,6 @@ async function handleToggleEnabled(skill: HubSkill, enabled: boolean): Promise<v
       body: JSON.stringify({ method: 'skills/config/write', params: { path: skill.path, enabled } }),
     })
     if (!resp.ok) throw new Error('Failed to update skill')
-    await fetch('/codex-api/skills-sync/push', { method: 'POST' })
     showToast(`${skill.displayName || skill.name} skill ${enabled ? 'enabled' : 'disabled'}`)
     await fetchSkills()
   } catch (e) {
@@ -356,36 +162,16 @@ function handleTrySkill(skill: HubSkill): void {
   isDetailOpen.value = false
 }
 
+function skillKey(skill: HubSkill): string {
+  return `${skill.name}:${skill.path ?? ''}`
+}
+
 function skillTryKey(skill: HubSkill): string {
   return `skill:${skill.name}:${skill.path ?? ''}`
 }
 
-const {
-  deviceLogin,
-  isPullInFlight,
-  isPushInFlight,
-  isStartupSyncInFlight,
-  isSyncActionInFlight,
-  loadSyncStatus,
-  logoutGithub,
-  pullSkillsSync,
-  pushSkillsSync,
-  startupSkillsSync,
-  startGithubFirebaseLogin,
-  startGithubLogin,
-  syncActionError,
-  syncActionStatus,
-  syncStatus,
-} = useGithubSkillsSync({
-  showToast,
-  onPulled: async () => {
-    await fetchSkills()
-    emit('skills-changed')
-  },
-})
 onMounted(() => {
   void fetchSkills()
-  void loadSyncStatus()
 })
 </script>
 
@@ -406,70 +192,6 @@ onMounted(() => {
 
 .skills-hub-subtitle {
   @apply text-sm text-zinc-500 m-0;
-}
-
-.skills-hub-sort {
-  @apply shrink-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 hover:border-zinc-300 cursor-pointer;
-}
-
-.skills-sync-panel {
-  @apply rounded-xl border border-zinc-200 bg-zinc-50 p-3 flex flex-col gap-2;
-}
-
-.skills-sync-header {
-  @apply flex flex-wrap items-center gap-2 text-sm text-zinc-700;
-}
-
-.skills-sync-badge {
-  @apply text-xs rounded-md border border-zinc-300 bg-white px-2 py-0.5;
-}
-
-.skills-sync-badge-link {
-  @apply text-zinc-700 hover:text-zinc-900 hover:border-zinc-400;
-}
-
-.skills-sync-device {
-  @apply text-xs text-zinc-600 flex items-center gap-2 flex-wrap;
-}
-
-.skills-sync-meta {
-  @apply text-xs text-zinc-600 flex items-center gap-3 flex-wrap;
-}
-
-.skills-sync-error {
-  @apply flex items-start justify-between gap-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-2 py-1;
-}
-
-.skills-sync-actions {
-  @apply flex flex-wrap gap-2;
-}
-
-.skills-search-panel {
-  @apply rounded-xl border border-zinc-200 bg-white p-3 flex flex-col gap-2;
-}
-
-.skills-search-header {
-  @apply flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between;
-}
-
-.skills-search-copy {
-  @apply flex flex-col gap-0.5 text-sm text-zinc-700;
-}
-
-.skills-search-copy span {
-  @apply text-xs text-zinc-500;
-}
-
-.skills-directory-link {
-  @apply inline-flex shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:border-zinc-300 hover:bg-white hover:text-zinc-900;
-}
-
-.skills-search-form {
-  @apply flex flex-col gap-2 sm:flex-row;
-}
-
-.skills-search-input {
-  @apply min-w-0 flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 outline-none placeholder-zinc-400 transition focus:border-zinc-300 focus:bg-white;
 }
 
 .skills-hub-toast {

@@ -10,21 +10,8 @@ export type InspectorSourceItem = {
   mark?: string
 }
 
-export type TerminalHeaderQuickCommand = {
-  label: string
-  value: string
-  custom?: boolean
-  usageCount: number
-  lastUsedAt: number
-  sourceIndex?: number
-}
-
-export type ThreadTerminalPanelExposed = {
-  runQuickCommand: (command: string, custom?: boolean) => Promise<void>
-}
-
 export type DirectoryTryItemPayload = {
-  kind: 'app' | 'plugin' | 'skill' | 'composio'
+  kind: 'skill'
   name: string
   displayName: string
   skillPath?: string

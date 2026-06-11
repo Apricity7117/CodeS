@@ -13,7 +13,6 @@ import {
   IN_PROGRESS_SEND_MODE_KEY,
   INSPECTOR_PANEL_OPEN_STORAGE_KEY,
   SEND_WITH_ENTER_KEY,
-  TERMINAL_QUICK_COMMAND_STORAGE_KEY,
 } from './appConfig'
 import { buildDirectoryTryPrompt, getDirectoryTryItemKey } from './directoryTry'
 import {
@@ -26,12 +25,6 @@ import {
   normalizeToWhisperLanguage,
   saveSendWithEnterPref,
 } from './preferences'
-import {
-  compareTerminalQuickCommands,
-  loadTerminalStoredQuickCommands,
-  normalizeTerminalQuickCommandValue,
-  saveTerminalStoredQuickCommands,
-} from './terminalQuickCommands'
 import { buildExportFileName, buildThreadMarkdown } from './threadExport'
 
 function t(message: string): string {
@@ -234,50 +227,6 @@ describe('accountDisplay', () => {
   })
 })
 
-describe('terminalQuickCommands', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('normalizes, loads, and saves terminal quick commands', () => {
-    const localStorage = stubWindow({
-      [TERMINAL_QUICK_COMMAND_STORAGE_KEY]: JSON.stringify([
-        { label: ' list ', value: ' pnpm   test ', custom: true, usageCount: '2', lastUsedAt: 10 },
-        { label: 'duplicate', value: 'pnpm test', custom: true, usageCount: 9, lastUsedAt: 99 },
-        { label: 'bad', value: '   ' },
-      ]),
-    })
-
-    expect(normalizeTerminalQuickCommandValue(' pnpm   run   build ')).toBe('pnpm run build')
-    expect(loadTerminalStoredQuickCommands()).toEqual([
-      {
-        label: ' list ',
-        value: 'pnpm test',
-        custom: true,
-        usageCount: 2,
-        lastUsedAt: 10,
-      },
-    ])
-
-    saveTerminalStoredQuickCommands([
-      { label: 'Build', value: 'pnpm build', custom: true, usageCount: 1, lastUsedAt: 2 },
-    ])
-    expect(localStorage.getItem(TERMINAL_QUICK_COMMAND_STORAGE_KEY)).toBe(
-      '[{"label":"Build","value":"pnpm build","custom":true,"usageCount":1,"lastUsedAt":2}]',
-    )
-  })
-
-  it('sorts by usage, recency, then source order', () => {
-    const commands = [
-      { label: 'A', value: 'a', usageCount: 1, lastUsedAt: 5, sourceIndex: 2 },
-      { label: 'B', value: 'b', usageCount: 2, lastUsedAt: 1, sourceIndex: 1 },
-      { label: 'C', value: 'c', usageCount: 1, lastUsedAt: 5, sourceIndex: 0 },
-    ].sort(compareTerminalQuickCommands)
-
-    expect(commands.map((command) => command.value)).toEqual(['b', 'c', 'a'])
-  })
-})
-
 describe('directoryTry', () => {
   it('prefers explicit prompts and creates stable in-flight keys', () => {
     const payload = {
@@ -294,9 +243,9 @@ describe('directoryTry', () => {
 
   it('builds fallback prompts from item metadata', () => {
     expect(buildDirectoryTryPrompt({
-      kind: 'composio',
-      name: 'github',
-      displayName: 'GitHub',
-    })).toBe('Test GitHub Composio connector. Give me a list of what it can do and one useful example.')
+      kind: 'skill',
+      name: 'reviewer',
+      displayName: 'Reviewer',
+    })).toBe('Test Reviewer skill. Give me a list of what it can do and one useful example.')
   })
 })

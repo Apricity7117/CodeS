@@ -43,16 +43,9 @@ npx codes
 # http://localhost:18923
 ```
 
-By default, `codes` now also starts:
+The CLI prints local and LAN URLs in startup output. Use the password shown in the same output when opening from another device on the same network.
 
-```bash
-cloudflared tunnel --url http://localhost:<port>
-```
-
-It prints the tunnel URL, terminal QR code, and password together in startup output.  
-Use `--no-tunnel` to disable this behavior.
-
-If you are using a provider or AI gateway that is already authenticated and do not want `codes` to force `codex login` during startup, use:
+If Codex is already authenticated and you do not want `codes` to force `codex login` during startup, use:
 
 ```bash
 npx codes --no-login
@@ -70,40 +63,6 @@ node -v   # 18+
 npx codes
 ```
 
-## iPhone / iPad via Tailscale Serve
-
-If you want to use CodeS from iPhone or iPad Safari, serving it over HTTPS is recommended.
-
-A practical private setup is to run CodeS locally and publish it inside your tailnet with Tailscale Serve:
-
-```powershell
-npx codes --no-tunnel --port 5900
-tailscale serve --bg 5900
-```
-
-Then open:
-
-```text
-https://<your-machine>.<your-tailnet>.ts.net
-```
-
-This setup worked well in practice for:
-
-- iPhone Safari access
-- Add to Home Screen
-- the built-in dictation / transcription feature in the app
-- viewing the same projects and conversations from the Windows host
-
-Notes:
-
-- Tailscale Serve keeps access private to your tailnet
-- on iOS, HTTPS / secure context appears to be important for mobile browser access and dictation
-- some minor mobile Safari CSS issues may still exist, but they do not prevent normal use
-- depending on proxying details, authentication behavior may differ from direct remote access
-- if conversations created in the web UI do not immediately appear in the Windows app, restarting the Windows app may refresh them
-
----
-
 ## ✨ Features
 > **The payload.**
 
@@ -112,9 +71,9 @@ Notes:
 - 🖥️ Browser-first CodeS flow on `http://localhost:18923`
 - 🌐 LAN-friendly access from other devices on the same network
 - 🧪 Remote/headless-friendly setup for server-based Codex usage
-- 🔌 Works with reverse proxies and tunneling setups
 - ⚡ No global install required for quick experimentation
 - 🎙️ Built-in hold-to-dictate voice input with transcription to composer draft
+- 🧩 Local Skills Hub and composer skill picker backed by Codex local skills
 - 🤖 Optional Telegram bot bridge: send messages to bot, forward into mapped thread, send assistant reply back to Telegram
 
 ### Telegram Bot Bridge (Optional)
@@ -177,8 +136,7 @@ Outgoing assistant messages are sent with Telegram `parse_mode=HTML` for formatt
 | 🪟 Windows machine | Launch web UI and access from Chrome/Edge quickly |
 | 🧪 Remote dev box | Keep Codex process on server, view UI from client device |
 | 🌐 LAN sharing | Open UI from another device on same network |
-| 🧰 Headless workflows | Keep terminal + browser split for productivity |
-| 🔌 Custom routing | Put behind reverse proxy/tunnel if needed |
+| 🧰 Headless workflows | Keep Codex process on the host and use the browser as the UI |
 | ⚡ Fast experiments | `npx` run without full global setup |
 
 ---

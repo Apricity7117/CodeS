@@ -670,8 +670,8 @@ describe('Codex CLI availability', () => {
   })
 })
 
-describe('provider model selection', () => {
-  it('ignores global selected-model localStorage when OpenCode Zen is the active provider', async () => {
+describe('model selection', () => {
+  it('falls back to the configured Codex model when the stored model is unavailable', async () => {
     installTestWindow({
       'codex-web-local.selected-model-by-context.v1': JSON.stringify({
         '__new-thread__': 'gpt-5.5',
@@ -684,7 +684,7 @@ describe('provider model selection', () => {
     gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
     gatewayMocks.getCurrentModelConfig.mockResolvedValue({
       model: 'big-pickle',
-      providerId: 'opencode-zen',
+      providerId: 'codex',
       reasoningEffort: 'medium',
       speedMode: 'standard',
     })
@@ -697,10 +697,7 @@ describe('provider model selection', () => {
     const state = useDesktopState()
     await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
 
-    expect(gatewayMocks.getAvailableModelIds).toHaveBeenCalledWith({
-      includeProviderModels: true,
-      requireProviderModels: true,
-    })
+    expect(gatewayMocks.getAvailableModelIds).toHaveBeenCalledWith()
     expect(state.availableModelIds.value).toEqual([
       'big-pickle',
       'deepseek-v4-flash-free',
@@ -709,15 +706,15 @@ describe('provider model selection', () => {
     expect(state.selectedModelId.value).toBe('big-pickle')
     expect(state.readModelIdForThread('').trim()).toBe('big-pickle')
     expect(JSON.parse(window.localStorage.getItem('codex-web-local.selected-model-by-context.v1') ?? '{}')).toEqual({
-      '__new-thread-provider__::opencode-zen': 'big-pickle',
+      '__new-thread__': 'big-pickle',
     })
     expect(window.localStorage.getItem('codex-web-local.selected-model-id.v1')).toBe(null)
   })
 
-  it('restores a valid provider-scoped OpenCode Zen selected model from localStorage', async () => {
+  it('restores a valid new-thread selected model from localStorage', async () => {
     installTestWindow({
       'codex-web-local.selected-model-by-context.v1': JSON.stringify({
-        '__new-thread-provider__::opencode-zen': 'ring-2.6-1t-free',
+        '__new-thread__': 'ring-2.6-1t-free',
       }),
     })
     gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })
@@ -726,7 +723,7 @@ describe('provider model selection', () => {
     gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
     gatewayMocks.getCurrentModelConfig.mockResolvedValue({
       model: 'big-pickle',
-      providerId: 'opencode-zen',
+      providerId: 'codex',
       reasoningEffort: 'medium',
       speedMode: 'standard',
     })
@@ -747,7 +744,7 @@ describe('provider model selection', () => {
     expect(state.selectedModelId.value).toBe('ring-2.6-1t-free')
     expect(state.readModelIdForThread('').trim()).toBe('ring-2.6-1t-free')
     expect(JSON.parse(window.localStorage.getItem('codex-web-local.selected-model-by-context.v1') ?? '{}')).toEqual({
-      '__new-thread-provider__::opencode-zen': 'ring-2.6-1t-free',
+      '__new-thread__': 'ring-2.6-1t-free',
     })
   })
 })

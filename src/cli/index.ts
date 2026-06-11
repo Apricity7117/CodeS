@@ -7,7 +7,6 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 import { Command } from 'commander'
-import qrcode from 'qrcode-terminal'
 import {
   getNpmGlobalBinDir,
   getUserNpmPrefix,
@@ -23,7 +22,6 @@ import { createServer as createApp } from '../server/httpServer.js'
 import { generatePassword } from '../server/password.js'
 import { spawnSyncCommand } from '../utils/commandInvocation.js'
 import { ENV_KEYS, readTrimmedEnv, setEnvValues } from '../config/env.js'
-import { hasDetectedTailscaleIp, resolveCloudflaredForTunnel, startCloudflaredTunnel } from './tunnel.js'
 
 const program = new Command().name('codes').description('CodeS web interface for Codex app-server')
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -126,22 +124,14 @@ function openBrowser(url: string): void {
   child.unref()
 }
 
-function buildTunnelAutologinUrl(tunnelUrl: string, _password: string | undefined): string {
-  return tunnelUrl
-}
-
 function getAccessibleUrls(port: number): string[] {
   const urls = new Set<string>([`http://localhost:${String(port)}`])
   try {
     const interfaces = networkInterfaces()
     for (const entries of Object.values(interfaces)) {
-      if (!entries) {
-        continue
-      }
+      if (!entries) continue
       for (const entry of entries) {
-        if (entry.internal) {
-          continue
-        }
+        if (entry.internal) continue
         if (entry.family === 'IPv4') {
           urls.add(`http://${entry.address}:${String(port)}`)
         }
@@ -238,7 +228,6 @@ async function addProjectOnly(projectPath: string): Promise<void> {
 async function startServer(options: {
   port: string
   password: string | boolean
-  tunnel: boolean
   open: boolean
   login: boolean
   sandboxMode?: string
@@ -280,23 +269,6 @@ async function startServer(options: {
   attachWebSocket(server)
   const port = await listenWithFallback(server, requestedPort)
   setEnvValues(ENV_KEYS.serverPort, String(port))
-  let tunnelChild: ReturnType<typeof spawn> | null = null
-  let tunnelUrl: string | null = null
-
-  if (options.tunnel) {
-    try {
-      const cloudflaredCommand = await resolveCloudflaredForTunnel()
-      if (!cloudflaredCommand) {
-        throw new Error('cloudflared is not installed')
-      }
-      const tunnel = await startCloudflaredTunnel(cloudflaredCommand, port)
-      tunnelChild = tunnel.process
-      tunnelUrl = tunnel.url
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      console.warn(`\n[cloudflared] Tunnel not started: ${message}`)
-    }
-  }
 
   const lines = [
     '',
@@ -325,25 +297,12 @@ async function startServer(options: {
     lines.push('  Use that file to retrieve the password for untrusted origins.')
   }
 
-  const tunnelQrUrl = tunnelUrl ? buildTunnelAutologinUrl(tunnelUrl, password) : null
-  if (tunnelUrl) {
-    lines.push(`  Tunnel:   ${tunnelQrUrl ?? tunnelUrl}`)
-    lines.push('  Tunnel QR code below')
-  }
-
   lines.push('')
   console.log(lines.join('\n'))
-  if (tunnelQrUrl) {
-    qrcode.generate(tunnelQrUrl, { small: true })
-    console.log('')
-  }
   if (options.open) openBrowser(`http://localhost:${String(port)}`)
 
   function shutdown() {
     console.log('\nShutting down...')
-    if (tunnelChild && !tunnelChild.killed) {
-      tunnelChild.kill('SIGTERM')
-    }
     server.close(() => {
       dispose()
       process.exit(0)
@@ -372,8 +331,6 @@ program
   .option('-p, --port <port>', 'port to listen on', '5900')
   .option('--password <pass>', 'set a specific password')
   .option('--no-password', 'disable password protection')
-  .option('--tunnel', 'start cloudflared tunnel (default is auto by Tailscale detection)', true)
-  .option('--no-tunnel', 'disable cloudflared tunnel startup')
   .option('--open', 'open browser on startup', true)
   .option('--no-open', 'do not open browser on startup')
   .option('--login', 'run automatic Codex login bootstrap', true)
@@ -385,7 +342,6 @@ program
     opts: {
       port: string
       password: string | boolean
-      tunnel: boolean
       open: boolean
       login: boolean
       sandboxMode?: string
@@ -395,13 +351,6 @@ program
   ) => {
     const rawArgv = process.argv.slice(2)
     const openProjectFlagIndex = rawArgv.findIndex((arg) => arg === '--open-project' || arg.startsWith('--open-project='))
-    const tunnelFlagExplicit = rawArgv.some((arg) => (
-      arg === '--tunnel'
-      || arg === '--no-tunnel'
-      || arg.startsWith('--tunnel=')
-      || arg.startsWith('--no-tunnel=')
-    ))
-    const effectiveTunnel = tunnelFlagExplicit ? opts.tunnel : hasDetectedTailscaleIp()
 
     let openProjectOnly = (opts.openProject ?? '').trim()
     if (!openProjectOnly && openProjectFlagIndex >= 0 && projectPath?.trim()) {
@@ -429,7 +378,7 @@ program
       }
       opts.approvalPolicy = parsedApprovalPolicy
     }
-    await startServer({ ...opts, tunnel: effectiveTunnel, projectPath: launchProject })
+    await startServer({ ...opts, projectPath: launchProject })
   })
 
 program.command('login').description('Install/check Codex CLI and run `codex login`').action(runLogin)

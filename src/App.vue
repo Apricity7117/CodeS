@@ -56,23 +56,10 @@
               <IconCodexX class="sidebar-search-clear-icon" />
             </button>
           </div>
-
-          <SidebarMenuRow
-            class="sidebar-primary-link"
-            :class="{ 'is-active': isAutomationsRoute }"
-            as="button"
-            type="button"
-            @click="router.push({ name: 'automations' }); isMobile && setSidebarCollapsed(true)"
-          >
-            <template #left>
-              <IconCodexClock class="sidebar-primary-link-icon sidebar-automations-link-icon" aria-hidden="true" />
-            </template>
-            <span class="sidebar-primary-link-title">{{ t('Automations') }}</span>
-          </SidebarMenuRow>
         </div>
 
         <div class="sidebar-scrollable">
-          <SidebarThreadTree ref="sidebarThreadTreeRef" :groups="projectGroups" :project-display-name-by-id="projectDisplayNameById"
+          <SidebarThreadTree :groups="projectGroups" :project-display-name-by-id="projectDisplayNameById"
             :project-git-repo-by-name="projectGitRepoByName"
             :project-cwd-by-name="projectCwdByName"
             v-if="!isSidebarCollapsed"
@@ -90,7 +77,6 @@
             @fork-thread="onForkThread"
             @remove-project="onRemoveProject" @reorder-project="onReorderProject"
             @export-thread="onExportThread"
-            @automations-changed="onAutomationsChanged"
             @start-new-chat="onStartNewThreadFromToolbar" />
         </div>
 
@@ -229,7 +215,7 @@
               <div class="sidebar-settings-row sidebar-settings-row--select" :title="t('Choose the interface language for the app.')">
                 <span class="sidebar-settings-label">{{ t('UI language') }}</span>
                 <select
-                  class="sidebar-settings-provider-select"
+                  class="sidebar-settings-language-select"
                   :value="uiLanguage"
                   @change="setUiLanguage(($event.target as HTMLSelectElement).value as 'en' | 'zh-CN')"
                 >
@@ -263,159 +249,6 @@
                   :ariaLabel="t('Auto send dictation')"
                   @update:checked="toggleDictationAutoSend"
                 />
-              </div>
-              <div class="sidebar-settings-row sidebar-settings-row--select" :title="t('Choose the API provider for the Codex backend')">
-                <span class="sidebar-settings-label">{{ t('Provider') }}</span>
-                <select
-                  class="sidebar-settings-provider-select"
-                  :value="selectedProvider"
-                  :disabled="freeModeLoading"
-                  @change="onProviderChange(($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="codex">Codex</option>
-                  <option value="openrouter">OpenRouter</option>
-                  <option value="opencode-zen">OpenCode Zen</option>
-                  <option value="custom">Custom endpoint</option>
-                </select>
-              </div>
-              <div v-if="providerError" class="sidebar-settings-row sidebar-settings-error">
-                <span>{{ providerError }}</span>
-              </div>
-              <div v-if="selectedProvider === 'openrouter'" class="sidebar-settings-row sidebar-settings-row--input">
-                <div class="sidebar-settings-provider-info">
-                  <span class="sidebar-settings-label">{{ t('OpenRouter API key') }}</span>
-                  <a
-                    class="sidebar-settings-provider-link"
-                    href="https://openrouter.ai/keys"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >{{ t('Get API key') }}</a>
-                </div>
-                <div class="sidebar-settings-key-group">
-                  <template v-if="freeModeHasCustomKey && !freeModeCustomKey">
-                    <span class="sidebar-settings-key-masked">{{ freeModeCustomKeyMasked }}</span>
-                    <button
-                      class="sidebar-settings-key-clear"
-                      type="button"
-                      :disabled="freeModeCustomKeySaving"
-                      :title="t('Remove custom key, use community keys')"
-                      @click="clearFreeModeCustomKey"
-                    >&#x2715;</button>
-                  </template>
-                  <template v-else>
-                    <input
-                      v-model="freeModeCustomKey"
-                      class="sidebar-settings-key-input"
-                      type="password"
-                      :placeholder="t('sk-or-v1-... (optional, uses free keys if empty)')"
-                      @keydown.enter="saveFreeModeCustomKey"
-                    />
-                    <button
-                      class="sidebar-settings-key-save"
-                      type="button"
-                      :disabled="freeModeCustomKeySaving || !freeModeCustomKey.trim()"
-                      @click="saveFreeModeCustomKey"
-                    >{{ freeModeCustomKeySaving ? '...' : t('Set') }}</button>
-                  </template>
-                </div>
-                <div class="sidebar-settings-row sidebar-settings-row--select" style="margin-top: 4px; padding: 0">
-                  <span class="sidebar-settings-label">{{ t('API format') }}</span>
-                  <div class="sidebar-settings-segmented" role="group" :aria-label="t('OpenRouter API format')">
-                    <button
-                      type="button"
-                      class="sidebar-settings-segmented-option"
-                      :class="{ 'is-active': openRouterWireApi === 'responses' }"
-                      :disabled="freeModeCustomKeySaving || freeModeLoading"
-                      @click="setOpenRouterWireApi('responses')"
-                    >
-                      Responses
-                    </button>
-                    <button
-                      type="button"
-                      class="sidebar-settings-segmented-option"
-                      :class="{ 'is-active': openRouterWireApi === 'chat' }"
-                      :disabled="freeModeCustomKeySaving || freeModeLoading"
-                      @click="setOpenRouterWireApi('chat')"
-                    >
-                      Completions
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div v-if="selectedProvider === 'opencode-zen'" class="sidebar-settings-row sidebar-settings-row--input">
-                <div class="sidebar-settings-provider-info">
-                  <span class="sidebar-settings-label">{{ t('OpenCode Zen API key') }}</span>
-                  <a
-                    class="sidebar-settings-provider-link"
-                    href="https://opencode.ai/auth"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >{{ t('Get API key') }}</a>
-                </div>
-                <div class="sidebar-settings-key-group">
-                  <input
-                    v-model="opencodeZenKey"
-                    class="sidebar-settings-key-input"
-                    type="password"
-                    :placeholder="t('sk-...')"
-                    @keydown.enter="saveOpencodeZen"
-                  />
-                  <button
-                    class="sidebar-settings-key-save"
-                    type="button"
-                    :disabled="freeModeCustomKeySaving || !opencodeZenKey.trim()"
-                    @click="saveOpencodeZen"
-                  >{{ freeModeCustomKeySaving ? '...' : t('Save') }}</button>
-                </div>
-              </div>
-              <div v-if="selectedProvider === 'custom'" class="sidebar-settings-row sidebar-settings-row--input">
-                <span class="sidebar-settings-label">{{ t('Custom endpoint URL') }}</span>
-                <div class="sidebar-settings-key-group">
-                  <input
-                    v-model="customEndpointUrl"
-                    class="sidebar-settings-key-input"
-                    type="url"
-                    :placeholder="t('https://api.example.com/v1')"
-                    @keydown.enter="saveCustomEndpoint"
-                  />
-                </div>
-                <span class="sidebar-settings-label" style="margin-top: 4px">{{ t('API key') }}</span>
-                <div class="sidebar-settings-key-group">
-                  <input
-                    v-model="customEndpointKey"
-                    class="sidebar-settings-key-input"
-                    type="password"
-                    :placeholder="t('Bearer token (optional)')"
-                    @keydown.enter="saveCustomEndpoint"
-                  />
-                  <button
-                    class="sidebar-settings-key-save"
-                    type="button"
-                    :disabled="freeModeCustomKeySaving || !customEndpointUrl.trim()"
-                    @click="saveCustomEndpoint"
-                  >{{ freeModeCustomKeySaving ? '...' : t('Save') }}</button>
-                </div>
-                <div class="sidebar-settings-row sidebar-settings-row--select" style="margin-top: 4px; padding: 0">
-                  <span class="sidebar-settings-label">{{ t('API format') }}</span>
-                  <div class="sidebar-settings-segmented" role="group" :aria-label="t('Custom endpoint API format')">
-                    <button
-                      type="button"
-                      class="sidebar-settings-segmented-option"
-                      :class="{ 'is-active': customEndpointWireApi === 'responses' }"
-                      @click="customEndpointWireApi = 'responses'"
-                    >
-                      Responses
-                    </button>
-                    <button
-                      type="button"
-                      class="sidebar-settings-segmented-option"
-                      :class="{ 'is-active': customEndpointWireApi === 'chat' }"
-                      @click="customEndpointWireApi = 'chat'"
-                    >
-                      Completions
-                    </button>
-                  </div>
-                </div>
               </div>
               <div class="sidebar-settings-row sidebar-settings-row--select" :title="SETTINGS_HELP.dictationLanguage">
                 <span class="sidebar-settings-label">{{ t('Dictation language') }}</span>
@@ -510,13 +343,12 @@
       <section
         class="content-root"
         :class="{
-          'is-virtual-keyboard-open': isTerminalKeyboardLayoutActive,
-          'is-terminal-open': isComposerTerminalOpen,
+          'is-virtual-keyboard-open': isVirtualKeyboardOpen,
         }"
         :style="contentStyle"
       >
         <span v-if="isVirtualKeyboardOpen" class="content-keyboard-spacer" aria-hidden="true" />
-        <ContentHeader :title="contentTitle" :accent="isSkillsRoute || isAutomationsRoute">
+        <ContentHeader :title="contentTitle" :accent="isSkillsRoute">
           <template #leading>
             <SidebarThreadControls
               v-if="isSidebarCollapsed || isMobile"
@@ -529,23 +361,8 @@
             <span v-if="isSkillsRoute" class="skills-route-header-icon" aria-hidden="true">
               <IconCodexSkills />
             </span>
-            <span v-else-if="isAutomationsRoute" class="skills-route-header-icon automations-route-header-icon" aria-hidden="true">
-              <IconCodexClock />
-            </span>
           </template>
           <template #actions>
-            <ComposerDropdown
-              v-if="canShowTerminalToggle"
-              class="content-header-terminal-command"
-              :class="{ 'is-open': isComposerTerminalOpen }"
-              :model-value="terminalHeaderDropdownValue"
-              :options="terminalHeaderDropdownOptions"
-              :placeholder="terminalCommandPlaceholder"
-              :selected-prefix-icon="IconCodexTerminal"
-              :icon-only="true"
-              :empty-label="t('No commands')"
-              @update:model-value="onSelectHeaderTerminalCommand"
-            />
             <button
               class="content-header-inspector-toggle"
               :class="{ 'is-active': showInspectorPanel }"
@@ -564,24 +381,10 @@
         <div class="content-workspace" :class="{ 'is-inspector-open': showInspectorPanel }">
         <section class="content-body">
           <template v-if="isSkillsRoute">
-            <DirectoryHub
-              :cwd="directoryCwd"
-              :thread-id="routeThreadId"
+            <SkillsHub
               :try-in-flight-key="directoryTryInFlightKey"
               @skills-changed="onSkillsChanged"
               @try-item="onTryDirectoryItem"
-            />
-          </template>
-          <template v-else-if="isAutomationsRoute">
-            <AutomationsPanel
-              ref="automationsPanelRef"
-              :groups="projectGroups"
-              :project-cwd-by-name="projectCwdByName"
-              :project-display-name-by-id="projectDisplayNameById"
-              :selected-automation-id="routeAutomationId"
-              @select-automation="onSelectAutomationInPanel"
-              @edit-automation="onEditAutomationFromPanel"
-              @create-automation="onCreateAutomationFromPanel"
             />
           </template>
           <template v-else-if="isHomeRoute">
@@ -604,35 +407,6 @@
                     {{ t('Create Project') }}
                   </button>
                 </div>
-                <section v-if="showFirstLaunchPluginsCard" class="new-thread-launch-card" aria-label="Plugins and Apps announcement">
-                  <div class="new-thread-launch-card-copy">
-                    <div class="new-thread-launch-card-topline">
-                      <span class="new-thread-launch-card-badge" aria-hidden="true">
-                        <IconCodexLightningBolt />
-                      </span>
-                      <p class="new-thread-launch-card-eyebrow">{{ t('New in Codex') }}</p>
-                    </div>
-                    <h2 class="new-thread-launch-card-title">{{ t('Plugins are here') }}</h2>
-                    <p class="new-thread-launch-card-text">
-                      {{ t('Hook Codex up to Gmail, Calendar, GitHub, Slack, Browser Use, and more so it can actually help with real work right away.') }}
-                    </p>
-                    <div class="new-thread-launch-card-pills" aria-label="Example integrations">
-                      <span class="new-thread-launch-card-pill">Gmail</span>
-                      <span class="new-thread-launch-card-pill">Calendar</span>
-                      <span class="new-thread-launch-card-pill">GitHub</span>
-                      <span class="new-thread-launch-card-pill">Slack</span>
-                      <span class="new-thread-launch-card-pill">Browser Use</span>
-                    </div>
-                  </div>
-                  <div class="new-thread-launch-card-actions">
-                    <button class="new-thread-launch-card-button new-thread-launch-card-button-primary" type="button" @click="onOpenPluginsHomeCard">
-                      {{ t('Explore Plugins & Apps') }}
-                    </button>
-                    <button class="new-thread-launch-card-button" type="button" @click="dismissFirstLaunchPluginsCard">
-                      {{ t('Dismiss') }}
-                    </button>
-                  </div>
-                </section>
                 <Teleport to="body">
                   <div v-if="isExistingFolderPickerOpen" class="new-thread-open-folder-overlay" @click.self="onCloseExistingFolderPanel">
                     <div class="new-thread-open-folder" role="dialog" aria-modal="true" :aria-label="t('Select folder')" @keydown.esc.prevent="onCloseExistingFolderPanel">
@@ -893,15 +667,6 @@
                 <div v-if="codexCliMissingError" class="composer-runtime-error" role="alert">
                   <span>{{ t(codexCliMissingError) }}</span>
                 </div>
-                <ThreadTerminalPanel
-                  v-if="homeTerminalOpen && composerCwd"
-                  ref="homeTerminalPanelRef"
-                  class="content-thread-terminal-panel"
-                  :thread-id="composerThreadContextId"
-                  :cwd="composerCwd"
-                  @hide="onHideHomeTerminal"
-                  @terminal-focus-change="onTerminalFocusChange"
-                />
                 <ThreadComposer ref="homeThreadComposerRef" :active-thread-id="composerThreadContextId"
                   :cwd="composerCwd"
                   :collaboration-modes="availableCollaborationModes"
@@ -962,15 +727,6 @@
                     @steer="steerQueuedMessage"
                     @delete="removeQueuedMessage"
                     @reorder="onReorderQueuedMessage"
-                  />
-                  <ThreadTerminalPanel
-                    v-if="selectedThreadTerminalOpen && selectedThreadId && composerCwd"
-                    ref="threadTerminalPanelRef"
-                    class="content-thread-terminal-panel"
-                    :thread-id="selectedThreadId"
-                    :cwd="composerCwd"
-                    @hide="onHideSelectedThreadTerminal"
-                    @terminal-focus-change="onTerminalFocusChange"
                   />
                   <ThreadPendingRequestPanel
                     v-if="selectedThreadPendingRequest"
@@ -1233,14 +989,11 @@ import IconTablerLayoutSidebar from './components/icons/IconTablerLayoutSidebar.
 import IconTablerLayoutSidebarFilled from './components/icons/IconTablerLayoutSidebarFilled.vue'
 import {
   IconCodexChevronRight,
-  IconCodexClock,
   IconCodexCompose,
   IconCodexLaptop,
-  IconCodexLightningBolt,
   IconCodexSearch,
   IconCodexSettingsCog,
   IconCodexSkills,
-  IconCodexTerminal,
   IconCodexWorktree,
   IconCodexX,
 } from './components/icons/codex'
@@ -1248,7 +1001,6 @@ import { buildInspectorPlanProgress } from './components/content/inspectorProgre
 import {
   CHAT_WIDTH_PRESETS,
   MOBILE_RESUME_RELOAD_MIN_HIDDEN_MS,
-  TOGGLE_TERMINAL_COMMAND_VALUE,
   WHISPER_LANGUAGES,
   buildSettingsHelp,
 } from './app/appConfig'
@@ -1286,12 +1038,9 @@ import {
   saveTextAnimationsPref,
 } from './app/preferences'
 import {
-  compareTerminalQuickCommands,
-  loadTerminalStoredQuickCommands,
-  normalizeTerminalQuickCommandValue,
-  saveTerminalStoredQuickCommands,
-} from './app/terminalQuickCommands'
-import { buildExportFileName, buildThreadMarkdown } from './app/threadExport'
+  buildExportFileName,
+  buildThreadMarkdown,
+} from './app/threadExport'
 import { useDesktopState } from './composables/useDesktopState'
 import { useMobile } from './composables/useMobile'
 import { useUiLanguage } from './composables/useUiLanguage'
@@ -1309,17 +1058,13 @@ import {
   getAccounts,
   completeCodexLogin,
   createLocalDirectory,
-  getFirstLaunchPluginsCardPreference,
   getHomeDirectory,
   getTelegramConfig,
   getProjectRootSuggestion,
   getTelegramStatus,
-  getThreadTerminalQuickCommands,
-  getThreadTerminalStatus,
   getWorkspaceRootsState,
   listLocalDirectories,
   openProjectRoot,
-  persistFirstLaunchPluginsCardPreference,
   removeAccount,
   refreshAccountsFromAuth,
   resetGitBranchToCommit,
@@ -1327,9 +1072,9 @@ import {
   searchThreads,
   switchAccount,
 } from './api/codexGateway'
-import type { ReasoningEffort, SpeedMode, UiAccountEntry, UiServerRequest, UiServerRequestReply, UiThreadAutomation, UiThreadTokenUsage } from './types/codex'
+import type { ReasoningEffort, SpeedMode, UiAccountEntry, UiServerRequest, UiServerRequestReply, UiThreadTokenUsage } from './types/codex'
 import type { ComposerDraftPayload, ThreadComposerExposed } from './components/content/ThreadComposer.vue'
-import type { GitCommitOption, LocalDirectoryEntry, TelegramStatus, ThreadTerminalQuickCommand, WorktreeBranchOption } from './api/codexGateway'
+import type { GitCommitOption, LocalDirectoryEntry, TelegramStatus, WorktreeBranchOption } from './api/codexGateway'
 import type {
   ChatWidthMode,
   DarkModePreference,
@@ -1337,18 +1082,13 @@ import type {
   InProgressSendMode,
   InspectorProgressDotState,
   InspectorSourceItem,
-  TerminalHeaderQuickCommand,
-  ThreadTerminalPanelExposed,
 } from './app/appTypes'
-import { getFreeModeStatus, setFreeMode, setFreeModeCustomKey, setCustomProvider } from './api/codexGateway'
 import { getPathLeafName, getPathParent, isProjectlessChatPath, normalizePathForUi } from './pathUtils.js'
 import { applyPwaThemeColor, resolvePwaThemeColor } from './utils/pwaTheme'
 
 const ThreadConversation = defineAsyncComponent(() => import('./components/content/ThreadConversation.vue'))
-const ThreadTerminalPanel = defineAsyncComponent(() => import('./components/content/ThreadTerminalPanel.vue'))
 const ReviewPane = defineAsyncComponent(() => import('./components/content/ReviewPane.vue'))
-const DirectoryHub = defineAsyncComponent(() => import('./components/content/DirectoryHub.vue'))
-const AutomationsPanel = defineAsyncComponent(() => import('./components/content/AutomationsPanel.vue'))
+const SkillsHub = defineAsyncComponent(() => import('./components/content/SkillsHub.vue'))
 const { t, uiLanguage, uiLanguageOptions, setUiLanguage } = useUiLanguage()
 
 const worktreeName = import.meta.env.VITE_WORKTREE_NAME ?? 'unknown'
@@ -1361,7 +1101,6 @@ const {
   selectedThread,
   selectedThreadInProgress,
   selectedThreadTokenUsage,
-  selectedThreadTerminalOpen,
   selectedThreadServerRequests,
   selectedLiveOverlay,
   codexQuota,
@@ -1391,8 +1130,6 @@ const {
   selectThread,
   ensureThreadMessagesLoaded,
   loadOlderMessages,
-  setThreadTerminalOpen,
-  toggleSelectedThreadTerminal,
   archiveThreadById,
   forkThreadById,
   renameThreadById,
@@ -1424,18 +1161,6 @@ const {
 const route = useRoute()
 const router = useRouter()
 const { isMobile } = useMobile()
-type SidebarThreadTreeExposed = {
-  openAutomationEditorFromPanel: (payload: AutomationEditRequest) => void
-  openAutomationCreatorFromPanel: () => void
-}
-type AutomationsPanelExposed = {
-  loadAutomations: () => Promise<void>
-}
-type AutomationEditRequest = {
-  scope: 'thread' | 'project'
-  target: string
-  automation: UiThreadAutomation
-}
 type HistoryMessageEditState = {
   threadId: string
   turnId: string
@@ -1448,20 +1173,9 @@ type ThreadSubmitPayload = {
   skills: Array<{ name: string; path: string }>
   mode: 'steer' | 'queue'
 }
-const sidebarThreadTreeRef = ref<SidebarThreadTreeExposed | null>(null)
-const automationsPanelRef = ref<AutomationsPanelExposed | null>(null)
 const homeThreadComposerRef = ref<ThreadComposerExposed | null>(null)
 const threadComposerRef = ref<ThreadComposerExposed | null>(null)
 const threadConversationRef = ref<{ jumpToLatest: () => void } | null>(null)
-const homeTerminalPanelRef = ref<ThreadTerminalPanelExposed | null>(null)
-const threadTerminalPanelRef = ref<ThreadTerminalPanelExposed | null>(null)
-const homeTerminalOpen = ref(false)
-const isTerminalInputFocused = ref(false)
-const isTerminalKeyboardFocusFallbackActive = ref(false)
-const isThreadTerminalAvailable = ref(true)
-const terminalProjectQuickCommands = ref<ThreadTerminalQuickCommand[]>([])
-const terminalStoredQuickCommands = ref<TerminalHeaderQuickCommand[]>(loadTerminalStoredQuickCommands())
-const terminalHeaderDropdownValue = ref('')
 const editingQueuedMessageState = ref<{ threadId: string; queueIndex: number } | null>(null)
 const editingHistoryMessageState = ref<HistoryMessageEditState | null>(null)
 const isRouteSyncInProgress = ref(false)
@@ -1494,7 +1208,6 @@ const settingsPanelRef = ref<HTMLElement | null>(null)
 const settingsButtonRef = ref<HTMLElement | null>(null)
 const serverMatchedThreadIds = ref<string[] | null>(null)
 let threadSearchTimer: ReturnType<typeof setTimeout> | null = null
-let terminalKeyboardFocusFallbackTimer: ReturnType<typeof setTimeout> | null = null
 let threadBranchesRequestId = 0
 let threadBranchCommitsRequestId = 0
 const defaultNewProjectName = ref('New Project (1)')
@@ -1538,20 +1251,6 @@ const dictationClickToToggle = ref(loadDictationClickToTogglePref())
 const dictationAutoSend = ref(loadDictationAutoSendPref())
 const dictationLanguage = ref(loadDictationLanguagePref())
 const dictationLanguageOptions = computed(() => buildDictationLanguageOptions())
-const showFirstLaunchPluginsCard = ref(false)
-const freeModeEnabled = ref(false)
-const freeModeLoading = ref(false)
-const freeModeCustomKey = ref('')
-const freeModeHasCustomKey = ref(false)
-const freeModeCustomKeyMasked = ref<string | null>(null)
-const freeModeCustomKeySaving = ref(false)
-const providerError = ref('')
-const selectedProvider = ref<'codex' | 'openrouter' | 'opencode-zen' | 'custom'>('codex')
-const customEndpointUrl = ref('')
-const customEndpointKey = ref('')
-const customEndpointWireApi = ref<'responses' | 'chat'>('responses')
-const openRouterWireApi = ref<'responses' | 'chat'>('responses')
-const opencodeZenKey = ref('')
 const isTelegramConfigOpen = ref(false)
 const telegramBotTokenDraft = ref('')
 const telegramAllowedUserIdsDraft = ref('')
@@ -1608,13 +1307,7 @@ const routeThreadId = computed(() => {
 
 const isHomeRoute = computed(() => route.name === 'home')
 const isSkillsRoute = computed(() => route.name === 'skills')
-const isAutomationsRoute = computed(() => route.name === 'automations')
-const routeAutomationId = computed(() => {
-  const raw = route.query.automationId
-  return typeof raw === 'string' ? raw : ''
-})
 const contentTitle = computed(() => {
-  if (isAutomationsRoute.value) return t('Automations')
   if (isSkillsRoute.value) return t('Skills')
   if (isHomeRoute.value) return t('Start new thread')
   return selectedThread.value?.title ?? t('Choose a thread')
@@ -1655,31 +1348,17 @@ const composerCwd = computed(() => {
   if (isHomeRoute.value) return newThreadCwd.value.trim()
   return selectedThread.value?.cwd?.trim() ?? ''
 })
-const canShowTerminalToggle = computed(() => (
-  isThreadTerminalAvailable.value && (
-    (isHomeRoute.value && composerCwd.value.length > 0) ||
-    (route.name === 'thread' && selectedThreadId.value.length > 0)
-  )
-))
 const canShowContentHeaderBranchDropdown = computed(() => (
   (route.name === 'thread' && selectedThreadId.value.length > 0) ||
   (isHomeRoute.value && isNewThreadCwdGitRepo.value)
-))
-const isComposerTerminalOpen = computed(() => (
-  isHomeRoute.value ? homeTerminalOpen.value : selectedThreadTerminalOpen.value
 ))
 const isVirtualKeyboardOpen = computed(() => {
   if (!isMobile.value) return false
   if (visualViewportHeight.value <= 0 || layoutViewportHeight.value <= 0) return false
   return layoutViewportHeight.value - visualViewportHeight.value > 120
 })
-const isTerminalKeyboardLayoutActive = computed(() => (
-  isVirtualKeyboardOpen.value ||
-  (isComposerTerminalOpen.value && isTerminalKeyboardFocusFallbackActive.value)
-))
-const directoryCwd = computed(() => selectedThread.value?.cwd?.trim() ?? newThreadCwd.value.trim())
 const isSelectedThreadInProgress = computed(() => !isHomeRoute.value && selectedThreadInProgress.value)
-const showThreadContextBadge = computed(() => !isHomeRoute.value && !isSkillsRoute.value && !isAutomationsRoute.value && selectedThreadId.value.trim().length > 0)
+const showThreadContextBadge = computed(() => !isHomeRoute.value && !isSkillsRoute.value && selectedThreadId.value.trim().length > 0)
 const isAccountSwitchBlocked = computed(() =>
   isSendingMessage.value ||
   isInterruptingTurn.value ||
@@ -1774,17 +1453,6 @@ function buildThreadContextTooltip(usage: UiThreadTokenUsage | null): string {
   }
 
   return lines.join('\n')
-}
-
-function dismissFirstLaunchPluginsCard(): void {
-  if (!showFirstLaunchPluginsCard.value) return
-  showFirstLaunchPluginsCard.value = false
-  void persistFirstLaunchPluginsCardPreference(true)
-}
-
-function onOpenPluginsHomeCard(): void {
-  dismissFirstLaunchPluginsCard()
-  void router.push({ name: 'skills', query: { tab: 'plugins' } })
 }
 
 const threadContextBadgeState = computed(() => {
@@ -2005,35 +1673,6 @@ const existingFolderFilteredEntries = computed(() => {
 })
 const darkModeMediaQuery = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null
 const chatWidthLabel = computed(() => t(CHAT_WIDTH_PRESETS[chatWidth.value].label))
-const terminalShortcutLabel = computed(() => {
-  if (typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(navigator.platform)) {
-    return '⌘J'
-  }
-  return 'Ctrl+J'
-})
-const terminalCommandPlaceholder = computed(() => (
-  isComposerTerminalOpen.value ? t('Terminal') : t('Open terminal')
-))
-const terminalHeaderQuickCommands = computed<TerminalHeaderQuickCommand[]>(() => {
-  const storedByValue = new Map(terminalStoredQuickCommands.value.map((command) => [command.value, command]))
-  const combined: TerminalHeaderQuickCommand[] = [
-    ...terminalProjectQuickCommands.value.map((command, index) => ({
-      label: command.label,
-      value: command.value,
-      usageCount: 0,
-      lastUsedAt: 0,
-      ...(storedByValue.get(command.value) ?? {}),
-      custom: false,
-      sourceIndex: index,
-    })),
-  ]
-  return combined
-    .sort(compareTerminalQuickCommands)
-})
-const terminalHeaderDropdownOptions = computed(() => [
-  { label: isComposerTerminalOpen.value ? t('Hide terminal') : t('Open terminal'), value: TOGGLE_TERMINAL_COMMAND_VALUE },
-  ...terminalHeaderQuickCommands.value.map((command) => ({ label: command.label, value: command.value })),
-])
 const contentStyle = computed(() => {
   const preset = CHAT_WIDTH_PRESETS[chatWidth.value]
   const keyboardInset = Math.max(
@@ -2073,14 +1712,10 @@ onMounted(() => {
   darkModeMediaQuery?.addEventListener('change', applyDarkMode)
   void initialize()
   void loadHomeDirectory()
-  void loadFirstLaunchPluginsCardPreference()
   void loadWorkspaceRootOptionsState()
   void refreshDefaultProjectName()
   void refreshTelegramConfig()
   void refreshTelegramStatus()
-  void loadFreeModeStatus()
-  void refreshThreadTerminalStatus()
-  void refreshTerminalQuickCommands()
 })
 
 onUnmounted(() => {
@@ -2101,7 +1736,6 @@ onUnmounted(() => {
     clearTimeout(threadSearchTimer)
     threadSearchTimer = null
   }
-  clearTerminalKeyboardFocusFallbackTimer()
   stopPolling()
 })
 
@@ -2134,11 +1768,6 @@ watch(sidebarSearchQuery, (value) => {
         serverMatchedThreadIds.value = null
       })
   }, 220)
-})
-
-watch(isVirtualKeyboardOpen, (open) => {
-  if (open) return
-  isTerminalKeyboardFocusFallbackActive.value = false
 })
 
 watch(accounts, () => {
@@ -2191,11 +1820,6 @@ async function refreshTelegramConfig(): Promise<void> {
   } catch (error) {
     telegramConfigError.value = error instanceof Error ? error.message : 'Failed to load Telegram configuration'
   }
-}
-
-async function loadFirstLaunchPluginsCardPreference(): Promise<void> {
-  const preference = await getFirstLaunchPluginsCardPreference()
-  showFirstLaunchPluginsCard.value = preference.dismissed !== true
 }
 
 function parseTelegramAllowedUserIdsInput(value: string): Array<number | '*'> {
@@ -2266,33 +1890,6 @@ function onSelectThread(threadId: string): void {
   if (route.name === 'thread' && routeThreadId.value === threadId) return
   void router.push({ name: 'thread', params: { threadId } })
   if (isMobile.value) setSidebarCollapsed(true)
-}
-
-function onSelectAutomationInPanel(automationId: string): void {
-  if (route.name !== 'automations') return
-  if (routeAutomationId.value === automationId) return
-  void router.replace({ name: 'automations', query: automationId ? { automationId } : {} })
-}
-
-async function onEditAutomationFromPanel(payload: AutomationEditRequest): Promise<void> {
-  if (isSidebarCollapsed.value) {
-    setSidebarCollapsed(false)
-    await nextTick()
-  }
-  sidebarThreadTreeRef.value?.openAutomationEditorFromPanel(payload)
-}
-
-async function onCreateAutomationFromPanel(): Promise<void> {
-  if (isSidebarCollapsed.value) {
-    setSidebarCollapsed(false)
-    await nextTick()
-  }
-  sidebarThreadTreeRef.value?.openAutomationCreatorFromPanel()
-}
-
-function onAutomationsChanged(): void {
-  if (route.name !== 'automations') return
-  void automationsPanelRef.value?.loadAutomations()
 }
 
 async function onExportThread(threadId: string): Promise<void> {
@@ -2756,16 +2353,6 @@ function onWindowKeyDown(event: KeyboardEvent): void {
   if (key === 'b') {
     event.preventDefault()
     setSidebarCollapsed(!isSidebarCollapsed.value)
-    return
-  }
-  if (key === 'j' && route.name === 'thread' && selectedThreadId.value) {
-    event.preventDefault()
-    toggleComposerTerminal()
-    return
-  }
-  if (key === 'j' && isHomeRoute.value && composerCwd.value) {
-    event.preventDefault()
-    toggleComposerTerminal()
   }
 }
 
@@ -2777,169 +2364,14 @@ function shouldInterruptSelectedTurnFromEscape(event: KeyboardEvent): boolean {
 
   const target = event.target
   if (target instanceof Element) {
-    if (target.closest('.thread-terminal-panel')) return false
     if (target.closest('[role="dialog"], [data-codex-approval-surface]')) return false
   }
   return true
 }
 
-function toggleComposerTerminal(): void {
-  if (!isThreadTerminalAvailable.value) return
-  if (isHomeRoute.value) {
-    if (!composerCwd.value) return
-    homeTerminalOpen.value = !homeTerminalOpen.value
-    if (!homeTerminalOpen.value) {
-      resetTerminalKeyboardFocusState()
-    }
-    return
-  }
-  toggleSelectedThreadTerminal()
-  if (!selectedThreadTerminalOpen.value) {
-    resetTerminalKeyboardFocusState()
-  }
-}
-
-function onSelectHeaderTerminalCommand(command: string): void {
-  terminalHeaderDropdownValue.value = ''
-  if (!command) return
-  if (command === TOGGLE_TERMINAL_COMMAND_VALUE) {
-    toggleComposerTerminal()
-    return
-  }
-  void openTerminalAndRunCommand(command)
-}
-
-async function openTerminalAndRunCommand(command: string): Promise<void> {
-  if (!isThreadTerminalAvailable.value || !composerCwd.value) return
-  if (isHomeRoute.value) {
-    homeTerminalOpen.value = true
-  } else if (selectedThreadId.value) {
-    setThreadTerminalOpen(selectedThreadId.value, true)
-  } else {
-    return
-  }
-  const panel = await waitForTerminalPanel()
-  if (!panel) return
-  try {
-    await panel.runQuickCommand(command)
-    recordHeaderTerminalCommandUse(command)
-  } catch {
-    // ThreadTerminalPanel renders the terminal-specific error in place.
-  }
-}
-
-async function waitForTerminalPanel(): Promise<ThreadTerminalPanelExposed | null> {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    await nextTick()
-    const panel = isHomeRoute.value ? homeTerminalPanelRef.value : threadTerminalPanelRef.value
-    if (panel) return panel
-    await new Promise((resolve) => window.setTimeout(resolve, 25))
-  }
-  return null
-}
-
-async function refreshTerminalQuickCommands(): Promise<void> {
-  const cwd = composerCwd.value.trim()
-  if (!cwd) {
-    terminalProjectQuickCommands.value = []
-    return
-  }
-  try {
-    terminalProjectQuickCommands.value = await getThreadTerminalQuickCommands(cwd)
-  } catch {
-    terminalProjectQuickCommands.value = []
-  }
-}
-
-function recordHeaderTerminalCommandUse(command: string): void {
-  const normalized = normalizeTerminalQuickCommandValue(command)
-  if (!normalized) return
-  const existing = terminalStoredQuickCommands.value.find((row) => row.value === normalized)
-  const projectCommandIndex = terminalProjectQuickCommands.value.findIndex((row) => row.value === normalized)
-  const projectCommand = projectCommandIndex >= 0 ? terminalProjectQuickCommands.value[projectCommandIndex] : null
-  if (!projectCommand) return
-  const nextCommand: TerminalHeaderQuickCommand = {
-    label: existing?.label || projectCommand?.label || normalized,
-    value: normalized,
-    custom: false,
-    usageCount: (existing?.usageCount ?? 0) + 1,
-    lastUsedAt: Date.now(),
-    sourceIndex: projectCommandIndex >= 0 ? projectCommandIndex : undefined,
-  }
-  const next = [
-    ...terminalStoredQuickCommands.value.filter((row) => row.value !== normalized),
-    nextCommand,
-  ]
-  terminalStoredQuickCommands.value = next
-  saveTerminalStoredQuickCommands(next)
-}
-
-function onTerminalFocusChange(focused: boolean): void {
-  isTerminalInputFocused.value = focused
-  if (!focused) {
-    isTerminalKeyboardFocusFallbackActive.value = false
-    clearTerminalKeyboardFocusFallbackTimer()
-    return
-  }
-  isTerminalKeyboardFocusFallbackActive.value = true
-  clearTerminalKeyboardFocusFallbackTimer()
-  terminalKeyboardFocusFallbackTimer = setTimeout(() => {
-    terminalKeyboardFocusFallbackTimer = null
-    if (!isVirtualKeyboardOpen.value) {
-      isTerminalKeyboardFocusFallbackActive.value = false
-    }
-  }, 1500)
-}
-
-function onHideHomeTerminal(): void {
-  homeTerminalOpen.value = false
-  resetTerminalKeyboardFocusState()
-}
-
-function onHideSelectedThreadTerminal(): void {
-  if (selectedThreadId.value) {
-    setThreadTerminalOpen(selectedThreadId.value, false)
-  }
-  resetTerminalKeyboardFocusState()
-}
-
-function resetTerminalKeyboardFocusState(): void {
-  isTerminalInputFocused.value = false
-  isTerminalKeyboardFocusFallbackActive.value = false
-  clearTerminalKeyboardFocusFallbackTimer()
-}
-
-function clearTerminalKeyboardFocusFallbackTimer(): void {
-  if (!terminalKeyboardFocusFallbackTimer) return
-  clearTimeout(terminalKeyboardFocusFallbackTimer)
-  terminalKeyboardFocusFallbackTimer = null
-}
-
-async function refreshThreadTerminalStatus(): Promise<void> {
-  try {
-    const status = await getThreadTerminalStatus()
-    isThreadTerminalAvailable.value = status.available
-    if (!status.available) {
-      homeTerminalOpen.value = false
-      if (selectedThreadId.value) {
-        setThreadTerminalOpen(selectedThreadId.value, false)
-      }
-    }
-  } catch {
-    isThreadTerminalAvailable.value = false
-    homeTerminalOpen.value = false
-  }
-}
-
 function onDocumentPointerDown(event: PointerEvent): void {
   const target = event.target
   if (!(target instanceof Node)) return
-  if (isTerminalInputFocused.value) {
-    const targetElement = target instanceof Element ? target : target.parentElement
-    if (!targetElement?.closest('.thread-terminal-panel')) {
-      resetTerminalKeyboardFocusState()
-    }
-  }
   if (!isSettingsOpen.value) return
   if (settingsPanelRef.value?.contains(target)) return
   if (settingsButtonRef.value?.contains(target)) return
@@ -3744,7 +3176,7 @@ function onImplementPlan(payload: { turnId: string }): void {
 
 
 function onExportChat(): void {
-  if (isHomeRoute.value || isSkillsRoute.value || isAutomationsRoute.value || typeof document === 'undefined') return
+  if (isHomeRoute.value || isSkillsRoute.value || typeof document === 'undefined') return
   const thread = selectedThread.value
   if (!thread || filteredMessages.value.length === 0) return
   const exportedAt = new Date()
@@ -3801,167 +3233,6 @@ function toggleDictationAutoSend(): void {
   saveDictationAutoSendPref(dictationAutoSend.value)
 }
 
-
-async function onProviderChange(provider: string): Promise<void> {
-  if (freeModeLoading.value) return
-  freeModeLoading.value = true
-  try {
-    if (provider === 'codex') {
-      selectedProvider.value = 'codex'
-      const result = await setFreeMode(false)
-      freeModeEnabled.value = result.enabled
-    } else if (provider === 'openrouter') {
-      selectedProvider.value = 'openrouter'
-      const result = await setFreeMode(true)
-      freeModeEnabled.value = result.enabled
-      await setCustomProvider('', '', {
-        wireApi: openRouterWireApi.value,
-        provider: 'openrouter',
-      })
-    } else if (provider === 'opencode-zen') {
-      selectedProvider.value = 'opencode-zen'
-      await setCustomProvider('', opencodeZenKey.value.trim(), {
-        wireApi: 'responses',
-        provider: 'opencode-zen',
-      })
-      freeModeEnabled.value = true
-    } else if (provider === 'custom') {
-      selectedProvider.value = 'custom'
-      if (customEndpointUrl.value.trim() && customEndpointKey.value.trim()) {
-        await setCustomProvider(customEndpointUrl.value.trim(), customEndpointKey.value.trim(), {
-          wireApi: customEndpointWireApi.value,
-        })
-        freeModeEnabled.value = true
-      }
-    }
-    providerError.value = ''
-    await refreshAll({ includeSelectedThreadMessages: false, providerChanged: true, awaitAncillaryRefreshes: true })
-    if (route.name === 'thread') {
-      void router.push({ name: 'home' })
-    }
-  } catch (err) {
-    providerError.value = err instanceof Error ? err.message : 'Failed to switch provider'
-  } finally {
-    freeModeLoading.value = false
-  }
-}
-
-async function saveCustomEndpoint(): Promise<void> {
-  if (freeModeCustomKeySaving.value) return
-  const url = customEndpointUrl.value.trim()
-  if (!url) return
-  freeModeCustomKeySaving.value = true
-  try {
-    providerError.value = ''
-    await setCustomProvider(url, customEndpointKey.value.trim(), {
-      wireApi: customEndpointWireApi.value,
-    })
-    freeModeEnabled.value = true
-    await refreshAll({ includeSelectedThreadMessages: false, providerChanged: true, awaitAncillaryRefreshes: true })
-  } catch (err) {
-    providerError.value = err instanceof Error ? err.message : 'Failed to save custom endpoint'
-  } finally {
-    freeModeCustomKeySaving.value = false
-  }
-}
-
-async function setOpenRouterWireApi(nextWireApi: 'responses' | 'chat'): Promise<void> {
-  if (freeModeCustomKeySaving.value || freeModeLoading.value) return
-  if (openRouterWireApi.value === nextWireApi) return
-  const previousWireApi = openRouterWireApi.value
-  openRouterWireApi.value = nextWireApi
-  freeModeCustomKeySaving.value = true
-  try {
-    providerError.value = ''
-    await setCustomProvider('', '', {
-      wireApi: nextWireApi,
-      provider: 'openrouter',
-    })
-    freeModeEnabled.value = true
-    await refreshAll({ includeSelectedThreadMessages: false, providerChanged: true, awaitAncillaryRefreshes: true })
-  } catch (err) {
-    openRouterWireApi.value = previousWireApi
-    providerError.value = err instanceof Error ? err.message : 'Failed to save OpenRouter API format'
-  } finally {
-    freeModeCustomKeySaving.value = false
-  }
-}
-
-async function saveOpencodeZen(): Promise<void> {
-  if (freeModeCustomKeySaving.value) return
-  const key = opencodeZenKey.value.trim()
-  if (!key) return
-  freeModeCustomKeySaving.value = true
-  try {
-    providerError.value = ''
-    await setCustomProvider('', key, {
-      wireApi: 'responses',
-      provider: 'opencode-zen',
-    })
-    freeModeEnabled.value = true
-    await refreshAll({ includeSelectedThreadMessages: false, providerChanged: true, awaitAncillaryRefreshes: true })
-  } catch (err) {
-    providerError.value = err instanceof Error ? err.message : 'Failed to save OpenCode Zen config'
-  } finally {
-    freeModeCustomKeySaving.value = false
-  }
-}
-
-async function saveFreeModeCustomKey(): Promise<void> {
-  if (freeModeCustomKeySaving.value) return
-  freeModeCustomKeySaving.value = true
-  try {
-    const key = freeModeCustomKey.value.trim()
-    await setFreeModeCustomKey(key)
-    freeModeCustomKey.value = ''
-    await loadFreeModeStatus()
-    await refreshAll({ includeSelectedThreadMessages: false })
-  } catch {
-    // Silently fail
-  } finally {
-    freeModeCustomKeySaving.value = false
-  }
-}
-
-async function clearFreeModeCustomKey(): Promise<void> {
-  if (freeModeCustomKeySaving.value) return
-  freeModeCustomKeySaving.value = true
-  try {
-    await setFreeModeCustomKey('')
-    freeModeCustomKey.value = ''
-    await loadFreeModeStatus()
-    await refreshAll({ includeSelectedThreadMessages: false })
-  } catch {
-    // Silently fail
-  } finally {
-    freeModeCustomKeySaving.value = false
-  }
-}
-
-async function loadFreeModeStatus(): Promise<void> {
-  try {
-    const status = await getFreeModeStatus()
-    freeModeEnabled.value = status.enabled
-    freeModeHasCustomKey.value = status.customKey ?? false
-    freeModeCustomKeyMasked.value = status.maskedKey ?? null
-    if (status.enabled) {
-      if (status.provider === 'opencode-zen') {
-        selectedProvider.value = 'opencode-zen'
-      } else if (status.provider === 'custom') {
-        selectedProvider.value = 'custom'
-        customEndpointUrl.value = status.customBaseUrl ?? ''
-        customEndpointWireApi.value = status.wireApi === 'chat' ? 'chat' : 'responses'
-      } else {
-        selectedProvider.value = 'openrouter'
-        openRouterWireApi.value = status.wireApi === 'chat' ? 'chat' : 'responses'
-      }
-    } else {
-      selectedProvider.value = 'codex'
-    }
-  } catch {
-    // Ignore — free mode status unknown
-  }
-}
 
 function onDictationLanguageChange(nextValue: string): void {
   const normalized = normalizeToWhisperLanguage(nextValue.trim())
@@ -4072,7 +3343,7 @@ async function syncThreadSelectionWithRoute(): Promise<void> {
     do {
       hasPendingRouteSync = false
 
-      if (route.name === 'home' || route.name === 'skills' || route.name === 'automations') {
+      if (route.name === 'home' || route.name === 'skills') {
         if (selectedThreadId.value !== '') {
           await selectThread('')
         }
@@ -4119,13 +3390,6 @@ watch(
 )
 
 watch(
-  () => composerCwd.value,
-  () => {
-    void refreshTerminalQuickCommands()
-  },
-)
-
-watch(
   () => [route.name, composerCwd.value] as const,
   ([routeName, cwd]) => {
     if (routeName !== 'thread') return
@@ -4139,7 +3403,7 @@ watch(
   async (threadId) => {
     if (!hasInitialized.value) return
     if (isRouteSyncInProgress.value) return
-    if (isHomeRoute.value || isSkillsRoute.value || isAutomationsRoute.value) return
+    if (isHomeRoute.value || isSkillsRoute.value) return
 
     if (!threadId) {
       if (route.name !== 'home') {
@@ -4334,7 +3598,7 @@ async function onTryDirectoryItem(payload: DirectoryTryItemPayload): Promise<voi
     ? [{ name: payload.name, path: payload.skillPath }]
     : []
   try {
-    const targetCwd = directoryCwd.value.trim() || composerCwd.value.trim()
+    const targetCwd = composerCwd.value.trim() || await resolveProjectBaseDirectory()
     const threadId = await sendMessageToNewThread(text, targetCwd, [], skills, [])
     if (!threadId) return
     await router.replace({ name: 'thread', params: { threadId } })
@@ -4479,10 +3743,6 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
   box-shadow: 0 16px 32px -20px color-mix(in srgb, var(--codex-skill) 90%, transparent);
 }
 
-.automations-route-header-icon {
-  @apply bg-amber-500 shadow-[0_16px_32px_-20px_rgba(245,158,11,0.9)];
-}
-
 .skills-route-header-icon :deep(svg) {
   @apply h-4.5 w-4.5;
 }
@@ -4506,10 +3766,6 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 .content-root.is-virtual-keyboard-open .composer-with-queue {
   gap: 0.375rem;
   padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
-}
-
-.content-root.is-virtual-keyboard-open .content-thread-terminal-panel {
-  min-height: 0;
 }
 
 .content-root.is-virtual-keyboard-open .content-keyboard-spacer {
@@ -4566,14 +3822,6 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
   @apply flex w-full items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800 shadow-sm;
 }
 
-.content-thread-terminal-panel {
-  @apply w-full;
-}
-
-.content-header-terminal-command {
-  @apply max-w-48;
-}
-
 .content-header-inspector-toggle {
   @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300;
 }
@@ -4586,42 +3834,10 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
   @apply h-4.5 w-4.5;
 }
 
-.content-header-terminal-command :deep(.composer-dropdown-trigger) {
-  @apply h-8 rounded-full border border-zinc-200 bg-white px-3 text-xs text-zinc-700 outline-none transition hover:bg-zinc-50 focus:border-zinc-300;
-}
-
-.content-header-terminal-command :deep(.composer-dropdown-prefix-icon) {
-  @apply h-4 w-4 text-zinc-500;
-}
-
-.content-header-terminal-command.is-open :deep(.composer-dropdown-trigger) {
-  @apply border-zinc-300 bg-zinc-100 text-zinc-950;
-}
-
-.content-header-terminal-command :deep(.composer-dropdown-menu-wrap) {
-  left: auto;
-  right: 0;
-}
-
-.content-header-terminal-command :deep(.composer-dropdown-menu) {
-  width: min(18rem, calc(100vw - 1rem));
-  min-width: min(14rem, calc(100vw - 1rem));
-}
-
-.content-header-terminal-command :deep(.composer-dropdown-option) {
-  @apply block truncate;
-}
-
-.content-header-terminal-command :deep(.composer-dropdown-trigger) {
-  @apply rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-700 transition hover:bg-zinc-50;
-}
-
-.content-header-terminal-command :deep(.composer-dropdown-prefix-icon),
 .content-header-branch-dropdown :deep(.composer-dropdown-prefix-icon) {
   @apply h-4 w-4 text-zinc-600;
 }
 
-.content-header-terminal-command :deep(.composer-dropdown-trigger),
 .content-header-branch-dropdown :deep(.composer-dropdown-trigger) {
   @apply gap-0.5;
 }
@@ -5476,108 +4692,20 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 
-.sidebar-settings-row--input {
-  @apply flex flex-col gap-1 py-1.5;
-}
-
-.sidebar-settings-error {
-  @apply text-xs text-red-600 bg-red-50 rounded px-2 py-1.5 break-words;
-}
-
-.sidebar-settings-key-group {
-  @apply flex items-center gap-1.5 w-full;
-}
-
-.sidebar-settings-key-input {
-  @apply flex-1 min-w-0 text-xs rounded border border-zinc-200 bg-white px-2 py-1 outline-none transition-colors placeholder:text-zinc-400;
-}
-
-.sidebar-settings-key-input:focus {
-  @apply border-zinc-400;
-}
-
-.sidebar-settings-key-save {
-  @apply shrink-0 rounded border border-zinc-200 bg-white px-2.5 py-1 text-xs text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-default;
-}
-
-.sidebar-settings-key-masked {
-  @apply flex-1 min-w-0 text-xs text-zinc-500 font-mono truncate;
-}
-
-.sidebar-settings-key-clear {
-  @apply shrink-0 w-6 h-6 flex items-center justify-center rounded-full border border-zinc-200 text-xs text-zinc-400 transition-colors hover:text-zinc-600 hover:border-zinc-300 disabled:opacity-40;
-}
-
-.sidebar-settings-provider-select {
+.sidebar-settings-language-select {
   @apply min-w-0 max-w-40 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 outline-none transition-colors cursor-pointer;
 }
 
-.sidebar-settings-provider-select:focus {
+.sidebar-settings-language-select:focus {
   @apply border-zinc-400 ring-2 ring-zinc-200;
 }
 
-.sidebar-settings-segmented {
-  @apply inline-flex items-center rounded-md border border-zinc-200 bg-white p-0.5;
-}
-
-.sidebar-settings-segmented-option {
-  @apply rounded px-2 py-1 text-xs text-zinc-600 transition-colors;
-}
-
-.sidebar-settings-segmented-option.is-active {
-  @apply bg-zinc-800 text-white;
-}
-
-.sidebar-settings-provider-info {
-  @apply flex items-center justify-between w-full;
-}
-
-.sidebar-settings-provider-link {
-  @apply text-xs text-blue-600 hover:text-blue-700 underline shrink-0;
-}
-
-:root.dark .sidebar-settings-provider-select {
+:root.dark .sidebar-settings-language-select {
   @apply border-zinc-600 bg-zinc-800 text-zinc-200;
 }
 
-:root.dark .sidebar-settings-provider-select:focus {
+:root.dark .sidebar-settings-language-select:focus {
   @apply border-zinc-500 ring-zinc-700;
-}
-
-:root.dark .sidebar-settings-segmented {
-  @apply border-zinc-600 bg-zinc-800;
-}
-
-:root.dark .sidebar-settings-segmented-option {
-  @apply text-zinc-300;
-}
-
-:root.dark .sidebar-settings-segmented-option.is-active {
-  @apply bg-zinc-100 text-zinc-900;
-}
-
-:root.dark .sidebar-settings-provider-link {
-  @apply text-blue-400 hover:text-blue-300;
-}
-
-:root.dark .sidebar-settings-key-input {
-  @apply border-zinc-600 bg-zinc-800 text-zinc-200 placeholder:text-zinc-500;
-}
-
-:root.dark .sidebar-settings-key-input:focus {
-  @apply border-zinc-500;
-}
-
-:root.dark .sidebar-settings-key-save {
-  @apply border-zinc-600 bg-zinc-700 text-zinc-200 hover:bg-zinc-600;
-}
-
-:root.dark .sidebar-settings-key-masked {
-  @apply text-zinc-400;
-}
-
-:root.dark .sidebar-settings-key-clear {
-  @apply border-zinc-600 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500;
 }
 
 .settings-panel-enter-active,

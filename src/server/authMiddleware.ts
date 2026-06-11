@@ -47,33 +47,6 @@ function isLocalhostHost(host: string): boolean {
   return normalized.startsWith('localhost:') || normalized === 'localhost' || normalized.startsWith('127.0.0.1:')
 }
 
-function isIPv4Octet(value: string): boolean {
-  if (!/^\d{1,3}$/.test(value)) return false
-  const parsed = Number.parseInt(value, 10)
-  return parsed >= 0 && parsed <= 255
-}
-
-function isTrustedTailscaleIPv4(remote: string): boolean {
-  const normalized = remote.startsWith('::ffff:') ? remote.slice('::ffff:'.length) : remote
-  const parts = normalized.split('.')
-  if (parts.length !== 4 || !parts.every(isIPv4Octet)) {
-    return false
-  }
-
-  const first = Number.parseInt(parts[0] ?? '', 10)
-  const second = Number.parseInt(parts[1] ?? '', 10)
-  return first === 100 && second >= 64 && second <= 127
-}
-
-function isTrustedTailscaleIPv6(remote: string): boolean {
-  const normalized = remote.toLowerCase()
-  return normalized === 'fd7a:115c:a1e0::1' || normalized.startsWith('fd7a:115c:a1e0:')
-}
-
-function isTrustedTailscaleRemote(remote: string): boolean {
-  return isTrustedTailscaleIPv4(remote) || isTrustedTailscaleIPv6(remote)
-}
-
 function getCodexHomeDir(): string {
   const codexHome = readTrimmedEnv(ENV_KEYS.codexHome[0])
   return codexHome && codexHome.length > 0 ? codexHome : join(homedir(), '.codex')
@@ -155,12 +128,9 @@ function isAuthorizedByRequestLike(
   validTokens: Map<string, number>,
 ): boolean {
   const remote = remoteAddress ?? ''
-  // SSH reverse tunnels terminate on loopback, so remoteAddress alone is not enough
+  // Local forwarding can terminate on loopback, so require both remote and host
   // to prove this is a direct local browser request.
   if (isLocalhostRemote(remote) && isLocalhostHost(hostHeader ?? '')) {
-    return true
-  }
-  if (isTrustedTailscaleRemote(remote)) {
     return true
   }
 

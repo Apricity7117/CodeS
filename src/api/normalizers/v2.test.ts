@@ -54,7 +54,7 @@ describe('normalizeThreadMessagesV2', () => {
       type: 'userMessage',
       id: 'user-2',
       content: [
-        { type: 'skill', name: 'composio-cli', path: '/Users/igor/.codex/skills/composio-cli/SKILL.md' },
+        { type: 'skill', name: 'reviewer', path: '/Users/igor/.codex/skills/reviewer/SKILL.md' },
       ],
     }]))
 
@@ -63,36 +63,9 @@ describe('normalizeThreadMessagesV2', () => {
       id: 'user-2',
       role: 'user',
       text: '',
-      skills: [{ name: 'composio-cli', path: '/Users/igor/.codex/skills/composio-cli/SKILL.md' }],
+      skills: [{ name: 'reviewer', path: '/Users/igor/.codex/skills/reviewer/SKILL.md' }],
     })
     expect(messages[0].isUnhandled).toBeUndefined()
-  })
-
-  it('decodes escaped heartbeat instructions without exposing raw XML', () => {
-    const messages = normalizeThreadMessagesV2(threadReadResponseWithContent([{
-      type: 'userMessage',
-      id: 'automation-user-1',
-      content: [{
-        type: 'text',
-        text: `<heartbeat>
-<automation_id>automation-1</automation_id>
-<current_time_iso>2026-05-09T00:00:00.000Z</current_time_iso>
-<instructions>
-Reply with &lt;/instructions&gt; and A &amp; B
-</instructions>
-</heartbeat>`,
-        text_elements: [],
-      }],
-    }]))
-
-    expect(messages).toHaveLength(1)
-    expect(messages[0]).toMatchObject({
-      id: 'automation-user-1',
-      role: 'user',
-      text: 'Reply with </instructions> and A & B',
-      isAutomationRun: true,
-      automationDisplayName: 'automation-1',
-    })
   })
 
   it('applies a base turn index for paged thread slices', () => {

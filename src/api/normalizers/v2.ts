@@ -136,31 +136,6 @@ function readMessageSentAtIso(item: ThreadItem, turn: Turn | undefined): string 
     ?? readTimestampFromRecord(turn as unknown as Record<string, unknown>)
 }
 
-function decodeHeartbeatXmlText(value: string): string {
-  return value
-    .replace(/&lt;/giu, '<')
-    .replace(/&gt;/giu, '>')
-    .replace(/&amp;/giu, '&')
-}
-
-function readHeartbeatField(value: string, field: string): string {
-  const match = new RegExp(`<${field}>\\s*([\\s\\S]*?)\\s*</${field}>`, 'iu').exec(value)
-  return match?.[1] ? decodeHeartbeatXmlText(match[1].trim()) : ''
-}
-
-function parseHeartbeatEnvelope(value: string): { automationId: string; currentTimeIso: string; instructions: string } | null {
-  const trimmed = value.trim()
-  if (!trimmed.startsWith('<heartbeat>') || !trimmed.endsWith('</heartbeat>')) return null
-  const currentTimeIso = readHeartbeatField(trimmed, 'current_time_iso')
-  const instructions = readHeartbeatField(trimmed, 'instructions')
-  if (!currentTimeIso || !instructions) return null
-  return {
-    automationId: readHeartbeatField(trimmed, 'automation_id'),
-    currentTimeIso,
-    instructions,
-  }
-}
-
 function parseUserMessageContent(
   itemId: string,
   content: UserInput[] | undefined,
@@ -170,11 +145,9 @@ function parseUserMessageContent(
   skills: Array<{ name: string; path: string }>
   fileAttachments: UiFileAttachment[]
   rawBlocks: UiMessage[]
-  isAutomationRun: boolean
-  automationDisplayName: string | null
 } {
   if (!Array.isArray(content)) {
-    return { text: '', images: [], skills: [], fileAttachments: [], rawBlocks: [], isAutomationRun: false, automationDisplayName: null }
+    return { text: '', images: [], skills: [], fileAttachments: [], rawBlocks: [] }
   }
 
   const textChunks: string[] = []
@@ -214,16 +187,13 @@ function parseUserMessageContent(
 
   const fullText = textChunks.join('\n')
   const fileAttachments = extractFileAttachments(fullText)
-  const heartbeat = parseHeartbeatEnvelope(fullText)
 
   return {
-    text: heartbeat?.instructions ?? extractCodexUserRequestText(fullText),
+    text: extractCodexUserRequestText(fullText),
     images,
     skills,
     fileAttachments,
     rawBlocks,
-    isAutomationRun: heartbeat !== null,
-    automationDisplayName: heartbeat?.automationId || null,
   }
 }
 
@@ -468,8 +438,6 @@ function toUiMessages(item: ThreadItem): UiMessage[] {
         skills: parsed.skills.length > 0 ? parsed.skills : undefined,
         fileAttachments: parsed.fileAttachments.length > 0 ? parsed.fileAttachments : undefined,
         messageType: item.type,
-        isAutomationRun: parsed.isAutomationRun,
-        automationDisplayName: parsed.automationDisplayName,
       })
     }
 

@@ -47,21 +47,23 @@ import { computed } from 'vue'
 import { useUiLanguage } from '../../composables/useUiLanguage'
 import { IconCodexFolder } from '../icons/codex'
 
+type SkillCardSkill = {
+  name: string
+  owner: string
+  description: string
+  displayName?: string
+  publishedAt?: number
+  avatarUrl?: string
+  url: string
+  installed: boolean
+  source?: string
+  path?: string
+  enabled?: boolean
+  installCountLabel?: string
+}
+
 const props = withDefaults(defineProps<{
-  skill: {
-    name: string
-    owner: string
-    description: string
-    displayName?: string
-    publishedAt?: number
-    avatarUrl?: string
-    url: string
-    installed: boolean
-    source?: string
-    path?: string
-    enabled?: boolean
-    installCountLabel?: string
-  }
+  skill: SkillCardSkill
   showStatusBadge?: boolean
   showBrowseAction?: boolean
   showOwner?: boolean
@@ -71,7 +73,7 @@ const props = withDefaults(defineProps<{
   showOwner: true,
 })
 
-defineEmits<{ select: [skill: unknown] }>()
+defineEmits<{ select: [skill: SkillCardSkill] }>()
 const { t } = useUiLanguage()
 const showStatusBadge = computed(() => props.showStatusBadge !== false)
 const showBrowseAction = computed(() => props.showBrowseAction !== false)

@@ -16,16 +16,6 @@ export const codexIconManifest = [
     "sourceFile": "app-window-B6AaAMvg.js"
   },
   {
-    "component": "IconCodexApps",
-    "exportName": "t",
-    "sourceFile": "apps-DBd5dYzG.js"
-  },
-  {
-    "component": "IconCodexAppshotWindow",
-    "exportName": "t",
-    "sourceFile": "appshot-window-D34mEVTo.js"
-  },
-  {
     "component": "IconCodexArchive",
     "exportName": "t",
     "sourceFile": "archive-D1dEQ_ZZ.js"
@@ -156,11 +146,6 @@ export const codexIconManifest = [
     "sourceFile": "compose-BhtlAnQm.js"
   },
   {
-    "component": "IconCodexConnectedApps",
-    "exportName": "t",
-    "sourceFile": "connected-apps-B4QyXzrH.js"
-  },
-  {
     "component": "IconCodexCopy",
     "exportName": "t",
     "sourceFile": "copy-d11cB-0i.js"
@@ -229,11 +214,6 @@ export const codexIconManifest = [
     "component": "IconCodexFolders",
     "exportName": "t",
     "sourceFile": "folders-DYfgzYQz.js"
-  },
-  {
-    "component": "IconCodexFormatAutomationNextRunLabel",
-    "exportName": "n",
-    "sourceFile": "format-automation-next-run-label-B8vNmuGa.js"
   },
   {
     "component": "IconCodexGithubMark",
@@ -484,11 +464,6 @@ export const codexIconManifest = [
     "component": "IconCodexTeam",
     "exportName": "t",
     "sourceFile": "team-BWWNZVLG.js"
-  },
-  {
-    "component": "IconCodexTerminal",
-    "exportName": "t",
-    "sourceFile": "terminal-BhTF7d-4.js"
   },
   {
     "component": "IconCodexThreeDots",

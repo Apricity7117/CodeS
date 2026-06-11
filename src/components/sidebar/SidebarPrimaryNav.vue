@@ -1,7 +1,6 @@
 <template>
   <nav class="sidebar-primary-nav">
     <SidebarMenuRow as="button" class="sidebar-nav-item" type="button">New thread</SidebarMenuRow>
-    <SidebarMenuRow as="button" class="sidebar-nav-item" type="button">Automations</SidebarMenuRow>
     <SidebarMenuRow as="button" class="sidebar-nav-item" type="button">Skills</SidebarMenuRow>
   </nav>
 </template>

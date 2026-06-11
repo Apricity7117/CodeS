@@ -461,7 +461,7 @@ import { isImeComposingKeydown } from './threadComposerKeyboard'
 type SkillSourceBadge = {
   badge: string
   badgeLabel: string
-  badgeTone: 'repo' | 'system' | 'plugin' | 'user' | 'prompt'
+  badgeTone: 'repo' | 'system' | 'user' | 'prompt'
 }
 
 type SkillItem = { name: string; displayName?: string; description: string; path: string; scope?: string; enabled?: boolean }
@@ -1838,10 +1838,6 @@ function isMarkdownFile(path: string): boolean {
 }
 
 function skillSourceBadge(skill: SkillItem): SkillSourceBadge {
-  const path = skill.path.toLowerCase()
-  if (path.includes('/plugins/cache/')) {
-    return { badge: 'P', badgeLabel: 'Plugin', badgeTone: 'plugin' }
-  }
   if (skill.scope === 'repo') {
     return { badge: 'R', badgeLabel: 'Repo', badgeTone: 'repo' }
   }

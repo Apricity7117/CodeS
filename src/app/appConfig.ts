@@ -2,7 +2,6 @@ import type { ChatWidthMode, ChatWidthPreset, TranslateFunction } from './appTyp
 
 export const SIDEBAR_COLLAPSED_STORAGE_KEY = 'codex-web-local.sidebar-collapsed.v1'
 export const ACCOUNTS_SECTION_COLLAPSED_STORAGE_KEY = 'codex-web-local.accounts-section-collapsed.v1'
-export const TERMINAL_QUICK_COMMAND_STORAGE_KEY = 'codex-web-local.terminal-quick-commands.v1'
 export const INSPECTOR_PANEL_OPEN_STORAGE_KEY = 'codex-web-local.inspector-panel-open.v1'
 export const SEND_WITH_ENTER_KEY = 'codex-web-local.send-with-enter.v1'
 export const IN_PROGRESS_SEND_MODE_KEY = 'codex-web-local.in-progress-send-mode.v1'
@@ -13,7 +12,6 @@ export const DICTATION_LANGUAGE_KEY = 'codex-web-local.dictation-language.v1'
 export const TEXT_ANIMATIONS_ENABLED_KEY = 'codex-web-local.text-animations-enabled.v1'
 export const CHAT_WIDTH_KEY = 'codex-web-local.chat-width.v1'
 
-export const TOGGLE_TERMINAL_COMMAND_VALUE = '__toggle_terminal__'
 export const MOBILE_RESUME_RELOAD_MIN_HIDDEN_MS = 400
 
 export const CHAT_WIDTH_PRESETS: Record<ChatWidthMode, ChatWidthPreset> = {
