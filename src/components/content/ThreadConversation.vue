@@ -993,16 +993,14 @@ import {
   showImplementPlanButton,
 } from './threadPlanUtils'
 import {
-  getBasename,
   normalizePathSeparators,
-  parseFileReference,
-  parseMarkdownLinkToken,
   resolveRelativePath,
   toBrowseUrl as buildBrowseUrl,
   toEditUrlFromBrowseHref as buildEditUrlFromBrowseHref,
   toRenderableImageUrl,
-  trimLinkWrappers,
 } from './threadFileLinks'
+import { parseInlineSegments } from './threadInlineSegments'
+import type { InlineSegment } from './threadInlineSegments'
 import {
   aggregateFileChanges,
   buildDiffViewerLines,
@@ -1414,14 +1412,6 @@ const toolQuestionOtherAnswers = ref<Record<string, string>>({})
 const mcpElicitationAnswers = ref<Record<string, string | number | boolean | string[]>>({})
 const autoFollowOutput = ref(true)
 const BOTTOM_THRESHOLD_PX = 16
-type InlineSegment =
-  | { kind: 'text'; value: string }
-  | { kind: 'bold'; value: string }
-  | { kind: 'italic'; value: string }
-  | { kind: 'strikethrough'; value: string }
-  | { kind: 'code'; value: string }
-  | { kind: 'url'; value: string; href: string }
-  | { kind: 'file'; value: string; path: string; displayPath: string; downloadName: string }
 type TaskListItem = {
   text: string
   checked: boolean
@@ -1896,387 +1886,6 @@ function editMessage(messageId: string): void {
   emit('editHistoryMessage', { turnId, text })
 }
 
-function splitPlainTextByLinks(text: string): InlineSegment[] {
-  const segments: InlineSegment[] = []
-  const pattern = /https?:\/\/[^\s<>"'`，。；：！？、()[\]{}「」『』《》]+|file:\/\/[^\n<>"'`，。；：！？、[\]{}「」『』《》]+|["'](?:[A-Za-z]:[\\/]|~\/|\.{1,2}\/|\/)[^\n"']+["']|`(?:[A-Za-z]:[\\/]|~\/|\.{1,2}\/|\/)[^`\n]+`/gu
-  let cursor = 0
-
-  for (const match of text.matchAll(pattern)) {
-    if (typeof match.index !== 'number') continue
-    const start = match.index
-    const end = start + match[0].length
-
-    if (start > cursor) {
-      segments.push({ kind: 'text', value: text.slice(cursor, start) })
-    }
-
-    let token = match[0]
-    let trailingPunctuation = ''
-    while (/[.,;:!?，。；：！？、]$/u.test(token)) {
-      trailingPunctuation = token.slice(-1) + trailingPunctuation
-      token = token.slice(0, -1)
-    }
-    const wrapped = trimLinkWrappers(token)
-    token = wrapped.core
-    const leading = wrapped.leading
-    const trailing = wrapped.trailing + trailingPunctuation
-
-    if (leading) {
-      segments.push({ kind: 'text', value: leading })
-    }
-
-    if (token.startsWith('**') && token.endsWith('**') && token.length > 4) {
-      segments.push({ kind: 'bold', value: token.slice(2, -2) })
-      if (trailing) {
-        segments.push({ kind: 'text', value: trailing })
-      }
-    } else if (/^https?:\/\//u.test(token)) {
-      segments.push({ kind: 'url', value: token, href: token })
-      if (trailing) {
-        segments.push({ kind: 'text', value: trailing })
-      }
-    } else {
-      const ref = parseFileReference(token)
-      if (ref) {
-        segments.push({
-          kind: 'file',
-          value: token,
-          path: ref.path,
-          displayPath: token,
-          downloadName: getBasename(ref.path),
-        })
-        if (trailing) {
-          segments.push({ kind: 'text', value: trailing })
-        }
-      } else {
-        segments.push({ kind: 'text', value: match[0] })
-      }
-    }
-
-    cursor = end
-  }
-
-  if (cursor < text.length) {
-    segments.push({ kind: 'text', value: text.slice(cursor) })
-  }
-
-  return applyInlineMarkdownMarkers(segments)
-}
-
-function applyDelimitedMarkersAcrossTextSegments(
-  segments: InlineSegment[],
-  options: {
-    marker: string
-    kind: Extract<InlineSegment['kind'], 'bold' | 'italic' | 'strikethrough'>
-    isValidContent?: (value: string) => boolean
-  },
-): InlineSegment[] {
-  const output: InlineSegment[] = []
-  let isOpen = false
-  let buffer = ''
-
-  const pushText = (value: string): void => {
-    if (!value) return
-    output.push({ kind: 'text', value })
-  }
-
-  for (const segment of segments) {
-    if (segment.kind !== 'text') {
-      if (isOpen) {
-        pushText(`${options.marker}${buffer}`)
-        isOpen = false
-        buffer = ''
-      }
-      output.push(segment)
-      continue
-    }
-
-    let remaining = segment.value
-    while (remaining.length > 0) {
-      const markerIndex = remaining.indexOf(options.marker)
-      if (markerIndex < 0) {
-        if (isOpen) buffer += remaining
-        else pushText(remaining)
-        break
-      }
-
-      const before = remaining.slice(0, markerIndex)
-      if (isOpen) buffer += before
-      else pushText(before)
-
-      remaining = remaining.slice(markerIndex + options.marker.length)
-      if (isOpen) {
-        const content = buffer
-        if (
-          content.length > 0 &&
-          (options.isValidContent ? options.isValidContent(content) : true)
-        ) {
-          output.push({ kind: options.kind, value: content })
-        } else {
-          pushText(`${options.marker}${content}${options.marker}`)
-        }
-        buffer = ''
-        isOpen = false
-      } else {
-        isOpen = true
-      }
-    }
-  }
-
-  if (isOpen) {
-    pushText(`${options.marker}${buffer}`)
-  }
-
-  return output
-}
-
-function applyInlineMarkdownMarkers(segments: InlineSegment[]): InlineSegment[] {
-  const nonWhitespaceWrapped = (value: string): boolean => (
-    value.trim().length > 0 &&
-    !/^\s/u.test(value) &&
-    !/\s$/u.test(value)
-  )
-
-  let next = applyDelimitedMarkersAcrossTextSegments(segments, {
-    marker: '**',
-    kind: 'bold',
-    isValidContent: nonWhitespaceWrapped,
-  })
-
-  next = applyDelimitedMarkersAcrossTextSegments(next, {
-    marker: '~~',
-    kind: 'strikethrough',
-    isValidContent: nonWhitespaceWrapped,
-  })
-
-  next = applyDelimitedMarkersAcrossTextSegments(next, {
-    marker: '*',
-    kind: 'italic',
-    isValidContent: nonWhitespaceWrapped,
-  })
-
-  return next
-}
-
-function splitTextByFileUrls(text: string): InlineSegment[] {
-  const segments: InlineSegment[] = []
-  let cursor = 0
-  let scanFrom = 0
-
-  const findNextMarkdownLink = (
-    source: string,
-    fromIndex: number,
-  ): { start: number; end: number; token: string } | null => {
-    let linkStart = source.indexOf('[', fromIndex)
-    while (linkStart >= 0) {
-      const labelEnd = source.indexOf(']', linkStart + 1)
-      if (labelEnd < 0) return null
-      if (source[labelEnd + 1] !== '(') {
-        linkStart = source.indexOf('[', linkStart + 1)
-        continue
-      }
-
-      let depth = 1
-      let index = labelEnd + 2
-      let hasNewLine = false
-      while (index < source.length) {
-        const char = source[index]
-        if (char === '\n') {
-          hasNewLine = true
-          break
-        }
-        if (char === '(') depth += 1
-        if (char === ')') {
-          depth -= 1
-          if (depth === 0) {
-            const token = source.slice(linkStart, index + 1)
-            if (parseMarkdownLinkToken(token)) {
-              return { start: linkStart, end: index + 1, token }
-            }
-            break
-          }
-        }
-        index += 1
-      }
-
-      if (hasNewLine) {
-        linkStart = source.indexOf('[', linkStart + 1)
-        continue
-      }
-      linkStart = source.indexOf('[', linkStart + 1)
-    }
-    return null
-  }
-
-  while (scanFrom < text.length) {
-    const match = findNextMarkdownLink(text, scanFrom)
-    if (!match) break
-    const { start, end, token } = match
-
-    if (start > cursor) {
-      segments.push(...splitPlainTextByLinks(text.slice(cursor, start)))
-    }
-
-    const markdownToken = parseMarkdownLinkToken(token)
-    if (!markdownToken) {
-      segments.push(...splitPlainTextByLinks(text.slice(start, end)))
-      cursor = end
-      scanFrom = end
-      continue
-    }
-    const label = markdownToken.label
-    const target = markdownToken.target
-
-    if (/^https?:\/\//u.test(target)) {
-      segments.push({ kind: 'url', value: label || target, href: target })
-    } else {
-      const ref = parseFileReference(target)
-      if (ref) {
-        segments.push({
-          kind: 'file',
-          value: target,
-          path: ref.path,
-          displayPath: label || target,
-          downloadName: getBasename(ref.path),
-        })
-      } else {
-        segments.push({ kind: 'text', value: token })
-      }
-    }
-
-    cursor = end
-    scanFrom = end
-  }
-
-  if (cursor < text.length) {
-    segments.push(...splitPlainTextByLinks(text.slice(cursor)))
-  }
-
-  return segments
-}
-
-function parseInlineSegmentsUncached(text: string): InlineSegment[] {
-  const linkFirstSegments = splitTextByFileUrls(text)
-  if (!text.includes('`')) return linkFirstSegments
-  if (!linkFirstSegments.some((segment) => segment.kind === 'text' && segment.value.includes('`'))) {
-    return linkFirstSegments
-  }
-
-  const parseCodeAwareTextSegments = (value: string): InlineSegment[] => {
-    if (!value.includes('`')) return splitPlainTextByLinks(value)
-
-    const segments: InlineSegment[] = []
-    let cursor = 0
-    let textStart = 0
-
-    while (cursor < value.length) {
-      if (value[cursor] !== '`') {
-        cursor += 1
-        continue
-      }
-
-      let openLength = 1
-      while (cursor + openLength < value.length && value[cursor + openLength] === '`') {
-        openLength += 1
-      }
-      const delimiter = '`'.repeat(openLength)
-
-      let searchFrom = cursor + openLength
-      let closingStart = -1
-      while (searchFrom < value.length) {
-        const candidate = value.indexOf(delimiter, searchFrom)
-        if (candidate < 0) break
-
-        const hasBacktickBefore = candidate > 0 && value[candidate - 1] === '`'
-        const hasBacktickAfter =
-          candidate + openLength < value.length && value[candidate + openLength] === '`'
-        const hasNewLineInside = value.slice(cursor + openLength, candidate).includes('\n')
-
-        if (!hasBacktickBefore && !hasBacktickAfter && !hasNewLineInside) {
-          closingStart = candidate
-          break
-        }
-        searchFrom = candidate + 1
-      }
-
-      if (closingStart < 0) {
-        cursor += openLength
-        continue
-      }
-
-      if (cursor > textStart) {
-        segments.push(...splitPlainTextByLinks(value.slice(textStart, cursor)))
-      }
-
-      const token = value.slice(cursor + openLength, closingStart)
-      if (token.length > 0) {
-        const markdownLink = parseMarkdownLinkToken(token)
-        if (markdownLink) {
-          if (/^https?:\/\//u.test(markdownLink.target)) {
-            segments.push({
-              kind: 'url',
-              value: markdownLink.label || markdownLink.target,
-              href: markdownLink.target,
-            })
-          } else {
-            const markdownFileReference = parseFileReference(markdownLink.target)
-            if (markdownFileReference) {
-              segments.push({
-                kind: 'file',
-                value: markdownLink.target,
-                path: markdownFileReference.path,
-                displayPath: markdownLink.label || markdownLink.target,
-                downloadName: getBasename(markdownFileReference.path),
-              })
-            } else {
-              segments.push({ kind: 'code', value: token })
-            }
-          }
-        } else if (/^https?:\/\/[^\s]+$/u.test(token)) {
-          segments.push({
-            kind: 'url',
-            value: token,
-            href: token,
-          })
-        } else {
-          const fileReference = parseFileReference(token)
-          if (fileReference) {
-            const displayPath = fileReference.line
-              ? `${fileReference.path}:${String(fileReference.line)}`
-              : fileReference.path
-            segments.push({
-              kind: 'file',
-              value: token,
-              path: fileReference.path,
-              displayPath,
-              downloadName: getBasename(fileReference.path),
-            })
-          } else {
-            segments.push({ kind: 'code', value: token })
-          }
-        }
-      } else {
-        segments.push({ kind: 'text', value: `${delimiter}${delimiter}` })
-      }
-
-      cursor = closingStart + openLength
-      textStart = cursor
-    }
-
-    if (textStart < value.length) {
-      segments.push(...splitPlainTextByLinks(value.slice(textStart)))
-    }
-
-    return segments
-  }
-
-  return linkFirstSegments.flatMap((segment) => (
-    segment.kind === 'text'
-      ? parseCodeAwareTextSegments(segment.value)
-      : [segment]
-  ))
-}
-
 function getInlineSegments(text: string): InlineSegment[] {
   const cached = inlineSegmentCache.get(text)
   if (cached) {
@@ -2284,7 +1893,7 @@ function getInlineSegments(text: string): InlineSegment[] {
     inlineSegmentCache.set(text, cached)
     return cached
   }
-  return setBoundedCacheEntry(inlineSegmentCache, text, parseInlineSegmentsUncached(text), INLINE_SEGMENT_CACHE_LIMIT)
+  return setBoundedCacheEntry(inlineSegmentCache, text, parseInlineSegments(text), INLINE_SEGMENT_CACHE_LIMIT)
 }
 
 function toBrowseUrl(pathValue: string): string {
@@ -4988,11 +4597,16 @@ onBeforeUnmount(() => {
 .cmd-group-wrap {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 220ms ease-out;
+  min-height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  transition: grid-template-rows 220ms ease-out, visibility 0s linear 220ms;
 }
 
 .cmd-group-wrap.cmd-group-visible {
   grid-template-rows: 1fr;
+  visibility: visible;
+  transition-delay: 0s;
 }
 
 .cmd-group-inner {
@@ -5000,6 +4614,11 @@ onBeforeUnmount(() => {
   background-color: var(--codex-file-summary-bg);
   border-color: var(--codex-file-summary-border);
   border-top: 0;
+}
+
+.cmd-group-wrap:not(.cmd-group-visible) .cmd-group-inner {
+  margin-bottom: 0;
+  border-color: transparent;
 }
 
 .cmd-group-inner .worked-cmd-item {
