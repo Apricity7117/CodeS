@@ -101,7 +101,7 @@ function printHelp() {
 
 Options:
   --source-dir <path>   anti-codex webview assets 目录
-  --output-dir <path>   codexUI 图标输出目录
+  --output-dir <path>   CodeS 图标输出目录
   --dry-run             只打印可抽取图标，不写入文件
   -h, --help            显示帮助
 `)

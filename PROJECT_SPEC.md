@@ -1,8 +1,8 @@
-# codex-web-local — Project Specification
+# CodeS — Project Specification
 
 ## Overview
 
-**codex-web-local** is a lightweight, browser-based web UI for [OpenAI Codex](https://github.com/openai/codex). It mirrors the Codex Desktop experience and runs on top of the Codex `app-server`, allowing remote access to a local Codex instance from any browser.
+**CodeS** is a lightweight, browser-based web UI for [OpenAI Codex](https://github.com/openai/codex). It mirrors the Codex Desktop experience and runs on top of the Codex `app-server`, allowing remote access to a local Codex instance from any browser.
 
 - **Author:** Pavel Voronin
 - **License:** MIT
@@ -61,7 +61,7 @@
 ## Project Structure
 
 ```
-codex-web-local/
+CodeS/
 ├── src/
 │   ├── api/                          # Backend communication layer
 │   │   ├── codexGateway.ts           # High-level API (threads, turns, models)
@@ -322,14 +322,14 @@ Bidirectional sync between `selectedThreadId` state and URL is handled via Vue `
 ### Production Mode
 
 ```bash
-npx codex-web-local [--port 5999] [--password mypass] [--no-password]
+npx codes [--port 5999] [--password mypass] [--no-password]
 ```
 
-The CLI starts an Express server that serves the built frontend from `dist/` and uses the same bridge middleware. Password authentication is enabled by default. When a password is auto-generated, it is written to `$CODEX_HOME/codexui-password` with `0600` permissions and startup output prints only that file path.
+The CLI starts an Express server that serves the built frontend from `dist/` and uses the same bridge middleware. Password authentication is enabled by default. When a password is auto-generated, it is written to `$CODEX_HOME/codes-password` with `0600` permissions and startup output prints only that file path.
 
 ### Auth (Production)
 
-- Default: auto-generated password saved to `$CODEX_HOME/codexui-password` on startup
+- Default: auto-generated password saved to `$CODEX_HOME/codes-password` on startup
 - Login: POST `/auth/login` with `{ password }` body
 - Session: HttpOnly cookie `codex_web_local_token`
 - Uses constant-time comparison to prevent timing attacks

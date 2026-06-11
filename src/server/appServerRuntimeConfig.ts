@@ -29,7 +29,7 @@ function normalizeRuntimeValue(value: string | undefined): string {
 }
 
 function readSandboxModeFromEnv(): CodexSandboxMode {
-  const candidate = normalizeRuntimeValue(process.env.CODEXUI_SANDBOX_MODE)
+  const candidate = normalizeRuntimeValue(process.env.CODES_SANDBOX_MODE ?? process.env.CODEXUI_SANDBOX_MODE)
   if (SANDBOX_MODES.has(candidate as CodexSandboxMode)) {
     return candidate as CodexSandboxMode
   }
@@ -37,7 +37,7 @@ function readSandboxModeFromEnv(): CodexSandboxMode {
 }
 
 function readApprovalPolicyFromEnv(): CodexApprovalPolicy {
-  const candidate = normalizeRuntimeValue(process.env.CODEXUI_APPROVAL_POLICY)
+  const candidate = normalizeRuntimeValue(process.env.CODES_APPROVAL_POLICY ?? process.env.CODEXUI_APPROVAL_POLICY)
   if (APPROVAL_POLICIES.has(candidate as CodexApprovalPolicy)) {
     return candidate as CodexApprovalPolicy
   }

@@ -27,7 +27,7 @@ function renderFrontendMissingHtml(message: string, details?: string[]): string 
   return [
     '<!doctype html>',
     '<html lang="en">',
-    '<head><meta charset="utf-8"><title>Codex Web UI Error</title></head>',
+    '<head><meta charset="utf-8"><title>CodeS UI Error</title></head>',
     '<body>',
     `<h1>${message}</h1>`,
     lines,
@@ -75,7 +75,7 @@ export function createServer(options: ServerOptions = {}): ServerInstance {
           renderFrontendMissingHtml('Codex web UI assets are missing.', [
             `Expected: ${spaEntryFile}`,
             'If running from source, build frontend assets with: pnpm run build:frontend',
-            'If running with npx, clear the npx cache and reinstall codexapp.',
+            'If running with npx, clear the npx cache and reinstall codes.',
           ]),
         )
       return

@@ -852,7 +852,7 @@ function onRespondApproval(request: UiServerRequest, decision: ApprovalDecision)
         id: request.id,
         error: {
           code: -32000,
-          message: decision === 'cancel' ? 'Cancelled from CodexUI.' : 'Declined from CodexUI.',
+          message: decision === 'cancel' ? 'Cancelled from CodeS.' : 'Declined from CodeS.',
         },
       })
       return
@@ -937,7 +937,7 @@ function onRespondToolCallFailure(request: UiServerRequest): void {
       contentItems: [
         {
           type: 'inputText',
-          text: 'Tool call rejected from CodexUI.',
+          text: 'Tool call rejected from CodeS.',
         },
       ],
     },
@@ -966,7 +966,7 @@ function onRejectUnknownRequest(request: UiServerRequest): void {
     id: request.id,
     error: {
       code: -32000,
-      message: 'Rejected from CodexUI.',
+      message: 'Rejected from CodeS.',
     },
   })
 }

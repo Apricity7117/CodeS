@@ -229,9 +229,9 @@ const THREAD_METHODS_WITH_THREAD_SNAPSHOT = new Set([...THREAD_METHODS_WITH_TURN
 const THREAD_SEARCH_FULL_TEXT_THREAD_LIMIT = 100
 const PROJECTLESS_THREAD_DIRECTORY_MAX_ATTEMPTS = 100
 const PROJECTLESS_THREAD_SLUG_MAX_LENGTH = 80
-const API_PERF_LOGGING_ENV_KEY = 'CODEXUI_API_PERF_LOGGING'
-const API_PERF_MS_THRESHOLD_ENV_KEY = 'CODEXUI_API_PERF_MS_THRESHOLD'
-const API_PERF_BODY_MB_THRESHOLD_ENV_KEY = 'CODEXUI_API_PERF_BODY_MB_THRESHOLD'
+const API_PERF_LOGGING_ENV_KEYS = ['CODES_API_PERF_LOGGING', 'CODEXUI_API_PERF_LOGGING'] as const
+const API_PERF_MS_THRESHOLD_ENV_KEYS = ['CODES_API_PERF_MS_THRESHOLD', 'CODEXUI_API_PERF_MS_THRESHOLD'] as const
+const API_PERF_BODY_MB_THRESHOLD_ENV_KEYS = ['CODES_API_PERF_BODY_MB_THRESHOLD', 'CODEXUI_API_PERF_BODY_MB_THRESHOLD'] as const
 const DEFAULT_API_PERF_MS_THRESHOLD = 300
 const DEFAULT_API_PERF_BODY_MB_THRESHOLD = 1
 const MB_DIVISOR = 1024 * 1024
@@ -463,14 +463,20 @@ function parseBooleanEnvFlag(value: string | null | undefined): boolean | null {
 }
 
 function resolveApiPerfLoggingEnabled(): boolean {
-  const explicitValue = parseBooleanEnvFlag(process.env[API_PERF_LOGGING_ENV_KEY])
-  if (explicitValue !== null) return explicitValue
+  for (const envKey of API_PERF_LOGGING_ENV_KEYS) {
+    const explicitValue = parseBooleanEnvFlag(process.env[envKey])
+    if (explicitValue !== null) return explicitValue
+  }
 
-  const fromEnvLocal = parseBooleanEnvFlag(readEnvValueFromFile('.env.local', API_PERF_LOGGING_ENV_KEY))
-  if (fromEnvLocal !== null) return fromEnvLocal
+  for (const envKey of API_PERF_LOGGING_ENV_KEYS) {
+    const fromEnvLocal = parseBooleanEnvFlag(readEnvValueFromFile('.env.local', envKey))
+    if (fromEnvLocal !== null) return fromEnvLocal
+  }
 
-  const fromEnv = parseBooleanEnvFlag(readEnvValueFromFile('.env', API_PERF_LOGGING_ENV_KEY))
-  if (fromEnv !== null) return fromEnv
+  for (const envKey of API_PERF_LOGGING_ENV_KEYS) {
+    const fromEnv = parseBooleanEnvFlag(readEnvValueFromFile('.env', envKey))
+    if (fromEnv !== null) return fromEnv
+  }
 
   return false
 }
@@ -484,21 +490,27 @@ function parseNumberEnvFlag(value: string | null | undefined): number | null {
   return parsed
 }
 
-function resolveNumericEnvConfig(envKey: string, fallback: number): number {
-  const fromProcess = parseNumberEnvFlag(process.env[envKey])
-  if (fromProcess !== null) return fromProcess
+function resolveNumericEnvConfig(envKeys: readonly string[], fallback: number): number {
+  for (const envKey of envKeys) {
+    const fromProcess = parseNumberEnvFlag(process.env[envKey])
+    if (fromProcess !== null) return fromProcess
+  }
 
-  const fromEnvLocal = parseNumberEnvFlag(readEnvValueFromFile('.env.local', envKey))
-  if (fromEnvLocal !== null) return fromEnvLocal
+  for (const envKey of envKeys) {
+    const fromEnvLocal = parseNumberEnvFlag(readEnvValueFromFile('.env.local', envKey))
+    if (fromEnvLocal !== null) return fromEnvLocal
+  }
 
-  const fromEnv = parseNumberEnvFlag(readEnvValueFromFile('.env', envKey))
-  if (fromEnv !== null) return fromEnv
+  for (const envKey of envKeys) {
+    const fromEnv = parseNumberEnvFlag(readEnvValueFromFile('.env', envKey))
+    if (fromEnv !== null) return fromEnv
+  }
 
   return fallback
 }
 
-const API_PERF_MS_THRESHOLD = resolveNumericEnvConfig(API_PERF_MS_THRESHOLD_ENV_KEY, DEFAULT_API_PERF_MS_THRESHOLD)
-const API_PERF_BODY_MB_THRESHOLD = resolveNumericEnvConfig(API_PERF_BODY_MB_THRESHOLD_ENV_KEY, DEFAULT_API_PERF_BODY_MB_THRESHOLD)
+const API_PERF_MS_THRESHOLD = resolveNumericEnvConfig(API_PERF_MS_THRESHOLD_ENV_KEYS, DEFAULT_API_PERF_MS_THRESHOLD)
+const API_PERF_BODY_MB_THRESHOLD = resolveNumericEnvConfig(API_PERF_BODY_MB_THRESHOLD_ENV_KEYS, DEFAULT_API_PERF_BODY_MB_THRESHOLD)
 
 function getChunkByteLength(chunk: unknown, encoding?: BufferEncoding): number {
   if (typeof chunk === 'string') {
@@ -642,7 +654,7 @@ async function persistInlineDataUrlToLocalFile(dataUrl: string, baseName: string
 
   const hash = createHash('sha1').update(bytes).digest('hex')
   const ext = extensionFromMimeType(mimeType)
-  const mediaDir = join(tmpdir(), 'codex-web-inline-media')
+  const mediaDir = join(tmpdir(), 'codes-inline-media')
   await mkdir(mediaDir, { recursive: true })
   const fileName = `${baseName}-${hash}${ext}`
   const filePath = join(mediaDir, fileName)
@@ -1539,7 +1551,7 @@ function readNumber(value: unknown): number {
 type ComposioCliInvocation = { command: string; args: string[]; displayCommand: string }
 
 function buildComposioInvocation(args: string[]): ComposioCliInvocation | null {
-  const overrideCommand = process.env.CODEXUI_COMPOSIO_COMMAND?.trim()
+  const overrideCommand = process.env.CODES_COMPOSIO_COMMAND?.trim() || process.env.CODEXUI_COMPOSIO_COMMAND?.trim()
   if (overrideCommand) {
     const invocation = getSpawnInvocation(overrideCommand, args)
     return {
@@ -4506,7 +4518,7 @@ function handleFileUpload(req: IncomingMessage, res: ServerResponse): void {
         break
       }
       if (!fileData) { setJson(res, 400, { error: 'No file in request' }); return }
-      const uploadDir = join(tmpdir(), 'codex-web-uploads')
+      const uploadDir = join(tmpdir(), 'codes-uploads')
       await mkdir(uploadDir, { recursive: true })
       const destDir = await mkdtemp(join(uploadDir, 'f-'))
       const destPath = join(destDir, fileName)
@@ -4703,7 +4715,7 @@ class AppServerProcess {
   private getCodexCommand(): string {
     const codexCommand = resolveCodexCommand()
     if (!codexCommand) {
-      throw new Error('Codex CLI is not available. Install @openai/codex or set CODEXUI_CODEX_COMMAND.')
+      throw new Error('Codex CLI is not available. Install @openai/codex or set CODES_CODEX_COMMAND.')
     }
     return codexCommand
   }
@@ -4715,7 +4727,7 @@ class AppServerProcess {
       '-c', 'sandbox_mode="danger-full-access"',
     ]
     let extraEnv: Record<string, string> = {}
-    const serverPort = parseInt(process.env.CODEXUI_SERVER_PORT ?? '', 10) || undefined
+    const serverPort = parseInt(process.env.CODES_SERVER_PORT ?? process.env.CODEXUI_SERVER_PORT ?? '', 10) || undefined
     const statePath = join(getCodexHomeDir(), FREE_MODE_STATE_FILE)
     try {
       const state = ensureDefaultFreeModeStateForMissingAuthSync(statePath)
@@ -5139,7 +5151,7 @@ class AppServerProcess {
 
     this.initializePromise = this.call('initialize', {
       clientInfo: {
-        name: 'codex-web-local',
+        name: 'CodeS',
         version: '0.1.0',
       },
       capabilities: {
@@ -5499,7 +5511,7 @@ class MethodCatalog {
     await new Promise<void>((resolve, reject) => {
       const codexCommand = resolveCodexCommand()
       if (!codexCommand) {
-        reject(new Error('Codex CLI is not available. Install @openai/codex or set CODEXUI_CODEX_COMMAND.'))
+        reject(new Error('Codex CLI is not available. Install @openai/codex or set CODES_CODEX_COMMAND.'))
         return
       }
 
@@ -5574,7 +5586,7 @@ class MethodCatalog {
       return this.methodCache
     }
 
-    const outDir = await mkdtemp(join(tmpdir(), 'codex-web-local-schema-'))
+    const outDir = await mkdtemp(join(tmpdir(), 'codes-schema-'))
     await this.runGenerateSchemaCommand(outDir)
 
     const clientRequestPath = join(outDir, 'ClientRequest.json')
@@ -5591,7 +5603,7 @@ class MethodCatalog {
       return this.notificationCache
     }
 
-    const outDir = await mkdtemp(join(tmpdir(), 'codex-web-local-schema-'))
+    const outDir = await mkdtemp(join(tmpdir(), 'codes-schema-'))
     await this.runGenerateSchemaCommand(outDir)
 
     const serverNotificationPath = join(outDir, 'ServerNotification.json')

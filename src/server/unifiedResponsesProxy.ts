@@ -551,7 +551,7 @@ export function handleUnifiedResponsesProxyRequest(
           try {
             const upstreamPayload = JSON.parse(rawResponseBody) as Record<string, unknown>
             if (upstreamPayload.error || status >= 400) {
-              if (process.env.CODEXUI_PROXY_DEBUG === '1') {
+              if ((process.env.CODES_PROXY_DEBUG ?? process.env.CODEXUI_PROXY_DEBUG) === '1') {
                 console.warn('[unified-responses-proxy]', JSON.stringify({
                   status,
                   upstreamUrl: upstreamUrl.toString(),

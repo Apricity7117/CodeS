@@ -1,13 +1,13 @@
-# 🔥 codexapp
+# 🔥 codes
 
 ### 🚀 Run Codex App UI Anywhere: Linux, Windows, or Termux on Android 🚀
 
-[![npm](https://img.shields.io/npm/v/codexapp?style=for-the-badge&logo=npm&logoColor=white)](https://www.npmjs.com/package/codexapp)
+[![npm](https://img.shields.io/npm/v/codes?style=for-the-badge&logo=npm&logoColor=white)](https://www.npmjs.com/package/codes)
 [![platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20Android-blue?style=for-the-badge)](#-quick-start)
 [![node](https://img.shields.io/badge/Node-18%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![license](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](./LICENSE)
 
-> **Codex UI in your browser. No drama. One command.**
+> **CodeS in your browser. No drama. One command.**
 >  
 > **Yes, that is your Codex desktop app experience exposed over web UI. Yes, it runs cross-platform.**
 
@@ -24,7 +24,7 @@
 <img width="1366" height="900" alt="image" src="https://github.com/user-attachments/assets/1a3578ba-add8-49a2-88b4-08195a7f0140" />
 
 ## 🤯 What Is This?
-**`codexapp`** is a lightweight bridge that gives you a browser-accessible UI for Codex app-server workflows.
+**`codes`** is a lightweight bridge that gives you a browser-accessible UI for Codex app-server workflows.
 
 You run one command. It starts a local web server. You open it from your machine, your LAN, or wherever your setup allows.  
 
@@ -37,13 +37,13 @@ You run one command. It starts a local web server. You open it from your machine
 
 ```bash
 # 🔓 Run instantly (recommended)
-npx codexapp
+npx codes
 
 # 🌐 Then open in browser
 # http://localhost:18923
 ```
 
-By default, `codexapp` now also starts:
+By default, `codes` now also starts:
 
 ```bash
 cloudflared tunnel --url http://localhost:<port>
@@ -52,52 +52,52 @@ cloudflared tunnel --url http://localhost:<port>
 It prints the tunnel URL, terminal QR code, and password together in startup output.  
 Use `--no-tunnel` to disable this behavior.
 
-If you are using a provider or AI gateway that is already authenticated and do not want `codexapp` to force `codex login` during startup, use:
+If you are using a provider or AI gateway that is already authenticated and do not want `codes` to force `codex login` during startup, use:
 
 ```bash
-npx codexapp --no-login
+npx codes --no-login
 ```
 
 ### Linux 🐧
 ```bash
 node -v   # should be 18+
-npx codexapp
+npx codes
 ```
 
 ### Windows 🪟 (PowerShell)
 ```powershell
 node -v   # 18+
-npx codexapp
+npx codes
 ```
 
 ### Termux (Android) 🤖
 ```bash
 pkg update && pkg upgrade -y
 pkg install nodejs -y
-npx codexapp
+npx codes
 ```
 
 Android background requirements:
 
-1. Keep `codexapp` running in the current Termux session (do not close it).
+1. Keep `codes` running in the current Termux session (do not close it).
 2. In Android settings, disable battery optimization for `Termux`.
 3. Keep the persistent Termux notification enabled so Android is less likely to kill it.
 4. Optional but recommended in Termux:
 ```bash
 termux-wake-lock
 ```
-5. Open the shown URL in your Android browser. If the app is killed, return to Termux and run `npx codexapp` again.
+5. Open the shown URL in your Android browser. If the app is killed, return to Termux and run `npx codes` again.
 
 ---
 
 ## iPhone / iPad via Tailscale Serve
 
-If you want to use codexUI from iPhone or iPad Safari, serving it over HTTPS is recommended.
+If you want to use CodeS from iPhone or iPad Safari, serving it over HTTPS is recommended.
 
-A practical private setup is to run codexUI locally and publish it inside your tailnet with Tailscale Serve:
+A practical private setup is to run CodeS locally and publish it inside your tailnet with Tailscale Serve:
 
 ```powershell
-npx codexapp --no-tunnel --port 5900
+npx codes --no-tunnel --port 5900
 tailscale serve --bg 5900
 ```
 
@@ -127,9 +127,9 @@ Notes:
 ## ✨ Features
 > **The payload.**
 
-- 🚀 One-command launch with `npx codexapp`
+- 🚀 One-command launch with `npx codes`
 - 🌍 Cross-platform support for Linux, Windows, and Termux on Android
-- 🖥️ Browser-first Codex UI flow on `http://localhost:18923`
+- 🖥️ Browser-first CodeS flow on `http://localhost:18923`
 - 🌐 LAN-friendly access from other devices on the same network
 - 🧪 Remote/headless-friendly setup for server-based Codex usage
 - 🔌 Works with reverse proxies and tunneling setups
@@ -139,13 +139,13 @@ Notes:
 
 ### Telegram Bot Bridge (Optional)
 
-Set these environment variables before starting `codexapp`:
+Set these environment variables before starting `codes`:
 
 ```bash
 export TELEGRAM_BOT_TOKEN="<your-telegram-bot-token>"
 export TELEGRAM_ALLOWED_USER_IDS="<your-telegram-user-id>,<optional-second-id>"
 export TELEGRAM_DEFAULT_CWD="$PWD" # optional, defaults to current working directory
-npx codexapp
+npx codes
 ```
 
 `TELEGRAM_ALLOWED_USER_IDS` is required for safe access. Only allowlisted Telegram user IDs can use the bridge. If no allowed user IDs are configured, incoming Telegram messages are rejected.
@@ -193,7 +193,7 @@ Outgoing assistant messages are sent with Telegram `parse_mode=HTML` for formatt
 
 | 🔥 Use Case | 💥 What You Get |
 |---|---|
-| 💻 Linux workstation | Run Codex UI in browser without depending on desktop shell |
+| 💻 Linux workstation | Run CodeS in browser without depending on desktop shell |
 | 🪟 Windows machine | Launch web UI and access from Chrome/Edge quickly |
 | 📱 Termux on Android | Start service in Termux and control from mobile browser |
 | 🧪 Remote dev box | Keep Codex process on server, view UI from client device |
@@ -226,7 +226,7 @@ Outgoing assistant messages are sent with Telegram `parse_mode=HTML` for formatt
 └──────────────┬──────────────┘
                │ HTTP/WebSocket
 ┌──────────────▼──────────────┐
-│         codexapp            │
+│         codes            │
 │  (Express + Vue UI bridge)  │
 └──────────────┬──────────────┘
                │ RPC/Bridge calls
@@ -263,7 +263,7 @@ Bring bug reports, platform notes, and setup improvements.
 ---
 
 ## ⭐ Star This Repo
-If you believe Codex UI should be accessible from **any machine, any OS, any screen**, star this project and share it. ⭐
+If you believe CodeS should be accessible from **any machine, any OS, any screen**, star this project and share it. ⭐
 
 <div align="center">
 Built for speed, portability, and a little bit of chaos 😏

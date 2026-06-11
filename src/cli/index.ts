@@ -26,7 +26,7 @@ import { createServer as createApp } from '../server/httpServer.js'
 import { generatePassword } from '../server/password.js'
 import { spawnSyncCommand } from '../utils/commandInvocation.js'
 
-const program = new Command().name('codexui').description('Web interface for Codex app-server')
+const program = new Command().name('codes').description('CodeS web interface for Codex app-server')
 const __dirname = dirname(fileURLToPath(import.meta.url))
 let hasPromptedCloudflaredInstall = false
 
@@ -268,7 +268,7 @@ function resolvePassword(input: string | boolean): PasswordResolution {
 }
 
 function getGeneratedPasswordPath(): string {
-  return join(getCodexHomePath(), 'codexui-password')
+  return join(getCodexHomePath(), 'codes-password')
 }
 
 async function persistGeneratedPassword(password: string): Promise<string> {
@@ -515,17 +515,20 @@ async function startServer(options: {
   }
   const codexCommand = ensureCodexInstalled() ?? resolveCodexCommand()
   if (codexCommand) {
+    process.env.CODES_CODEX_COMMAND = codexCommand
     process.env.CODEXUI_CODEX_COMMAND = codexCommand
   }
   if (options.sandboxMode) {
+    process.env.CODES_SANDBOX_MODE = options.sandboxMode
     process.env.CODEXUI_SANDBOX_MODE = options.sandboxMode
   }
   if (options.approvalPolicy) {
+    process.env.CODES_APPROVAL_POLICY = options.approvalPolicy
     process.env.CODEXUI_APPROVAL_POLICY = options.approvalPolicy
   }
   const runtimeConfig = resolveAppServerRuntimeConfig()
   if (options.login && !hasCodexAuth()) {
-    console.log('\nCodex is not logged in. You can log in later via settings or run `codexui login`.\n')
+    console.log('\nCodex is not logged in. You can log in later via settings or run `codes login`.\n')
   }
   const requestedPort = parseInt(options.port, 10)
   const passwordResolution = resolvePassword(options.password)
@@ -537,6 +540,7 @@ async function startServer(options: {
   const server = createServer(app)
   attachWebSocket(server)
   const port = await listenWithFallback(server, requestedPort)
+  process.env.CODES_SERVER_PORT = String(port)
   process.env.CODEXUI_SERVER_PORT = String(port)
   let tunnelChild: ReturnType<typeof spawn> | null = null
   let tunnelUrl: string | null = null
@@ -558,9 +562,9 @@ async function startServer(options: {
 
   const lines = [
     '',
-    'Codex Web Local is running!',
+    'CodeS is running!',
     `  Version:  ${version}`,
-    '  GitHub:   https://github.com/friuns2/codexui',
+    '  App:      CodeS',
     '',
     `  Bind:     http://0.0.0.0:${String(port)}`,
     `  Codex sandbox: ${runtimeConfig.sandboxMode}`,
@@ -620,6 +624,7 @@ async function startServer(options: {
 
 async function runLogin() {
   const codexCommand = ensureCodexInstalled() ?? 'codex'
+  process.env.CODES_CODEX_COMMAND = codexCommand
   process.env.CODEXUI_CODEX_COMMAND = codexCommand
   console.log('\nStarting `codex login`...\n')
   runOrFail(codexCommand, ['login'], 'Codex login')
@@ -693,12 +698,12 @@ program
 
 program.command('login').description('Install/check Codex CLI and run `codex login`').action(runLogin)
 
-program.command('help').description('Show codexui command help').action(() => {
+program.command('help').description('Show CodeS command help').action(() => {
   program.outputHelp()
 })
 
 program.parseAsync(process.argv).catch((error) => {
   const message = error instanceof Error ? error.message : String(error)
-  console.error(`\nFailed to run codexui: ${message}`)
+  console.error(`\nFailed to run CodeS: ${message}`)
   process.exit(1)
 })

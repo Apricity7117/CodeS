@@ -2,7 +2,7 @@
 
 ## 功能概述
 
-`scripts/extract-codex-icons.mjs` 用于从 Codex App/anti-codex 的 webview 打包产物中抽取纯 SVG 图标组件，并生成 codexUI 可直接使用的 Vue 单文件组件。
+`scripts/extract-codex-icons.mjs` 用于从 Codex App/anti-codex 的 webview 打包产物中抽取纯 SVG 图标组件，并生成 CodeS 可直接使用的 Vue 单文件组件。
 
 脚本会自动跳过非 SVG 导出、业务组件、依赖 React hooks 或运行时上下文的复杂组件。
 

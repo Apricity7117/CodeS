@@ -148,7 +148,7 @@ This file tracks manual regression and feature verification steps.
 6. Switch to dark theme and repeat steps 1-5.
 
 #### Expected Results
-- Inspector sources follow Codex Desktop semantics and show an empty state instead of codexUI debug source rows.
+- Inspector sources follow Codex Desktop semantics and show an empty state instead of CodeS debug source rows.
 - Settings switches expose `role="switch"` and keep correct checked states in light and dark themes.
 - The dictation language menu is fixed-position, is not clipped by the settings scroll panel, and does not show white control blocks in dark theme.
 - The thinking label updates every second while the turn is active and stops when the turn completes.
@@ -504,14 +504,14 @@ Rollback/cleanup:
 #### Steps
 1. 在浅色主题打开会话页，观察内容顶栏背景应与主内容背景一致。
 2. 在浅色主题观察左下角设置区，应与侧边栏背景一致，不再有额外底部色块。
-3. 确认左下角设置按钮只显示“设置”与齿轮图标，不显示 `codexUI` 或 `v0.1.x` 版本信息。
+3. 确认左下角设置按钮只显示“设置”与齿轮图标，不显示 `CodeS` 或 `v0.1.x` 版本信息。
 4. 切换到深色主题，重复步骤 1-3。
 5. 悬停左下角设置按钮，确认悬停态仍清晰可见，且不影响非悬停时的背景对齐。
 
 #### Expected Results
 - 浅色和深色主题下，内容顶栏不再出现独立异色背景。
 - 浅色和深色主题下，侧边栏底部设置区与侧边栏主体背景融合。
-- 左下角常驻设置按钮不再暴露 `codexUI` 名称和版本号。
+- 左下角常驻设置按钮不再暴露 `CodeS` 名称和版本号。
 - 设置按钮、图标和文字在浅色/深色主题下保持可读。
 
 #### Rollback/Cleanup
@@ -788,13 +788,13 @@ Settings, reconnecting/live errors, and visible error banners no longer expose `
 Fresh installs without a runnable Codex CLI show a visible chat runtime error.
 
 #### Prerequisites/Setup
-1. Start the app in an isolated environment without `codex` in `PATH` and without `CODEXUI_CODEX_COMMAND`.
+1. Start the app in an isolated environment without `codex` in `PATH` and without `CODES_CODEX_COMMAND`.
 2. Use a mobile viewport such as `390x844`.
 3. Light theme and dark theme both available from the appearance switcher when the app can reach settings.
 
 #### Steps
 1. In light theme, open the app home/new chat screen.
-2. Confirm the composer area shows `Codex CLI not found. Install @openai/codex or set CODEXUI_CODEX_COMMAND.`
+2. Confirm the composer area shows `Codex CLI not found. Install @openai/codex or set CODES_CODEX_COMMAND.`
 3. Confirm the model dropdown no longer fails silently as the only visible symptom.
 4. Switch to dark theme and repeat steps 1-3.
 
@@ -1054,7 +1054,7 @@ Deleting a thread recovers from Codex `no rollout found` archive failures and re
 8. Switch to dark theme and repeat steps 1-5.
 
 #### Expected Results
-- Empty or not-yet-materialized threads are archived after CodexUI sets a fallback name and retries.
+- Empty or not-yet-materialized threads are archived after CodeS sets a fallback name and retries.
 - Already archived threads are treated as archived instead of surfacing a stale `no rollout found` error.
 - The sidebar prunes archived ids from its accumulated paginated list before refreshing.
 - Older unarchived threads may appear as the list refills, but archived threads do not remain visible.
@@ -1368,12 +1368,12 @@ Android Termux installs can complete when `node-pty` has no compatible native bu
 5. Light theme and dark theme are available from the appearance switcher on the desktop check.
 
 #### Steps
-1. In Termux, run `npm i -g codexapp@latest` after the fixed version is published.
+1. In Termux, run `npm i -g codes@latest` after the fixed version is published.
 2. Confirm installation does not fail if npm cannot build `node-pty` for `android-arm64`.
-3. Run `codexapp --no-login` in Termux.
+3. Run `codes --no-login` in Termux.
 4. Open the printed URL and confirm the app loads.
 5. Open a thread and confirm the integrated terminal reports unavailable instead of crashing the server if native PTY support is missing.
-6. On macOS or Linux, run `npm i -g codexapp@latest`, then start `codexapp --no-login`.
+6. On macOS or Linux, run `npm i -g codes@latest`, then start `codes --no-login`.
 7. Open a thread in light theme and confirm the integrated terminal still opens on the supported host.
 8. Switch to dark theme and confirm the integrated terminal remains readable.
 
@@ -1384,7 +1384,7 @@ Android Termux installs can complete when `node-pty` has no compatible native bu
 - Supported hosts still install `node-pty` and keep integrated terminal behavior in light theme and dark theme.
 
 #### Rollback/Cleanup
-- Remove test global installs with `npm rm -g codexapp`.
+- Remove test global installs with `npm rm -g codes`.
 
 ---
 
@@ -1653,11 +1653,11 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 - `cloudflared` is installed only if testing `--tunnel`.
 
 #### Steps
-1. Start CLI without tunnel flag: `npx codexapp --port 5900`.
+1. Start CLI without tunnel flag: `npx codes --port 5900`.
 2. From a Tailscale client, open `http://100.x.x.x:5900` using a host address in `100.64.0.0/10` (replace with host tailnet IP).
 3. Confirm the app opens directly without the password login page.
 4. (Optional IPv6 check) Open the same service using the host Tailscale IPv6 address in `fd7a:115c:a1e0::/48` and confirm it also bypasses password.
-5. Stop the server and start again with tunnel enabled: `npx codexapp --port 5900 --tunnel`.
+5. Stop the server and start again with tunnel enabled: `npx codes --port 5900 --tunnel`.
 6. Confirm startup output now includes a `Tunnel:` URL only when `--tunnel` is provided.
 7. Stop and restart once more without `--tunnel`, and verify no tunnel URL is printed.
 
@@ -1678,7 +1678,7 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 - One environment with detected Tailscale IP (`100.64.0.0/10` or `fd7a:115c:a1e0::/48`) and one without (or simulated by disabling Tailscale).
 
 #### Steps
-1. Start server without explicit tunnel flags: `npx codexapp --port 5900`.
+1. Start server without explicit tunnel flags: `npx codes --port 5900`.
 2. In a host where Tailscale IP is detected, verify startup output includes `Tunnel:`.
 3. In a host where Tailscale IP is not detected, verify startup output does not include `Tunnel:`.
 4. Start server with explicit override `--no-tunnel` and verify no `Tunnel:` output even when Tailscale IP is present.
@@ -1785,7 +1785,7 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 
 #### Prerequisites
 - App server is running from this repository.
-- No `CODEXUI_SANDBOX_MODE` or `CODEXUI_APPROVAL_POLICY` environment overrides are set for the launch shell.
+- No `CODES_SANDBOX_MODE` or `CODES_APPROVAL_POLICY` environment overrides are set for the launch shell.
 
 #### Steps
 1. Start the app normally from this repository without passing `--sandbox-mode` or `--approval-policy`.
@@ -1829,28 +1829,28 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 
 #### Prerequisites
 - A Windows machine with Node.js and npm installed.
-- No globally installed `codexapp` package.
-- Clear any previous temporary npm cache for `codexapp` if needed.
+- No globally installed `codes` package.
+- Clear any previous temporary npm cache for `codes` if needed.
 
 #### Steps
-1. Run `npx codexapp --no-login` on Windows.
+1. Run `npx codes --no-login` on Windows.
 2. Confirm npm does not print deprecation warnings for `prebuild-install`, `npmlog`, `are-we-there-yet`, or `gauge` during package install.
-3. Exit the app, then run `npx codexapp --no-login` again.
-4. Run `npm i -g codexapp` on Windows.
-5. Start the globally installed CLI with `codexapp --no-login`.
+3. Exit the app, then run `npx codes --no-login` again.
+4. Run `npm i -g codes` on Windows.
+5. Start the globally installed CLI with `codes --no-login`.
 6. On macOS or Linux, start the app normally and confirm the integrated terminal still opens in a thread.
 7. Repeat the integrated terminal check in both light theme and dark theme.
 
 #### Expected Results
 - Windows `npx` install no longer pulls `node-pty-prebuilt-multiarch` as a required install dependency.
-- The deprecated `prebuild-install` dependency chain warnings no longer appear for `codexapp` installation.
-- Re-running `npx codexapp --no-login` works without getting stuck in the same failed temporary install loop.
+- The deprecated `prebuild-install` dependency chain warnings no longer appear for `codes` installation.
+- Re-running `npx codes --no-login` works without getting stuck in the same failed temporary install loop.
 - Global installation succeeds on Windows.
 - Integrated terminal continues to work through `node-pty` on supported hosts.
 - Light theme and dark theme terminal surfaces remain readable and unchanged.
 
 #### Rollback/Cleanup
-- Remove the global package with `npm rm -g codexapp` if it was installed only for verification.
+- Remove the global package with `npm rm -g codes` if it was installed only for verification.
 
 #### Prerequisites
 - App is running from this repository.
@@ -2851,7 +2851,7 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 
 #### Prerequisites
 - Build artifacts are available (or run directly from source in this repo).
-- No `CODEXUI_SANDBOX_MODE` or `CODEXUI_APPROVAL_POLICY` environment variables are exported in the shell.
+- No `CODES_SANDBOX_MODE` or `CODES_APPROVAL_POLICY` environment variables are exported in the shell.
 
 #### Steps
 1. Start the app from this repository without passing `--sandbox-mode` or `--approval-policy`.
@@ -2871,17 +2871,17 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 
 #### Prerequisites
 - Node and pnpm are installed.
-- No shell-level `CODEXUI_SANDBOX_MODE` or `CODEXUI_APPROVAL_POLICY` overrides are set.
+- No shell-level `CODES_SANDBOX_MODE` or `CODES_APPROVAL_POLICY` overrides are set.
 
 #### Steps
 1. Run `npm run dev` from the repository root.
 2. In a second terminal, run `ps eww -p $(pgrep -f "vite" | head -n 1)`.
-3. Confirm the process environment contains `CODEXUI_SANDBOX_MODE=danger-full-access` and `CODEXUI_APPROVAL_POLICY=never`.
-4. Stop dev server and run `CODEXUI_SANDBOX_MODE=workspace-write CODEXUI_APPROVAL_POLICY=on-request npm run dev`.
+3. Confirm the process environment contains `CODES_SANDBOX_MODE=danger-full-access` and `CODES_APPROVAL_POLICY=never`.
+4. Stop dev server and run `CODES_SANDBOX_MODE=workspace-write CODES_APPROVAL_POLICY=on-request npm run dev`.
 5. Re-check the Vite process environment values.
 
 #### Expected Results
-- Default `npm run dev` includes `CODEXUI_SANDBOX_MODE=danger-full-access` and `CODEXUI_APPROVAL_POLICY=never`.
+- Default `npm run dev` includes `CODES_SANDBOX_MODE=danger-full-access` and `CODES_APPROVAL_POLICY=never`.
 - Explicit shell overrides still take precedence when provided.
 
 #### Rollback/Cleanup
@@ -2895,7 +2895,7 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 
 #### Steps
 1. On Android, run `npm run dev -- --port 4173`.
-2. Confirm startup logs show `Codex Web Local is running!`.
+2. Confirm startup logs show `CodeS is running!`.
 3. In a second Android shell, run `curl -fsS http://127.0.0.1:4173/ | head -5`.
 4. Stop the dev server.
 
@@ -3206,7 +3206,7 @@ Model, skill, thinking, and plan controls remain usable while a thread turn is i
 - Existing Codex sessions with commands and file edits on A1.
 
 #### Steps
-1. Clone or pull branch `codex/thread-stream-parity` on A1 into `~/codexui`.
+1. Clone or pull branch `codex/thread-stream-parity` on A1 into `~/codes`.
 2. Run `pnpm install` and start dev server: `pnpm run dev --host 0.0.0.0 --port 4173`.
 3. From A1 locally, call `curl http://localhost:<port>/codex-api/rpc -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"thread/list","params":{},"id":1}'` and verify thread list returns.
 4. Pick a thread with known commands and file edits (e.g., MCP server deploy thread).
@@ -3419,25 +3419,25 @@ stays at `source: "NoValues"` permanently. Feature gate `505458` (worktree) retu
 
 #### Rollback/Cleanup
 - No persistent state is changed — closing or refreshing the tab resets the render window.
-### Feature: CLI auto-stars friuns2/codexui on startup (best-effort)
+### Feature: CLI auto-stars friuns2/codes on startup (best-effort)
 
 #### Prerequisites
 - `gh` CLI installed and authenticated (`gh auth status`).
-- Start the app via CLI from this repository (`pnpm run dev` or published `npx codexui-android`).
+- Start the app via CLI from this repository (`pnpm run dev` or published `npx codes-android`).
 
 #### Steps
-1. Ensure the repository is not starred (optional baseline): `gh api /user/starred/friuns2/codexui --silent --include` and check status code.
-2. Launch `codexui` CLI once.
-3. After startup, run: `gh api /user/starred/friuns2/codexui --silent --include`.
+1. Ensure the repository is not starred (optional baseline): `gh api /user/starred/friuns2/codes --silent --include` and check status code.
+2. Launch `codes` CLI once.
+3. After startup, run: `gh api /user/starred/friuns2/codes --silent --include`.
 4. Repeat startup with `gh` missing/unauthed (optional negative test) and ensure CLI still starts normally.
 
 #### Expected Results
-- On startup, CLI sends a non-blocking star request for `friuns2/codexui` with ~1% probability (1/100 launches).
+- On startup, CLI sends a non-blocking star request for `friuns2/codes` with ~1% probability (1/100 launches).
 - When `gh` is available and authenticated, repository ends up starred.
 - If `gh` is unavailable or fails, startup continues without crash.
 
 #### Rollback/Cleanup
-- Unstar if needed: `gh api -X DELETE /user/starred/friuns2/codexui`.
+- Unstar if needed: `gh api -X DELETE /user/starred/friuns2/codes`.
 
 ### Feature: Sentry error tracking and encrypted auth context
 
@@ -3622,18 +3622,18 @@ Toggle "Free mode" in settings to use free OpenRouter models without an OpenAI A
 - Remove `~/.codex/auth.json` to simulate a first-time user.
 
 #### Steps
-1. Run `npx codexui` or `pnpm run dev`.
+1. Run `npx codes` or `pnpm run dev`.
 2. Verify the CLI prints a message about not being logged in but does NOT block or prompt for login.
 3. Verify the server starts and the web UI loads successfully.
 4. Use the Provider dropdown in settings to select OpenRouter and start chatting without a Codex account.
 
 #### Expected Results
 - CLI does not run `codex login` on startup.
-- A friendly message is shown: "You can log in later via settings or run `codexui login`."
+- A friendly message is shown: "You can log in later via settings or run `codes login`."
 - The app is fully usable without a Codex account when using OpenRouter or custom providers.
 
 #### Rollback/Cleanup
-- Run `codexui login` to restore Codex authentication if needed.
+- Run `codes login` to restore Codex authentication if needed.
 
 ---
 
@@ -3706,7 +3706,7 @@ Test Codex CLI with Big Pickle model via OpenCode Zen provider.
 
 ---
 
-### OpenCode Zen Provider & Wire API Selector in codexui
+### OpenCode Zen Provider & Wire API Selector in codes
 
 #### Feature/Change Name
 OpenCode Zen as built-in provider + API format selector for custom endpoints
@@ -4266,7 +4266,7 @@ Codex app-server generated image items render as assistant image previews.
 2. A Codex thread that has completed an image generation turn, or a test app-server payload containing either `type: "imageGeneration"` with a base64 `result` or `type: "imageView"` with an absolute image `path`
 
 #### Steps
-1. Open the thread in CodexUI
+1. Open the thread in CodeS
 2. Locate the completed image generation turn
 3. Inspect the assistant response area where the generated image should appear
 4. Click the generated image preview
@@ -4379,7 +4379,7 @@ Remove the legacy npm package reference from the startup welcome log and point u
 3. Locate the startup welcome message.
 
 #### Expected Results
-- The welcome log points to `https://github.com/friuns2/codexUI`.
+- The welcome log points to `https://github.com/friuns2/CodeS`.
 - The welcome log does not contain the legacy npm package URL.
 
 #### Rollback/Cleanup
@@ -4598,7 +4598,7 @@ The `#/skills` route shows a full Skills & Apps directory with Plugins, Apps, Co
 - App and plugin enable/disable actions update their local card state after a successful config write
 - Plugin detail shows bundled MCP login state and can launch MCP OAuth for `notLoggedIn` servers
 - Disconnected apps are labeled `Login`; connected apps are labeled `Manage`
-- The Composio tab uses the installed Composio CLI, preferring `CODEXUI_COMPOSIO_COMMAND` when set and otherwise `~/.composio/composio` or `composio` on `PATH`
+- The Composio tab uses the installed Composio CLI, preferring `CODES_COMPOSIO_COMMAND` when set and otherwise `~/.composio/composio` or `composio` on `PATH`
 - The Composio install action uses the official installer and produces a working `~/.composio/composio` binary
 - The Composio login action opens a new tab from the click, starts the installed `composio login --no-browser -y`, then navigates that tab to the returned auth URL
 - Composio connector cards and detail views show concrete connector details, connection rows, and useful tool samples
@@ -5605,7 +5605,7 @@ Fresh unauthenticated install mobile home screen rate-limit handling.
 2. A clean container has this project installed under `/workspace`.
 3. `@openai/codex` is installed in the container.
 4. Container dev server is running with a fresh Codex home:
-   `CODEX_HOME=/tmp/codex-home CODEXUI_CODEX_COMMAND=$(command -v codex) pnpm run dev --host 0.0.0.0 --port 4173`
+   `CODEX_HOME=/tmp/codex-home CODES_CODEX_COMMAND=$(command -v codex) pnpm run dev --host 0.0.0.0 --port 4173`
 5. The container port is mapped to the host, for example `127.0.0.1:4174 -> 4173`.
 
 #### Steps
@@ -5634,16 +5634,16 @@ Fresh unauthenticated install mobile home screen rate-limit handling.
 ### Android published CLI loads Codex app-server models through local proxy
 
 #### Feature/Change Name
-Android `codexui-android` startup passes the bound server port to app-server free-mode config.
+Android `codes-android` startup passes the bound server port to app-server free-mode config.
 
 #### Prerequisites/Setup
 1. Android proot access works through `/Users/igor/Git-projects/codex-web-local-android/andClaw-codex/ssh.sh`.
-2. The published `codexui-android` package version under test is available from npm.
+2. The published `codes-android` package version under test is available from npm.
 3. ADB forward maps device port `17923` to local port `17923`.
 
 #### Steps
 1. Start the package in Android proot:
-   `pnpm dlx codexui-android@<version> --port 17923 --no-open --no-tunnel --no-login`
+   `pnpm dlx codes-android@<version> --port 17923 --no-open --no-tunnel --no-login`
 2. Open `http://127.0.0.1:17923/#/` in the browser.
 3. Call `POST /codex-api/rpc` with `{"method":"config/read","params":{}}`.
 4. Call `POST /codex-api/rpc` with `{"method":"model/list","params":{}}`.
@@ -5660,7 +5660,7 @@ Android `codexui-android` startup passes the bound server port to app-server fre
 - A first home-composer message creates a thread and receives a response without visible startup RPC errors.
 
 #### Rollback/Cleanup
-- Stop the temporary Android proot process with `pkill -f codexui-android` if needed.
+- Stop the temporary Android proot process with `pkill -f codes-android` if needed.
 
 ---
 

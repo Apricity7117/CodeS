@@ -15,12 +15,16 @@ function isAndroidRuntime() {
 }
 
 function run(command, args, options = {}) {
+  const sandboxMode = process.env.CODES_SANDBOX_MODE || process.env.CODEXUI_SANDBOX_MODE || 'danger-full-access'
+  const approvalPolicy = process.env.CODES_APPROVAL_POLICY || process.env.CODEXUI_APPROVAL_POLICY || 'never'
   const result = spawnSync(command, args, {
     stdio: 'inherit',
     env: {
       ...process.env,
-      CODEXUI_SANDBOX_MODE: process.env.CODEXUI_SANDBOX_MODE || 'danger-full-access',
-      CODEXUI_APPROVAL_POLICY: process.env.CODEXUI_APPROVAL_POLICY || 'never',
+      CODES_SANDBOX_MODE: sandboxMode,
+      CODES_APPROVAL_POLICY: approvalPolicy,
+      CODEXUI_SANDBOX_MODE: sandboxMode,
+      CODEXUI_APPROVAL_POLICY: approvalPolicy,
     },
     ...options,
   })

@@ -413,7 +413,7 @@ async function withTemporaryCodexAppServer<T>(
   authRaw: string,
   run: (rpc: (method: string, params: unknown) => Promise<unknown>) => Promise<T>,
 ): Promise<T> {
-  const tempCodexHome = await mkdtemp(join(tmpdir(), 'codexui-account-'))
+  const tempCodexHome = await mkdtemp(join(tmpdir(), 'codes-account-'))
   const authPath = join(tempCodexHome, 'auth.json')
   await writeFile(authPath, authRaw, { encoding: 'utf8', mode: 0o600 })
 
@@ -507,7 +507,7 @@ async function withTemporaryCodexAppServer<T>(
 
     initializePromise = call('initialize', {
       clientInfo: {
-        name: 'codexui-account-refresh',
+        name: 'codes-account-refresh',
         version: '0.1.0',
       },
       capabilities: {
