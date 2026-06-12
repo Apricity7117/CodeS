@@ -309,7 +309,7 @@ const zhCN: Record<string, string> = {
   'Show inspector': '显示常驻窗口',
   'Hide inspector': '隐藏常驻窗口',
   'Inspector': '常驻窗口',
-  'Environment': '环境',
+  'Environment': '环境信息',
   'Local': '本地',
   'Commit or push': '提交或推送',
   'Progress': '进度',

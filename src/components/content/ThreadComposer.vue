@@ -333,13 +333,13 @@
                   @click="openModelSubmenu"
                 >
                   <span class="thread-composer-model-row-copy">
-                    <span class="thread-composer-model-row-title">{{ t('Model') }}</span>
                     <span class="thread-composer-model-row-value">{{ selectedFullModelLabel }}</span>
                   </span>
                   <IconCodexChevronRight class="thread-composer-model-row-chevron" />
                 </button>
 
                 <div v-if="isModelSubmenuOpen" class="thread-composer-model-submenu">
+                  <div class="thread-composer-model-menu-title thread-composer-model-submenu-title">{{ t('Model') }}</div>
                   <button
                     v-for="option in modelOptions"
                     :key="option.value"
@@ -1244,12 +1244,31 @@ function onInterrupt(): void {
   emit('interrupt')
 }
 
+function syncComposerInputHeight(): void {
+  const input = inputRef.value
+  if (!input) return
+
+  if (isComposerExpanded.value) {
+    input.style.height = ''
+    input.style.overflowY = 'auto'
+    return
+  }
+
+  input.style.height = 'auto'
+  const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight
+  const maxHeight = Math.max(120, Math.floor(viewportHeight * 0.25))
+  const nextHeight = Math.min(input.scrollHeight, maxHeight)
+  input.style.height = `${nextHeight}px`
+  input.style.overflowY = input.scrollHeight > maxHeight + 2 ? 'auto' : 'hidden'
+}
+
 function updateComposerOverflowState(): void {
   const input = inputRef.value
   if (!input) {
     isDraftOverflowing.value = false
     return
   }
+  syncComposerInputHeight()
   isDraftOverflowing.value = input.scrollHeight > input.clientHeight + 2
 }
 
@@ -2189,7 +2208,7 @@ watch(
 
 .thread-composer-context-usage {
   --context-usage-accent: rgb(34 197 94);
-  @apply relative inline-flex h-8 w-8 shrink-0 items-center justify-center;
+  @apply relative inline-flex h-9 w-9 shrink-0 items-center justify-center;
 }
 
 .thread-composer-context-usage.is-warning {
@@ -2201,7 +2220,7 @@ watch(
 }
 
 .thread-composer-context-ring {
-  @apply inline-flex h-8 w-8 items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2;
+  @apply inline-flex h-9 w-9 items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2;
   --tw-ring-color: color-mix(in srgb, var(--context-usage-accent) 34%, transparent);
 }
 
@@ -2210,7 +2229,7 @@ watch(
 }
 
 .thread-composer-context-ring-gauge {
-  @apply flex h-7 w-7 items-center justify-center rounded-full p-[2px] transition;
+  @apply flex h-8 w-8 items-center justify-center rounded-full p-[2px] transition;
   background:
     conic-gradient(
       var(--context-usage-accent) 0 var(--context-usage-used, 0%),
@@ -2251,7 +2270,7 @@ watch(
 }
 
 .thread-composer-input-wrap {
-  @apply relative min-h-11;
+  @apply relative min-h-12;
 }
 
 .thread-composer-input-wrap--expanded {
@@ -2323,11 +2342,11 @@ watch(
 }
 
 .thread-composer-input {
-  @apply w-full min-w-0 min-h-11 max-h-[25vh] rounded-[20px] border-0 bg-transparent px-3 py-2 pr-10 outline-none transition resize-none overflow-y-auto;
+  @apply w-full min-w-0 min-h-12 max-h-[25vh] rounded-[20px] border-0 bg-transparent px-3.5 py-2.5 pr-12 outline-none transition resize-none overflow-y-hidden;
   color: var(--codex-text);
   font-family: var(--codex-ui-font-family);
-  font-size: var(--codex-chat-font-size);
-  line-height: var(--codex-chat-line-height);
+  font-size: 15px;
+  line-height: 1.42;
 }
 .thread-composer-input::placeholder {
   color: var(--codex-muted-text);
@@ -2360,7 +2379,7 @@ watch(
 }
 
 .thread-composer-controls {
-  @apply relative mt-1.5 flex items-center gap-1.5 overflow-visible pb-px;
+  @apply relative mt-1.5 flex min-h-9 items-center gap-1.5 overflow-visible pb-px;
 }
 
 .thread-composer-controls--recording {
@@ -2372,7 +2391,7 @@ watch(
 }
 
 .thread-composer-attach-trigger {
-  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-0 bg-transparent pb-px text-xl leading-tight transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent pb-px text-2xl leading-tight transition disabled:cursor-not-allowed disabled:opacity-50;
   color: var(--codex-muted-text);
 }
 .thread-composer-attach-trigger:hover:not(:disabled) {
@@ -2466,7 +2485,7 @@ watch(
 }
 
 .thread-composer-model-summary-trigger {
-  @apply inline-flex h-8 max-w-[13rem] min-w-0 items-center gap-1 rounded-full border-0 bg-transparent px-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-9 max-w-[14rem] min-w-0 items-center gap-1 rounded-full border-0 bg-transparent px-2.5 text-[15px] transition disabled:cursor-not-allowed disabled:opacity-50;
   color: var(--codex-muted-text);
 }
 
@@ -2480,12 +2499,12 @@ watch(
 }
 
 .thread-composer-model-summary-chevron {
-  @apply mt-px h-3.5 w-3.5 shrink-0;
+  @apply mt-px h-4 w-4 shrink-0;
 }
 
 .thread-composer-model-menu,
 .thread-composer-model-submenu {
-  @apply absolute z-40 w-60 rounded-xl border p-1 text-left shadow-xl;
+  @apply absolute z-40 w-56 rounded-2xl border p-1.5 text-left shadow-xl;
   border-color: var(--codex-border-heavy);
   background-color: var(--codex-popover-surface);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
@@ -2505,12 +2524,12 @@ watch(
 }
 
 .thread-composer-model-menu-title {
-  @apply px-2 py-1.5 text-sm font-medium leading-5;
+  @apply px-2.5 py-1.5 text-[13px] font-medium leading-5;
   color: var(--codex-muted-text);
 }
 
 .thread-composer-model-menu-option {
-  @apply flex min-h-8 w-full items-center justify-between gap-3 rounded-lg border-0 bg-transparent px-2 py-1.5 text-left text-sm leading-5 transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply flex min-h-9 w-full items-center justify-between gap-3 rounded-xl border-0 bg-transparent px-2.5 py-1.5 text-left text-[15px] leading-5 transition disabled:cursor-not-allowed disabled:opacity-50;
   color: var(--codex-text);
 }
 
@@ -2535,16 +2554,11 @@ watch(
 }
 
 .thread-composer-model-row-copy {
-  @apply flex min-w-0 flex-1 flex-col;
-}
-
-.thread-composer-model-row-title {
-  @apply text-[11px] leading-4;
-  color: var(--codex-muted-text);
+  @apply flex min-w-0 flex-1;
 }
 
 .thread-composer-model-row-value {
-  @apply truncate text-sm leading-5;
+  @apply truncate text-[15px] leading-5;
   color: var(--codex-text);
 }
 
@@ -2563,7 +2577,7 @@ watch(
 }
 
 .thread-composer-mic {
-  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
   background-color: var(--codex-control-bg);
   color: var(--codex-muted-text);
   touch-action: none;
@@ -2603,7 +2617,7 @@ watch(
 }
 
 .thread-composer-submit {
-  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
   background-color: var(--codex-text);
   color: var(--codex-surface);
 }
@@ -2624,7 +2638,7 @@ watch(
 }
 
 .thread-composer-stop {
-  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
   background-color: var(--codex-text);
   color: var(--codex-surface);
 }

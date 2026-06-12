@@ -464,13 +464,13 @@ samp {
 }
 
 :root.dark .content-inspector-shell {
-  border-color: var(--codex-border-heavy);
-  background-color: var(--codex-surface);
-  box-shadow: none;
+  border-color: rgba(255, 255, 255, 0.12);
+  background-color: #303030;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.26);
 }
 
 :root.dark .content-inspector-section::after {
-  background-color: var(--codex-border);
+  background-color: rgba(255, 255, 255, 0.11);
 }
 
 :root.dark .content-inspector-heading,
@@ -482,19 +482,32 @@ samp {
 }
 
 :root.dark .content-inspector-row {
-  color: var(--codex-text);
+  color: #d6d6d6;
 }
 
 :root.dark .content-inspector-empty {
   color: var(--codex-muted-text);
 }
 
-:root.dark .content-inspector-status-dot[data-state='idle'] {
-  @apply border-zinc-600;
+:root.dark .content-inspector-status-icon {
+  color: #9a9a9a;
+}
+
+:root.dark .content-inspector-status-icon[data-state='done'] {
+  color: #b7b7b7;
+}
+
+:root.dark .content-inspector-status-icon[data-state='active'] {
+  color: #d1d1d1;
 }
 
 :root.dark .content-inspector-progress-heading-button {
-  @apply text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:ring-zinc-700;
+  @apply text-zinc-400 hover:text-zinc-100 focus-visible:ring-zinc-700;
+  background-color: transparent;
+}
+
+:root.dark .content-inspector-progress-heading-button:hover {
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 :root.dark .content-inspector-source-mark {

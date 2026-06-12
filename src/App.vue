@@ -803,7 +803,7 @@
                 </div>
                 <div class="content-inspector-rows">
                   <div class="content-inspector-row">
-                    <IconCodexWorktree class="content-inspector-row-icon" />
+                    <IconCodexPullRequestOpen class="content-inspector-row-icon" />
                     <span class="content-inspector-row-label">{{ t('Changes') }}</span>
                     <span class="content-inspector-row-value">{{ inspectorGitStatusText }}</span>
                   </div>
@@ -836,7 +836,7 @@
                     @load-commits="loadThreadBranchCommits"
                   />
                   <div v-if="canShowContentHeaderBranchDropdown" class="content-inspector-row">
-                    <IconCodexWorktree class="content-inspector-row-icon" />
+                    <IconCodexSendToCloud class="content-inspector-row-icon" />
                     <span class="content-inspector-row-label">{{ t('Commit or push') }}</span>
                   </div>
                   <div v-if="inspectorCommitText" class="content-inspector-row">
@@ -868,7 +868,18 @@
                     :key="item.label"
                     class="content-inspector-row"
                   >
-                    <span class="content-inspector-status-dot" :data-state="inspectorProgressDotState(item.status)" aria-hidden="true" />
+                    <IconCodexCheckCircleFilled
+                      v-if="inspectorProgressDotState(item.status) === 'done'"
+                      class="content-inspector-status-icon"
+                      data-state="done"
+                      aria-hidden="true"
+                    />
+                    <IconCodexUnselectedCircle
+                      v-else
+                      class="content-inspector-status-icon"
+                      :data-state="inspectorProgressDotState(item.status)"
+                      aria-hidden="true"
+                    />
                     <span class="content-inspector-row-label">{{ item.label }}</span>
                   </div>
                 </div>
@@ -988,13 +999,16 @@ import CodexSwitch from './components/ui/CodexSwitch.vue'
 import IconTablerLayoutSidebar from './components/icons/IconTablerLayoutSidebar.vue'
 import IconTablerLayoutSidebarFilled from './components/icons/IconTablerLayoutSidebarFilled.vue'
 import {
+  IconCodexCheckCircleFilled,
   IconCodexChevronRight,
   IconCodexCompose,
   IconCodexLaptop,
+  IconCodexPullRequestOpen,
   IconCodexSearch,
+  IconCodexSendToCloud,
   IconCodexSettingsCog,
   IconCodexSkills,
-  IconCodexWorktree,
+  IconCodexUnselectedCircle,
   IconCodexX,
 } from './components/icons/codex'
 import { buildInspectorPlanProgress } from './components/content/inspectorProgress'
@@ -3864,7 +3878,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .content-inspector-panel {
-  @apply min-h-0 w-[19.75rem] shrink-0 pl-1 pr-4 pt-2 pb-4;
+  @apply min-h-0 w-[20.25rem] shrink-0 pl-2 pr-5 pt-3 pb-5;
 }
 
 .content-inspector-panel-transition-enter-active,
@@ -3895,20 +3909,21 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .content-inspector-shell {
-  @apply flex max-h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-zinc-200 bg-white pt-3 shadow-lg shadow-zinc-200/60;
+  @apply flex max-h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-zinc-200/80 bg-white/95 pt-4 shadow-xl shadow-zinc-200/60;
+  backdrop-filter: blur(18px);
 }
 
 .content-inspector-scroll {
-  @apply min-h-0 overflow-y-auto pb-3;
+  @apply min-h-0 overflow-y-auto pb-4;
 }
 
 .content-inspector-section {
-  @apply relative flex flex-col pb-2.5;
+  @apply relative flex flex-col pb-3;
 }
 
 .content-inspector-section::after {
   content: '';
-  @apply absolute inset-x-4 bottom-0 h-px bg-zinc-200;
+  @apply absolute inset-x-5 bottom-0 h-px bg-zinc-200;
 }
 
 .content-inspector-section:last-child {
@@ -3920,11 +3935,11 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .content-inspector-heading {
-  @apply m-0 px-4 pb-1 text-[13px] font-medium leading-5 text-zinc-500;
+  @apply m-0 px-5 pb-1.5 text-[15px] font-semibold leading-6 text-zinc-500;
 }
 
 .content-inspector-heading-row {
-  @apply flex items-center justify-between gap-3 px-4 pb-1;
+  @apply flex items-center justify-between gap-3 px-5 pb-1.5;
 }
 
 .content-inspector-heading-row .content-inspector-heading {
@@ -3932,7 +3947,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .content-inspector-heading-icon {
-  @apply h-4 w-4 shrink-0 text-zinc-500;
+  @apply h-5 w-5 shrink-0 text-zinc-500;
 }
 
 .content-inspector-progress-heading-row {
@@ -3940,11 +3955,11 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .content-inspector-progress-heading-button {
-  @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-0 bg-transparent p-0 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300;
+  @apply inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300;
 }
 
 .content-inspector-progress-chevron {
-  @apply h-4 w-4 transition-transform;
+  @apply h-4.5 w-4.5 transition-transform;
 }
 
 .content-inspector-progress-chevron.is-expanded {
@@ -3952,16 +3967,16 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .content-inspector-rows {
-  @apply flex flex-col gap-0 px-4;
+  @apply flex flex-col gap-0 px-5;
 }
 
 .content-inspector-row {
-  @apply flex min-h-6 min-w-0 items-center gap-2 rounded-md px-0 py-0.5 text-[13px] leading-5 text-zinc-800;
+  @apply flex min-h-8 min-w-0 items-center gap-3 rounded-md px-0 py-1 text-[15px] leading-6 text-zinc-800;
 }
 
 .content-inspector-row-icon,
 .content-inspector-row-spacer {
-  @apply h-4.5 w-4.5 shrink-0;
+  @apply h-5 w-5 shrink-0;
 }
 
 .content-inspector-row-icon {
@@ -3973,45 +3988,32 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .content-inspector-row-value {
-  @apply ml-auto max-w-40 shrink-0 truncate text-right text-xs text-zinc-500;
+  @apply ml-auto max-w-40 shrink-0 truncate text-right text-[13px] text-zinc-500;
 }
 
 .content-inspector-row-label--muted {
-  @apply text-xs text-zinc-500;
+  @apply text-[13px] text-zinc-500;
 }
 
 .content-inspector-empty {
-  @apply py-1 text-[13px] leading-5 text-zinc-500;
+  @apply py-1 text-[15px] leading-6 text-zinc-500;
 }
 
-.content-inspector-status-dot {
-  @apply relative h-4.5 w-4.5 shrink-0 rounded-full border border-zinc-300;
+.content-inspector-status-icon {
+  @apply h-5 w-5 shrink-0;
+  color: rgb(113 113 122);
 }
 
-.content-inspector-status-dot[data-state='done'] {
-  @apply border-emerald-500 bg-emerald-500;
+.content-inspector-status-icon[data-state='done'] {
+  color: rgb(113 113 122);
 }
 
-.content-inspector-status-dot[data-state='done']::after {
-  content: '';
-  @apply absolute left-[5px] top-[2px] h-2.5 w-1.5 rotate-45 border-b-2 border-r-2 border-white;
-}
-
-.content-inspector-status-dot[data-state='active'] {
-  @apply border-sky-500 bg-sky-500;
-  box-shadow: 0 0 0 4px rgb(14 165 233 / 0.12);
-}
-
-.content-inspector-status-dot[data-state='warning'] {
-  @apply border-amber-500 bg-amber-500;
-}
-
-.content-inspector-status-dot[data-state='idle'] {
-  @apply border-zinc-300 bg-transparent;
+.content-inspector-status-icon[data-state='active'] {
+  color: rgb(82 82 91);
 }
 
 .content-inspector-source-mark {
-  @apply inline-flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-[10px] font-semibold text-zinc-600;
+  @apply inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-[10px] font-semibold text-zinc-600;
 }
 
 .content-inspector-branch-dropdown {
@@ -4019,7 +4021,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .content-inspector-branch-dropdown :deep(.header-git-trigger) {
-  @apply min-h-7 w-full max-w-none justify-start rounded-md border-0 bg-transparent px-0 py-1 text-sm text-zinc-800 hover:bg-transparent;
+  @apply min-h-8 w-full max-w-none justify-start rounded-md border-0 bg-transparent px-0 py-1 text-[15px] text-zinc-800 hover:bg-transparent;
 }
 
 .content-inspector-branch-dropdown :deep(.header-git-trigger-label) {
