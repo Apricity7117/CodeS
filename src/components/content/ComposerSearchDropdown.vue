@@ -274,7 +274,7 @@ onBeforeUnmount(() => {
 }
 
 .search-dropdown-trigger {
-  @apply inline-flex min-h-7 min-w-0 items-center gap-1 border-0 bg-transparent px-0 py-0.5 text-sm leading-tight text-zinc-500 outline-none transition;
+  @apply inline-flex min-h-7 min-w-0 items-center gap-1 border-0 bg-transparent px-0 py-0.5 text-[13px] leading-tight text-zinc-500 outline-none transition;
 }
 
 .search-dropdown-trigger:disabled {

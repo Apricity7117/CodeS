@@ -417,6 +417,12 @@ samp {
   @apply border-rose-800/70 bg-rose-950/70 text-zinc-100 shadow-none;
 }
 
+:root.dark .thread-composer-shell {
+  border-color: rgba(255, 255, 255, 0.14);
+  background-color: #333333;
+  box-shadow: 0 18px 44px -34px rgba(0, 0, 0, 0.9);
+}
+
 :root.dark .composer-dropdown-trigger {
   @apply text-zinc-400;
 }
@@ -464,9 +470,9 @@ samp {
 }
 
 :root.dark .content-inspector-shell {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.14);
   background-color: #303030;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.26);
+  box-shadow: 0 18px 48px -30px rgba(0, 0, 0, 0.72);
 }
 
 :root.dark .content-inspector-section::after {
@@ -639,14 +645,14 @@ samp {
 }
 
 :root.dark .thread-composer-context-ring-core {
-  background-color: var(--codex-surface);
+  background-color: color-mix(in srgb, var(--codex-popover-surface) 92%, var(--codex-text) 5%);
 }
 
 :root.dark .thread-composer-context-popover {
   border-color: var(--codex-border-heavy);
   background-color: var(--codex-popover-surface);
   color: var(--codex-text);
-  box-shadow: none;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
 }
 
 :root.dark .thread-composer-context-popover::after {
@@ -658,7 +664,15 @@ samp {
   color: var(--codex-muted-text);
 }
 
+:root.dark .thread-composer-context-popover-percent {
+  color: var(--codex-muted-text);
+}
+
 :root.dark .thread-composer-context-popover-strong {
+  color: var(--codex-text);
+}
+
+:root.dark .thread-composer-context-popover-line {
   color: var(--codex-text);
 }
 

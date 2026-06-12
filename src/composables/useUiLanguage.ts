@@ -329,6 +329,8 @@ const zhCN: Record<string, string> = {
   'Background context': '背景信息窗口',
   '{percent}% used': '已用 {percent}%',
   '{used} used of {total}': '已用 {used}，共 {total}',
+  'Used {used} tokens, {total} total': '已用 {used} 标记，共 {total}',
+  'Codex automatically compresses background context': 'Codex 自动压缩其背景信息',
   'Last turn': '上一轮',
   'Session total': '会话累计',
   'Current context': '当前上下文',

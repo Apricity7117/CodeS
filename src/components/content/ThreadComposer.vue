@@ -377,17 +377,16 @@
               :style="contextUsageRingStyle"
             >
               <span class="thread-composer-context-ring-gauge" aria-hidden="true">
-                <span class="thread-composer-context-ring-core">{{ contextUsageUsedPercent }}</span>
+                <span class="thread-composer-context-ring-core" />
               </span>
             </button>
             <span class="thread-composer-context-popover" role="tooltip">
               <span class="thread-composer-context-popover-title">{{ t('Background context') }}</span>
-              <span class="thread-composer-context-popover-strong">
+              <span class="thread-composer-context-popover-percent">
                 {{ t('{percent}% used', { percent: contextUsageUsedPercent }) }}
               </span>
               <span class="thread-composer-context-popover-line">{{ contextUsageDetailText }}</span>
-              <span class="thread-composer-context-popover-line">{{ contextUsageLastTurnText }}</span>
-              <span class="thread-composer-context-popover-line">{{ contextUsageSessionText }}</span>
+              <span class="thread-composer-context-popover-strong">{{ t('Codex automatically compresses background context') }}</span>
             </span>
           </span>
 
@@ -481,7 +480,6 @@ import type {
   UiRateLimitSnapshot,
   UiRateLimitWindow,
   UiThreadTokenUsage,
-  UiTokenUsageBreakdown,
 } from '../../types/codex'
 import { useDictation } from '../../composables/useDictation'
 import { useMobile } from '../../composables/useMobile'
@@ -519,8 +517,6 @@ type SkillSourceBadge = {
 type SkillItem = { name: string; displayName?: string; description: string; path: string; scope?: string; enabled?: boolean }
 type ContextUsageView = {
   detailText: string
-  lastTurnText: string
-  sessionText: string
   tooltipText: string
   percentRemaining: number
   percentUsed: number
@@ -869,8 +865,6 @@ const contextUsageView = computed(() => buildContextUsageView(props.threadTokenU
 const contextUsageTooltipText = computed(() => contextUsageView.value?.tooltipText ?? '')
 const contextUsageUsedPercent = computed(() => contextUsageView.value?.percentUsed ?? 0)
 const contextUsageDetailText = computed(() => contextUsageView.value?.detailText ?? '')
-const contextUsageLastTurnText = computed(() => contextUsageView.value?.lastTurnText ?? '')
-const contextUsageSessionText = computed(() => contextUsageView.value?.sessionText ?? '')
 const contextUsageRingStyle = computed(() => ({
   '--context-usage-used': `${contextUsageUsedPercent.value}%`,
 }))
@@ -1023,26 +1017,8 @@ function formatCompactTokenCount(value: number): string {
   return String(Math.round(value))
 }
 
-function formatBreakdownSummary(breakdown: UiTokenUsageBreakdown): string {
-  const nonCachedInput = Math.max(0, breakdown.inputTokens - breakdown.cachedInputTokens)
-  const parts = [
-    `${formatCompactTokenCount(breakdown.totalTokens)} total`,
-    `${formatCompactTokenCount(nonCachedInput)} input`,
-  ]
-  if (breakdown.cachedInputTokens > 0) {
-    parts.push(`${formatCompactTokenCount(breakdown.cachedInputTokens)} cached`)
-  }
-  if (breakdown.outputTokens > 0) {
-    parts.push(`${formatCompactTokenCount(breakdown.outputTokens)} output`)
-  }
-  if (breakdown.reasoningOutputTokens > 0) {
-    parts.push(`${formatCompactTokenCount(breakdown.reasoningOutputTokens)} reasoning`)
-  }
-  return parts.join(' · ')
-}
-
 function calculateContextPercentRemaining(tokensInContext: number, contextWindow: number): number {
-  // Mirror official Codex normalization so the first prompt does not look artificially "used".
+  // 对齐 Codex 的上下文归一化，避免首轮提示看起来被异常计入大量占用。
   if (!Number.isFinite(tokensInContext) || !Number.isFinite(contextWindow) || contextWindow <= 0) {
     return 0
   }
@@ -1074,23 +1050,21 @@ function buildContextUsageView(
       : 'healthy'
   const compactUsed = formatCompactTokenCount(tokensInContext)
   const compactWindow = formatCompactTokenCount(contextWindow)
-  const detailText = t('{used} used of {total}', {
+  const detailText = t('Used {used} tokens, {total} total', {
     used: compactUsed,
     total: compactWindow,
   })
-  const lastTurnText = `${t('Last turn')}: ${formatBreakdownSummary(usage.last)}`
-  const sessionText = `${t('Session total')}: ${formatBreakdownSummary(usage.total)}`
+  const percentText = t('{percent}% used', { percent: percentUsed })
+  const compressionText = t('Codex automatically compresses background context')
 
   return {
     tooltipText: [
-      `${t('Background context')}: ${percentUsed}% ${t('used')} (${percentRemaining}% ${t('left')})`,
-      `${t('Current context')}: ${tokensInContext.toLocaleString()} / ${contextWindow.toLocaleString()} ${t('tokens')}`,
-      lastTurnText,
-      sessionText,
+      `${t('Background context')}:`,
+      percentText,
+      detailText,
+      compressionText,
     ].join('\n'),
     detailText,
-    lastTurnText,
-    sessionText,
     percentRemaining,
     percentUsed,
     tone,
@@ -2090,10 +2064,11 @@ watch(
 
 .thread-composer-shell {
   @apply relative p-2 transition-colors;
-  background-color: var(--codex-surface);
-  border: 1px solid var(--codex-border);
-  border-radius: 25px;
-  box-shadow: var(--codex-shadow);
+  background-color: color-mix(in srgb, var(--codex-popover-surface) 90%, var(--codex-text) 4%);
+  border: 1px solid color-mix(in srgb, var(--codex-border-heavy) 76%, transparent);
+  border-radius: 24px;
+  box-shadow: 0 10px 34px -28px rgba(0, 0, 0, 0.46);
+  backdrop-filter: blur(16px);
 }
 
 .thread-composer:has(.thread-composer-input-wrap--expanded) .thread-composer-shell {
@@ -2208,7 +2183,7 @@ watch(
 
 .thread-composer-context-usage {
   --context-usage-accent: rgb(34 197 94);
-  @apply relative inline-flex h-9 w-9 shrink-0 items-center justify-center;
+  @apply relative inline-flex h-8 w-8 shrink-0 items-center justify-center;
 }
 
 .thread-composer-context-usage.is-warning {
@@ -2220,53 +2195,56 @@ watch(
 }
 
 .thread-composer-context-ring {
-  @apply inline-flex h-9 w-9 items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2;
-  --tw-ring-color: color-mix(in srgb, var(--context-usage-accent) 34%, transparent);
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2;
+  --tw-ring-color: color-mix(in srgb, var(--codex-muted-text) 28%, transparent);
 }
 
 .thread-composer-context-ring:hover {
-  transform: translateY(-1px);
+  background-color: var(--codex-control-hover);
 }
 
 .thread-composer-context-ring-gauge {
-  @apply flex h-8 w-8 items-center justify-center rounded-full p-[2px] transition;
+  @apply flex h-4 w-4 items-center justify-center rounded-full p-[2px] transition;
   background:
     conic-gradient(
       var(--context-usage-accent) 0 var(--context-usage-used, 0%),
-      color-mix(in srgb, var(--codex-muted-text) 18%, transparent) var(--context-usage-used, 0%) 100%
+      color-mix(in srgb, var(--codex-muted-text) 40%, transparent) var(--context-usage-used, 0%) 100%
     );
 }
 
 .thread-composer-context-ring-core {
-  @apply flex h-full w-full items-center justify-center rounded-full text-[10px] font-semibold tabular-nums leading-none;
-  background-color: var(--codex-surface);
-  color: var(--context-usage-accent);
+  @apply block h-full w-full rounded-full;
+  background-color: color-mix(in srgb, var(--codex-popover-surface) 92%, var(--codex-text) 5%);
 }
 
 .thread-composer-context-popover {
-  @apply pointer-events-none absolute bottom-[calc(100%+10px)] right-0 z-50 flex w-64 translate-y-1 flex-col gap-1 rounded-2xl border border-zinc-200 bg-white px-3 py-2 text-left text-xs leading-5 text-zinc-600 opacity-0 shadow-xl shadow-zinc-200/70 transition;
+  @apply pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-50 flex w-[10.5rem] -translate-x-1/2 translate-y-1 flex-col items-center gap-0.5 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-center text-xs leading-4 text-zinc-600 opacity-0 shadow-lg shadow-zinc-200/60 transition;
 }
 
 .thread-composer-context-popover::after {
   content: '';
-  @apply absolute -bottom-1.5 right-3 h-3 w-3 rotate-45 border-b border-r border-zinc-200 bg-white;
+  @apply absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-zinc-200 bg-white;
 }
 
 .thread-composer-context-usage:hover .thread-composer-context-popover,
 .thread-composer-context-usage:focus-within .thread-composer-context-popover {
-  @apply translate-y-0 opacity-100;
+  @apply -translate-x-1/2 translate-y-0 opacity-100;
 }
 
 .thread-composer-context-popover-title {
-  @apply text-[11px] font-medium uppercase tracking-wide text-zinc-400;
+  @apply text-[12px] font-normal text-zinc-500;
+}
+
+.thread-composer-context-popover-percent {
+  @apply text-[12px] font-normal text-zinc-500;
 }
 
 .thread-composer-context-popover-strong {
-  @apply text-sm font-semibold text-zinc-900;
+  @apply mt-1 text-[12px] font-semibold text-zinc-900;
 }
 
 .thread-composer-context-popover-line {
-  @apply min-w-0 truncate;
+  @apply min-w-0 max-w-full whitespace-normal text-[12px] font-medium text-zinc-800;
 }
 
 .thread-composer-input-wrap {
@@ -2342,11 +2320,11 @@ watch(
 }
 
 .thread-composer-input {
-  @apply w-full min-w-0 min-h-12 max-h-[25vh] rounded-[20px] border-0 bg-transparent px-3.5 py-2.5 pr-12 outline-none transition resize-none overflow-y-hidden;
+  @apply w-full min-w-0 min-h-11 max-h-[25vh] rounded-[18px] border-0 bg-transparent px-3 py-2 pr-11 outline-none transition resize-none overflow-y-hidden;
   color: var(--codex-text);
   font-family: var(--codex-ui-font-family);
-  font-size: 15px;
-  line-height: 1.42;
+  font-size: 14px;
+  line-height: 1.43;
 }
 .thread-composer-input::placeholder {
   color: var(--codex-muted-text);
@@ -2379,7 +2357,7 @@ watch(
 }
 
 .thread-composer-controls {
-  @apply relative mt-1.5 flex min-h-9 items-center gap-1.5 overflow-visible pb-px;
+  @apply relative mt-1 flex min-h-8 items-center gap-1 overflow-visible pb-px;
 }
 
 .thread-composer-controls--recording {
@@ -2391,7 +2369,7 @@ watch(
 }
 
 .thread-composer-attach-trigger {
-  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent pb-px text-2xl leading-tight transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-0 bg-transparent pb-px text-xl leading-tight transition disabled:cursor-not-allowed disabled:opacity-50;
   color: var(--codex-muted-text);
 }
 .thread-composer-attach-trigger:hover:not(:disabled) {
@@ -2485,7 +2463,7 @@ watch(
 }
 
 .thread-composer-model-summary-trigger {
-  @apply inline-flex h-9 max-w-[14rem] min-w-0 items-center gap-1 rounded-full border-0 bg-transparent px-2.5 text-[15px] transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-8 max-w-[14rem] min-w-0 items-center gap-1 rounded-full border-0 bg-transparent px-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50;
   color: var(--codex-muted-text);
 }
 
@@ -2499,7 +2477,7 @@ watch(
 }
 
 .thread-composer-model-summary-chevron {
-  @apply mt-px h-4 w-4 shrink-0;
+  @apply mt-px h-3.5 w-3.5 shrink-0;
 }
 
 .thread-composer-model-menu,
@@ -2577,7 +2555,7 @@ watch(
 }
 
 .thread-composer-mic {
-  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
   background-color: var(--codex-control-bg);
   color: var(--codex-muted-text);
   touch-action: none;
@@ -2597,7 +2575,7 @@ watch(
 }
 
 .thread-composer-mic-icon {
-  @apply h-5 w-5;
+  @apply h-4.5 w-4.5;
 }
 
 .thread-composer-dictation-waveform-wrap {
@@ -2617,7 +2595,7 @@ watch(
 }
 
 .thread-composer-submit {
-  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
   background-color: var(--codex-text);
   color: var(--codex-surface);
 }
@@ -2634,11 +2612,11 @@ watch(
 }
 
 .thread-composer-submit-icon {
-  @apply h-5 w-5;
+  @apply h-4.5 w-4.5;
 }
 
 .thread-composer-stop {
-  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
   background-color: var(--codex-text);
   color: var(--codex-surface);
 }
@@ -2647,11 +2625,11 @@ watch(
 }
 
 .thread-composer-stop-icon {
-  @apply h-5 w-5;
+  @apply h-4.5 w-4.5;
 }
 
 .thread-composer-stop-spinner {
-  @apply h-5 w-5 rounded-full border-2 border-current border-t-transparent animate-spin;
+  @apply h-4.5 w-4.5 rounded-full border-2 border-current border-t-transparent animate-spin;
 }
 
 .thread-composer-hidden-input {
