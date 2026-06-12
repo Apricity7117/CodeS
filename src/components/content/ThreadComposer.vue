@@ -290,7 +290,6 @@
           <span
             v-if="!isDictationRecording && contextUsageView"
             class="thread-composer-context-usage"
-            :class="`is-${contextUsageTone}`"
             role="group"
             :aria-label="contextUsageTooltipText"
           >
@@ -520,7 +519,6 @@ type ContextUsageView = {
   tooltipText: string
   percentRemaining: number
   percentUsed: number
-  tone: 'healthy' | 'warning' | 'danger'
 }
 
 const props = defineProps<{
@@ -870,7 +868,6 @@ const contextUsageDetailText = computed(() => contextUsageView.value?.detailText
 const contextUsageRingStyle = computed(() => ({
   '--context-usage-used': `${contextUsageUsedPercent.value}%`,
 }))
-const contextUsageTone = computed(() => contextUsageView.value?.tone ?? 'healthy')
 
 function formatPlanType(planType: string | null | undefined): string {
   if (!planType || planType === 'unknown') return ''
@@ -1045,11 +1042,6 @@ function buildContextUsageView(
   const tokensInContext = Math.max(0, usage.last.totalTokens)
   const percentRemaining = calculateContextPercentRemaining(tokensInContext, contextWindow)
   const percentUsed = Math.max(0, Math.min(100, 100 - percentRemaining))
-  const tone: 'healthy' | 'warning' | 'danger' = percentRemaining <= 15
-    ? 'danger'
-    : percentRemaining <= 35
-      ? 'warning'
-      : 'healthy'
   const compactUsed = formatCompactTokenCount(tokensInContext)
   const compactWindow = formatCompactTokenCount(contextWindow)
   const detailText = t('Used {used} tokens, {total} total', {
@@ -1069,7 +1061,6 @@ function buildContextUsageView(
     detailText,
     percentRemaining,
     percentUsed,
-    tone,
   }
 }
 
@@ -2203,16 +2194,9 @@ watch(
 }
 
 .thread-composer-context-usage {
-  --context-usage-accent: rgb(34 197 94);
+  --context-usage-track: color-mix(in srgb, currentColor 16%, transparent);
   @apply relative inline-flex h-8 w-8 shrink-0 items-center justify-center;
-}
-
-.thread-composer-context-usage.is-warning {
-  --context-usage-accent: rgb(245 158 11);
-}
-
-.thread-composer-context-usage.is-danger {
-  --context-usage-accent: rgb(239 68 68);
+  color: var(--codex-muted-text);
 }
 
 .thread-composer-context-ring {
@@ -2224,8 +2208,8 @@ watch(
   @apply flex h-4 w-4 items-center justify-center rounded-full p-[2px] transition;
   background:
     conic-gradient(
-      var(--context-usage-accent) 0 var(--context-usage-used, 0%),
-      color-mix(in srgb, var(--codex-muted-text) 40%, transparent) var(--context-usage-used, 0%) 100%
+      currentColor 0 var(--context-usage-used, 0%),
+      var(--context-usage-track) var(--context-usage-used, 0%) 100%
     );
 }
 
