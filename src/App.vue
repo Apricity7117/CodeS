@@ -234,6 +234,14 @@
                   @update:checked="toggleTextAnimations"
                 />
               </div>
+              <div class="sidebar-settings-row sidebar-settings-row--switch" :title="SETTINGS_HELP.dictationEnabled">
+                <span class="sidebar-settings-label">{{ t('Voice input') }}</span>
+                <CodexSwitch
+                  :checked="dictationEnabled"
+                  :ariaLabel="t('Voice input')"
+                  @update:checked="toggleDictationEnabled"
+                />
+              </div>
               <div class="sidebar-settings-row sidebar-settings-row--switch" :title="SETTINGS_HELP.dictationClickToToggle">
                 <span class="sidebar-settings-label">{{ t('Click to toggle dictation') }}</span>
                 <CodexSwitch
@@ -681,6 +689,7 @@
                   :is-turn-in-progress="false"
                   :is-stop-pending="false"
                   :is-interrupting-turn="false" :send-with-enter="sendWithEnter" :in-progress-submit-mode="inProgressSendMode"
+                  :dictation-enabled="dictationEnabled"
                   :dictation-click-to-toggle="dictationClickToToggle" :dictation-auto-send="dictationAutoSend"
                   :dictation-language="dictationLanguage"
                   @submit="onSubmitThreadMessage"
@@ -775,6 +784,7 @@
                       :is-interrupting-turn="isInterruptingTurn"
                       :has-queue-above="selectedThreadQueuedMessages.length > 0 || isEditingHistoryMessage"
                       :send-with-enter="sendWithEnter" :in-progress-submit-mode="inProgressSendMode"
+                      :dictation-enabled="dictationEnabled"
                       :dictation-click-to-toggle="dictationClickToToggle" :dictation-auto-send="dictationAutoSend"
                       :dictation-language="dictationLanguage"
                       @update:selected-collaboration-mode="onSelectCollaborationMode"
@@ -1032,6 +1042,7 @@ import {
   loadDarkModePref,
   loadDictationAutoSendPref,
   loadDictationClickToTogglePref,
+  loadDictationEnabledPref,
   loadDictationLanguagePref,
   loadInProgressSendModePref,
   loadInspectorPanelOpen,
@@ -1044,6 +1055,7 @@ import {
   saveDarkModePref,
   saveDictationAutoSendPref,
   saveDictationClickToTogglePref,
+  saveDictationEnabledPref,
   saveDictationLanguagePref,
   saveInProgressSendModePref,
   saveInspectorPanelOpen,
@@ -1261,6 +1273,7 @@ const inProgressSendMode = ref<InProgressSendMode>(loadInProgressSendModePref())
 const darkMode = ref<DarkModePreference>(loadDarkModePref())
 const chatWidth = ref<ChatWidthMode>(loadChatWidthPref())
 const textAnimationsEnabled = ref(loadTextAnimationsPref())
+const dictationEnabled = ref(loadDictationEnabledPref())
 const dictationClickToToggle = ref(loadDictationClickToTogglePref())
 const dictationAutoSend = ref(loadDictationAutoSendPref())
 const dictationLanguage = ref(loadDictationLanguagePref())
@@ -3237,6 +3250,11 @@ function toggleTextAnimations(): void {
   saveTextAnimationsPref(textAnimationsEnabled.value)
 }
 
+function toggleDictationEnabled(): void {
+  dictationEnabled.value = !dictationEnabled.value
+  saveDictationEnabledPref(dictationEnabled.value)
+}
+
 function toggleDictationClickToToggle(): void {
   dictationClickToToggle.value = !dictationClickToToggle.value
   saveDictationClickToTogglePref(dictationClickToToggle.value)
@@ -3656,7 +3674,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 
 .sidebar-root {
   @apply h-full flex flex-col select-none transition-colors;
-  background-color: var(--codex-sidebar-bg);
+  background-color: transparent;
 }
 
 .sidebar-root input,
@@ -3670,6 +3688,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 
 .sidebar-scrollable {
   @apply flex-1 min-h-0 overflow-y-auto px-2 pb-4 flex flex-col gap-2;
+  background-color: transparent;
 }
 
 .content-root {
@@ -4393,7 +4412,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 
 .sidebar-settings-area {
   @apply shrink-0 pt-2 px-2 pb-2;
-  background-color: var(--codex-sidebar-bg);
+  background-color: transparent;
 }
 
 .sidebar-settings-button {

@@ -4,6 +4,7 @@ import {
   DARK_MODE_KEY,
   DICTATION_AUTO_SEND_KEY,
   DICTATION_CLICK_TO_TOGGLE_KEY,
+  DICTATION_ENABLED_KEY,
   DICTATION_LANGUAGE_KEY,
   IN_PROGRESS_SEND_MODE_KEY,
   INSPECTOR_PANEL_OPEN_STORAGE_KEY,
@@ -45,6 +46,14 @@ export function loadTextAnimationsPref(): boolean {
 
 export function saveTextAnimationsPref(value: boolean): void {
   saveBoolPref(TEXT_ANIMATIONS_ENABLED_KEY, value)
+}
+
+export function loadDictationEnabledPref(): boolean {
+  return loadBoolPref(DICTATION_ENABLED_KEY, true)
+}
+
+export function saveDictationEnabledPref(value: boolean): void {
+  saveBoolPref(DICTATION_ENABLED_KEY, value)
 }
 
 export function loadDictationClickToTogglePref(): boolean {

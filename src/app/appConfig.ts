@@ -6,6 +6,7 @@ export const INSPECTOR_PANEL_OPEN_STORAGE_KEY = 'codex-web-local.inspector-panel
 export const SEND_WITH_ENTER_KEY = 'codex-web-local.send-with-enter.v1'
 export const IN_PROGRESS_SEND_MODE_KEY = 'codex-web-local.in-progress-send-mode.v1'
 export const DARK_MODE_KEY = 'codex-web-local.dark-mode.v1'
+export const DICTATION_ENABLED_KEY = 'codex-web-local.dictation-enabled.v1'
 export const DICTATION_CLICK_TO_TOGGLE_KEY = 'codex-web-local.dictation-click-to-toggle.v1'
 export const DICTATION_AUTO_SEND_KEY = 'codex-web-local.dictation-auto-send.v1'
 export const DICTATION_LANGUAGE_KEY = 'codex-web-local.dictation-language.v1'
@@ -142,6 +143,7 @@ export function buildSettingsHelp(t: TranslateFunction) {
     appearance: t('Switch between system theme, light mode, and dark mode.'),
     chatWidth: t('Choose how wide the conversation column and composer can grow on desktop screens.'),
     textAnimations: t('Show shimmer animations on thinking and running status text.'),
+    dictationEnabled: t('Show voice input controls in the composer.'),
     dictationClickToToggle: t('Use click-to-start and click-to-stop dictation instead of hold-to-talk.'),
     dictationAutoSend: t('Automatically send transcribed dictation when recording stops.'),
     dictationLanguage: t('Choose transcription language or keep auto-detect.'),

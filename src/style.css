@@ -6,6 +6,8 @@
   --codex-bg: #ffffff;
   --codex-surface-under: #f9f9f9;
   --codex-sidebar-bg: #f9f9f9;
+  --codex-sidebar-glass-bg: color-mix(in srgb, var(--codex-sidebar-bg) 55%, transparent);
+  --codex-sidebar-glass-filter: blur(20px) saturate(1.08);
   --codex-surface: #ffffff;
   --codex-panel-surface: #ffffff;
   --codex-popover-surface: #ffffff;
@@ -76,6 +78,7 @@
   --codex-bg: #1e1e1e;
   --codex-surface-under: #1e1e1e;
   --codex-sidebar-bg: #1e1e1e;
+  --codex-sidebar-glass-bg: color-mix(in srgb, var(--codex-sidebar-bg) 55%, transparent);
   --codex-surface: #1e1e1e;
   --codex-panel-surface: #252526;
   --codex-popover-surface: #252526;
@@ -150,8 +153,23 @@ samp {
   color: var(--codex-link-hover);
 }
 
-.desktop-layout, .desktop-sidebar, .sidebar-scrollable, .mobile-drawer {
-  background-color: var(--codex-sidebar-bg);
+.desktop-layout {
+  background-color: var(--codex-surface-under);
+  color: var(--codex-text);
+  @apply transition-colors;
+}
+
+.desktop-sidebar,
+.mobile-drawer {
+  background-color: var(--codex-sidebar-glass-bg);
+  -webkit-backdrop-filter: var(--codex-sidebar-glass-filter);
+  backdrop-filter: var(--codex-sidebar-glass-filter);
+  color: var(--codex-text);
+  @apply transition-colors;
+}
+
+.sidebar-scrollable {
+  background-color: transparent;
   color: var(--codex-text);
   @apply transition-colors;
 }
@@ -167,7 +185,7 @@ samp {
 }
 
 :root.dark .sidebar-settings-area {
-  background-color: var(--codex-sidebar-bg);
+  background-color: transparent;
 }
 
 :root.dark .sidebar-settings-button {

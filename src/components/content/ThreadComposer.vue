@@ -287,6 +287,34 @@
             {{ dictationDurationLabel }}
           </span>
 
+          <span
+            v-if="!isDictationRecording && contextUsageView"
+            class="thread-composer-context-usage"
+            :class="`is-${contextUsageTone}`"
+            role="group"
+            :aria-label="contextUsageTooltipText"
+          >
+            <button
+              class="thread-composer-context-ring"
+              type="button"
+              :aria-label="contextUsageTooltipText"
+              :title="contextUsageTooltipText"
+              :style="contextUsageRingStyle"
+            >
+              <span class="thread-composer-context-ring-gauge" aria-hidden="true">
+                <span class="thread-composer-context-ring-core" />
+              </span>
+            </button>
+            <span class="thread-composer-context-popover" role="tooltip">
+              <span class="thread-composer-context-popover-title">{{ t('Background context') }}</span>
+              <span class="thread-composer-context-popover-percent">
+                {{ t('{percent}% used', { percent: contextUsageUsedPercent }) }}
+              </span>
+              <span class="thread-composer-context-popover-line">{{ contextUsageDetailText }}</span>
+              <span class="thread-composer-context-popover-strong">{{ t('Codex automatically compresses background context') }}</span>
+            </span>
+          </span>
+
           <div
             v-if="!isDictationRecording"
             ref="modelReasoningMenuRootRef"
@@ -362,36 +390,8 @@
             </div>
           </div>
 
-          <span
-            v-if="!isDictationRecording && contextUsageView"
-            class="thread-composer-context-usage"
-            :class="`is-${contextUsageTone}`"
-            role="group"
-            :aria-label="contextUsageTooltipText"
-          >
-            <button
-              class="thread-composer-context-ring"
-              type="button"
-              :aria-label="contextUsageTooltipText"
-              :title="contextUsageTooltipText"
-              :style="contextUsageRingStyle"
-            >
-              <span class="thread-composer-context-ring-gauge" aria-hidden="true">
-                <span class="thread-composer-context-ring-core" />
-              </span>
-            </button>
-            <span class="thread-composer-context-popover" role="tooltip">
-              <span class="thread-composer-context-popover-title">{{ t('Background context') }}</span>
-              <span class="thread-composer-context-popover-percent">
-                {{ t('{percent}% used', { percent: contextUsageUsedPercent }) }}
-              </span>
-              <span class="thread-composer-context-popover-line">{{ contextUsageDetailText }}</span>
-              <span class="thread-composer-context-popover-strong">{{ t('Codex automatically compresses background context') }}</span>
-            </span>
-          </span>
-
           <button
-            v-if="isDictationSupported"
+            v-if="isDictationAvailable"
             class="thread-composer-mic"
             :class="{
               'thread-composer-mic--active': dictationState === 'recording',
@@ -543,6 +543,7 @@ const props = defineProps<{
   hasQueueAbove?: boolean
   sendWithEnter?: boolean
   inProgressSubmitMode?: 'steer' | 'queue'
+  dictationEnabled?: boolean
   dictationClickToToggle?: boolean
   dictationAutoSend?: boolean
   dictationLanguage?: string
@@ -799,6 +800,7 @@ const inProgressMode = computed<'steer' | 'queue'>(() =>
 )
 const activeInProgressMode = ref<'steer' | 'queue'>(inProgressMode.value)
 const isDictationRecording = computed(() => dictationState.value === 'recording')
+const isDictationAvailable = computed(() => props.dictationEnabled !== false && isDictationSupported.value)
 const dictationButtonLabel = computed(() => {
   if (dictationState.value === 'recording') return t('Stop dictation')
   return props.dictationClickToToggle ? t('Click to dictate') : t('Hold to dictate')
@@ -1300,6 +1302,7 @@ function onToggleSpeedMode(): void {
 }
 
 function onDictationToggle(): void {
+  if (!isDictationAvailable.value) return
   if (!props.dictationClickToToggle) return
   if (dictationFeedback.value) {
     dictationFeedback.value = ''
@@ -1307,7 +1310,15 @@ function onDictationToggle(): void {
   toggleRecording()
 }
 
+function removeHoldDictationListeners(): void {
+  if (typeof window === 'undefined') return
+  window.removeEventListener('pointerup', onDictationPressEnd)
+  window.removeEventListener('pointercancel', onDictationPressEnd)
+  window.removeEventListener('blur', onDictationPressEnd)
+}
+
 function onDictationPressStart(event: PointerEvent): void {
+  if (!isDictationAvailable.value) return
   if (props.dictationClickToToggle) return
   event.preventDefault()
   if (isHoldPressActive) return
@@ -1330,6 +1341,7 @@ function onDictationPressStart(event: PointerEvent): void {
 }
 
 function onDictationPressEnd(): void {
+  if (!isDictationAvailable.value && !isHoldPressActive) return
   if (props.dictationClickToToggle) return
   if (!isHoldPressActive) return
   isHoldPressActive = false
@@ -1996,9 +2008,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('drop', onWindowDragCleanup)
   window.removeEventListener('dragend', onWindowDragCleanup)
   window.removeEventListener('blur', onWindowDragCleanup)
-  window.removeEventListener('pointerup', onDictationPressEnd)
-  window.removeEventListener('pointercancel', onDictationPressEnd)
-  window.removeEventListener('blur', onDictationPressEnd)
+  removeHoldDictationListeners()
   if (fileMentionDebounceTimer) {
     clearTimeout(fileMentionDebounceTimer)
   }
@@ -2044,6 +2054,17 @@ watch(
   inProgressMode,
   (nextMode) => {
     activeInProgressMode.value = nextMode
+  },
+)
+
+watch(
+  () => props.dictationEnabled,
+  (enabled) => {
+    if (enabled !== false) return
+    isHoldPressActive = false
+    removeHoldDictationListeners()
+    cancelDictation()
+    dictationFeedback.value = ''
   },
 )
 
@@ -2197,10 +2218,6 @@ watch(
 .thread-composer-context-ring {
   @apply inline-flex h-8 w-8 items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2;
   --tw-ring-color: color-mix(in srgb, var(--codex-muted-text) 28%, transparent);
-}
-
-.thread-composer-context-ring:hover {
-  background-color: var(--codex-control-hover);
 }
 
 .thread-composer-context-ring-gauge {
@@ -2556,12 +2573,12 @@ watch(
 
 .thread-composer-mic {
   @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-0 transition disabled:cursor-not-allowed disabled:opacity-50;
-  background-color: var(--codex-control-bg);
+  background-color: transparent;
   color: var(--codex-muted-text);
   touch-action: none;
 }
 .thread-composer-mic:hover:not(:disabled) {
-  background-color: var(--codex-control-hover);
+  background-color: transparent;
   color: var(--codex-text);
 }
 

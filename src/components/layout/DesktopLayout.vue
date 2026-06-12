@@ -121,7 +121,9 @@ function onResizeHandleMouseDown(event: MouseEvent): void {
 
 .desktop-sidebar {
   @apply min-h-0 overflow-hidden transition-colors;
-  background-color: var(--codex-sidebar-bg);
+  background-color: var(--codex-sidebar-glass-bg);
+  -webkit-backdrop-filter: var(--codex-sidebar-glass-filter);
+  backdrop-filter: var(--codex-sidebar-glass-filter);
 }
 
 .desktop-resize-handle {
@@ -161,7 +163,9 @@ function onResizeHandleMouseDown(event: MouseEvent): void {
 
 .mobile-drawer {
   @apply absolute top-0 left-0 bottom-0 w-[85vw] max-w-80 overflow-hidden shadow-2xl transition-colors;
-  background-color: var(--codex-sidebar-bg);
+  background-color: var(--codex-sidebar-glass-bg);
+  -webkit-backdrop-filter: var(--codex-sidebar-glass-filter);
+  backdrop-filter: var(--codex-sidebar-glass-filter);
 }
 
 .drawer-enter-active,

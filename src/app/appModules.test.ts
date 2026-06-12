@@ -9,6 +9,7 @@ import {
 import {
   CHAT_WIDTH_KEY,
   DARK_MODE_KEY,
+  DICTATION_ENABLED_KEY,
   DICTATION_LANGUAGE_KEY,
   IN_PROGRESS_SEND_MODE_KEY,
   INSPECTOR_PANEL_OPEN_STORAGE_KEY,
@@ -18,11 +19,13 @@ import { buildDirectoryTryPrompt, getDirectoryTryItemKey } from './directoryTry'
 import {
   loadChatWidthPref,
   loadDarkModePref,
+  loadDictationEnabledPref,
   loadDictationLanguagePref,
   loadInProgressSendModePref,
   loadInspectorPanelOpen,
   loadSendWithEnterPref,
   normalizeToWhisperLanguage,
+  saveDictationEnabledPref,
   saveSendWithEnterPref,
 } from './preferences'
 import { buildExportFileName, buildThreadMarkdown } from './threadExport'
@@ -89,6 +92,7 @@ describe('preferences', () => {
     expect(loadDarkModePref()).toBe('system')
     expect(loadInProgressSendModePref()).toBe('steer')
     expect(loadChatWidthPref()).toBe('standard')
+    expect(loadDictationEnabledPref()).toBe(true)
     expect(loadDictationLanguagePref()).toBe('auto')
   })
 
@@ -98,6 +102,7 @@ describe('preferences', () => {
       [DARK_MODE_KEY]: 'dark',
       [IN_PROGRESS_SEND_MODE_KEY]: 'invalid',
       [CHAT_WIDTH_KEY]: 'extra-wide',
+      [DICTATION_ENABLED_KEY]: '0',
       [DICTATION_LANGUAGE_KEY]: 'zh-CN',
     })
 
@@ -105,6 +110,7 @@ describe('preferences', () => {
     expect(loadDarkModePref()).toBe('dark')
     expect(loadInProgressSendModePref()).toBe('queue')
     expect(loadChatWidthPref()).toBe('extra-wide')
+    expect(loadDictationEnabledPref()).toBe(false)
     expect(loadDictationLanguagePref()).toBe('zh')
   })
 
@@ -112,8 +118,10 @@ describe('preferences', () => {
     const localStorage = stubWindow()
 
     saveSendWithEnterPref(false)
+    saveDictationEnabledPref(false)
 
     expect(localStorage.getItem(SEND_WITH_ENTER_KEY)).toBe('0')
+    expect(localStorage.getItem(DICTATION_ENABLED_KEY)).toBe('0')
   })
 
   it('defaults inspector visibility from the viewport when no preference exists', () => {
