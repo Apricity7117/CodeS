@@ -1,350 +1,91 @@
 <template>
   <DesktopLayout :is-sidebar-collapsed="isSidebarCollapsed" @close-sidebar="setSidebarCollapsed(true)">
     <template #sidebar>
-      <section class="sidebar-root">
-        <div v-if="!isSidebarCollapsed" class="sidebar-nav-sticky">
-          <SidebarThreadControls
-            class="sidebar-thread-controls-host"
-            :is-sidebar-collapsed="isSidebarCollapsed"
-            :show-new-thread-button="false"
-            @toggle-sidebar="setSidebarCollapsed(!isSidebarCollapsed)"
-            @start-new-thread="onStartNewThreadFromToolbar"
-          />
-
-          <SidebarMenuRow
-            class="sidebar-primary-link"
-            as="button"
-            type="button"
-            @click="onStartNewThreadFromToolbar"
-          >
-            <template #left>
-              <IconCodexCompose class="sidebar-primary-link-icon" aria-hidden="true" />
-            </template>
-            <span class="sidebar-primary-link-title">{{ t('New conversation') }}</span>
-          </SidebarMenuRow>
-
-          <SidebarMenuRow
-            class="sidebar-primary-link"
-            :class="{ 'is-active': isSidebarSearchVisible }"
-            as="button"
-            type="button"
-            @click="toggleSidebarSearch"
-          >
-            <template #left>
-              <IconCodexSearch class="sidebar-primary-link-icon" aria-hidden="true" />
-            </template>
-            <span class="sidebar-primary-link-title">{{ t('Search') }}</span>
-          </SidebarMenuRow>
-
-          <div v-if="isSidebarSearchVisible" class="sidebar-search-bar">
-            <IconCodexSearch class="sidebar-search-bar-icon" />
-            <input
-              ref="sidebarSearchInputRef"
-              v-model="sidebarSearchQuery"
-              class="sidebar-search-input"
-              type="text"
-              :placeholder="t('Filter threads...')"
-              @keydown="onSidebarSearchKeydown"
-            />
-            <button
-              v-if="sidebarSearchQuery.length > 0"
-              class="sidebar-search-clear"
-              type="button"
-              :aria-label="t('Clear search')"
-              @click="clearSidebarSearch"
-            >
-              <IconCodexX class="sidebar-search-clear-icon" />
-            </button>
-          </div>
-        </div>
-
-        <div class="sidebar-scrollable">
-          <SidebarThreadTree :groups="projectGroups" :project-display-name-by-id="projectDisplayNameById"
-            :project-git-repo-by-name="projectGitRepoByName"
-            :project-cwd-by-name="projectCwdByName"
-            v-if="!isSidebarCollapsed"
-            :selected-thread-id="selectedThreadId" :is-loading="isLoadingThreads"
-            :is-thread-list-fully-loaded="isThreadListFullyLoaded"
-            :search-query="sidebarSearchQuery"
-            :search-matched-thread-ids="serverMatchedThreadIds"
-            @select="onSelectThread"
-            @archive="onArchiveThread" @start-new-thread="onStartNewThread" @rename-project="onRenameProject"
-            @browse-thread-files="onBrowseThreadFiles"
-            @browse-project-files="onBrowseProjectFiles"
-            @request-project-git-status="onRequestProjectGitStatus"
-            @create-project-worktree="onCreateProjectWorktree"
-            @rename-thread="onRenameThread"
-            @fork-thread="onForkThread"
-            @remove-project="onRemoveProject" @reorder-project="onReorderProject"
-            @export-thread="onExportThread"
-            @start-new-chat="onStartNewThreadFromToolbar" />
-        </div>
-
-        <div
-          v-if="!isSidebarCollapsed"
-          ref="settingsAreaRef"
-          class="sidebar-settings-area"
-          @click="onSettingsAreaClick"
-        >
-          <Transition name="settings-panel">
-            <div
-              v-if="isSettingsOpen"
-              ref="settingsPanelRef"
-              class="sidebar-settings-panel"
-              @click.stop
-            >
-              <div class="sidebar-settings-account-section">
-                <div class="sidebar-settings-account-header">
-                  <div class="sidebar-settings-account-header-main">
-                    <button
-                      class="sidebar-settings-account-collapse"
-                      type="button"
-                      :aria-expanded="!isAccountsSectionCollapsed"
-                      :title="isAccountsSectionCollapsed ? t('Expand accounts') : t('Collapse accounts')"
-                      @click="toggleAccountsSectionCollapsed"
-                    >
-                      <span class="sidebar-settings-account-collapse-icon">{{ isAccountsSectionCollapsed ? '▸' : '▾' }}</span>
-                    </button>
-                    <span class="sidebar-settings-account-title">{{ t('Accounts') }}</span>
-                    <span class="sidebar-settings-account-count">{{ accounts.length }}</span>
-                  </div>
-                  <button
-                    class="sidebar-settings-account-refresh"
-                    type="button"
-                    :disabled="isRefreshingAccounts || isSwitchingAccounts || isStartingCodexLogin || isCompletingCodexLogin"
-                    @click="onRefreshAccounts"
-                  >
-                    {{ isRefreshingAccounts ? t('Reloading…') : t('Reload') }}
-                  </button>
-                </div>
-                <template v-if="!isAccountsSectionCollapsed">
-                  <div v-if="accountActionError" class="sidebar-settings-account-error">
-                    <span>{{ accountActionError }}</span>
-                  </div>
-                  <div class="sidebar-settings-account-login">
-                    <button
-                      class="sidebar-settings-account-login-button"
-                      type="button"
-                      :disabled="isRefreshingAccounts || isSwitchingAccounts || isStartingCodexLogin || isCompletingCodexLogin"
-                      @click="onStartCodexLogin"
-                    >
-                      {{ isStartingCodexLogin ? t('Starting login…') : t('Login') }}
-                    </button>
-                    <a
-                      v-if="codexLoginUrl"
-                      class="sidebar-settings-account-login-link"
-                      :href="codexLoginUrl"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {{ t('Open login URL') }}
-                    </a>
-                  </div>
-                  <p v-if="accounts.length === 0" class="sidebar-settings-account-empty">
-                    {{ t('Click Login, or run `codex login`, then click reload.') }}
-                  </p>
-                  <div v-else class="sidebar-settings-account-list">
-                  <article
-                    v-for="account in accounts"
-                    :key="account.accountId"
-                    class="sidebar-settings-account-item"
-                    :class="{
-                      'is-active': account.isActive,
-                      'is-unavailable': isAccountUnavailable(account),
-                      'is-confirming-remove': isRemoveConfirmationActive(account),
-                      'is-remove-visible': isRemoveVisible(account),
-                    }"
-                    :title="buildAccountTitle(account)"
-                    @mouseenter="onAccountCardPointerEnter(account.accountId)"
-                    @mouseleave="onAccountCardPointerLeave(account.accountId)"
-                  >
-                    <div class="sidebar-settings-account-main">
-                      <p class="sidebar-settings-account-email">{{ account.email || t('Account') }}</p>
-                      <p class="sidebar-settings-account-meta">
-                        {{ formatAccountMeta(account) }}
-                      </p>
-                      <p class="sidebar-settings-account-quota">
-                        {{ formatAccountQuota(account) }}
-                      </p>
-                      <p class="sidebar-settings-account-id">
-                        Workspace {{ shortAccountId(account.accountId) }}
-                      </p>
-                    </div>
-                    <div class="sidebar-settings-account-actions">
-                      <button
-                        class="sidebar-settings-account-switch"
-                        type="button"
-                        :disabled="isAccountActionDisabled(account) || account.isActive || isAccountUnavailable(account)"
-                        @click="onSwitchAccount(account.accountId)"
-                      >
-                        {{ getAccountSwitchLabel(account) }}
-                      </button>
-                      <button
-                        class="sidebar-settings-account-remove"
-                        :class="{
-                          'is-visible': isRemoveVisible(account),
-                          'is-confirming': isRemoveConfirmationActive(account),
-                        }"
-                        type="button"
-                        :disabled="isAccountActionDisabled(account)"
-                        @click="onRemoveAccount(account.accountId)"
-                      >
-                        {{ getAccountRemoveLabel(account) }}
-                      </button>
-                    </div>
-                  </article>
-                  </div>
-                </template>
-              </div>
-              <div class="sidebar-settings-row sidebar-settings-row--switch" :title="SETTINGS_HELP.sendWithEnter">
-                <span class="sidebar-settings-label">{{ t('Require ⌘ + enter to send') }}</span>
-                <CodexSwitch
-                  :checked="!sendWithEnter"
-                  :ariaLabel="t('Require ⌘ + enter to send')"
-                  @update:checked="toggleSendWithEnter"
-                />
-              </div>
-              <button class="sidebar-settings-row" type="button" :title="SETTINGS_HELP.inProgressSendMode" @click="cycleInProgressSendMode">
-                <span class="sidebar-settings-label">{{ t('When busy, send as') }}</span>
-                <span class="sidebar-settings-value">{{ inProgressSendMode === 'steer' ? t('Steer') : t('Queue') }}</span>
-              </button>
-              <button class="sidebar-settings-row" type="button" :title="SETTINGS_HELP.appearance" @click="cycleDarkMode">
-                <span class="sidebar-settings-label">{{ t('Appearance') }}</span>
-                <span class="sidebar-settings-value">{{ darkMode === 'system' ? t('System') : darkMode === 'dark' ? t('Dark') : t('Light') }}</span>
-              </button>
-              <div class="sidebar-settings-row sidebar-settings-row--select" :title="t('Choose the interface language for the app.')">
-                <span class="sidebar-settings-label">{{ t('UI language') }}</span>
-                <select
-                  class="sidebar-settings-language-select"
-                  :value="uiLanguage"
-                  @change="setUiLanguage(($event.target as HTMLSelectElement).value as 'en' | 'zh-CN')"
-                >
-                  <option v-for="option in uiLanguageOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                </select>
-              </div>
-              <button class="sidebar-settings-row" type="button" :title="SETTINGS_HELP.chatWidth" @click="cycleChatWidth">
-                <span class="sidebar-settings-label">{{ t('Chat width') }}</span>
-                <span class="sidebar-settings-value">{{ chatWidthLabel }}</span>
-              </button>
-              <div class="sidebar-settings-row sidebar-settings-row--switch" :title="SETTINGS_HELP.textAnimations">
-                <span class="sidebar-settings-label">{{ t('Text shimmer animations') }}</span>
-                <CodexSwitch
-                  :checked="textAnimationsEnabled"
-                  :ariaLabel="t('Text shimmer animations')"
-                  @update:checked="toggleTextAnimations"
-                />
-              </div>
-              <div class="sidebar-settings-row sidebar-settings-row--switch" :title="SETTINGS_HELP.dictationEnabled">
-                <span class="sidebar-settings-label">{{ t('Voice input') }}</span>
-                <CodexSwitch
-                  :checked="dictationEnabled"
-                  :ariaLabel="t('Voice input')"
-                  @update:checked="toggleDictationEnabled"
-                />
-              </div>
-              <div class="sidebar-settings-row sidebar-settings-row--switch" :title="SETTINGS_HELP.dictationClickToToggle">
-                <span class="sidebar-settings-label">{{ t('Click to toggle dictation') }}</span>
-                <CodexSwitch
-                  :checked="dictationClickToToggle"
-                  :ariaLabel="t('Click to toggle dictation')"
-                  @update:checked="toggleDictationClickToToggle"
-                />
-              </div>
-              <div class="sidebar-settings-row sidebar-settings-row--switch" :title="SETTINGS_HELP.dictationAutoSend">
-                <span class="sidebar-settings-label">{{ t('Auto send dictation') }}</span>
-                <CodexSwitch
-                  :checked="dictationAutoSend"
-                  :ariaLabel="t('Auto send dictation')"
-                  @update:checked="toggleDictationAutoSend"
-                />
-              </div>
-              <div class="sidebar-settings-row sidebar-settings-row--select" :title="SETTINGS_HELP.dictationLanguage">
-                <span class="sidebar-settings-label">{{ t('Dictation language') }}</span>
-                <ComposerDropdown
-                  class="sidebar-settings-language-dropdown"
-                  :model-value="dictationLanguage"
-                  :options="dictationLanguageOptions"
-                  :placeholder="t('Auto-detect')"
-                  open-direction="up"
-                  :enable-search="true"
-                  :search-placeholder="t('Search language...')"
-                  @update:model-value="onDictationLanguageChange"
-                />
-              </div>
-              <button class="sidebar-settings-row" type="button" aria-live="polite" @click="isTelegramConfigOpen = !isTelegramConfigOpen">
-                <span class="sidebar-settings-label">{{ t('Telegram') }}</span>
-                <span class="sidebar-settings-value">{{ telegramStatusText }}</span>
-              </button>
-              <div v-if="isTelegramConfigOpen" class="sidebar-settings-telegram-panel">
-                <label class="sidebar-settings-field">
-                  <span class="sidebar-settings-field-label">{{ t('Bot token') }}</span>
-                  <input
-                    v-model="telegramBotTokenDraft"
-                    class="sidebar-settings-input"
-                    type="password"
-                    placeholder="123456:ABCDEF"
-                    autocomplete="off"
-                    spellcheck="false"
-                  >
-                </label>
-                <label class="sidebar-settings-field">
-                  <span class="sidebar-settings-field-label">{{ t('Allowed Telegram user IDs') }}</span>
-                  <textarea
-                    v-model="telegramAllowedUserIdsDraft"
-                    class="sidebar-settings-textarea"
-                    rows="3"
-                    placeholder="123456789&#10;987654321"
-                    spellcheck="false"
-                  />
-                </label>
-                <div class="sidebar-settings-field-help">
-                  {{ t('Put one Telegram user ID per line or separate them with commas. Use `*` to allow all Telegram users. Unauthorized users will see their own ID in the rejection message so they can copy it here.') }}
-                </div>
-                <div v-if="telegramConfigError" class="sidebar-settings-telegram-error">
-                  <span>{{ telegramConfigError }}</span>
-                </div>
-                <div class="sidebar-settings-telegram-actions">
-                  <button
-                    class="sidebar-settings-telegram-save"
-                    type="button"
-                    :disabled="isTelegramSaving"
-                    @click="saveTelegramConfig"
-                  >
-                    {{ isTelegramSaving ? t('Saving…') : t('Save Telegram config') }}
-                  </button>
-                </div>
-              </div>
-              <div
-                v-if="showThreadContextBadge"
-                class="sidebar-settings-row sidebar-settings-context-row"
-                :data-state="threadContextBadgeState"
-                :title="threadContextTooltip"
-              >
-                <span class="sidebar-settings-label">{{ t('Context') }}</span>
-                <span class="sidebar-settings-context-value" :data-state="threadContextBadgeState">
-                  {{ threadContextPrimaryText }}
-                  <span class="sidebar-settings-context-meta">{{ threadContextSecondaryText }}</span>
-                </span>
-              </div>
-              <div class="sidebar-settings-rate-limits">
-                <RateLimitStatus :snapshots="accountRateLimitSnapshots" />
-              </div>
-              <div class="sidebar-settings-build-label" :aria-label="t('Worktree name and version')">
-                WT {{ worktreeName }} · v{{ appVersion }}
-              </div>
-            </div>
-          </Transition>
-          <button
-            ref="settingsButtonRef"
-            class="sidebar-settings-button"
-            type="button"
-            @click.stop="isSettingsOpen = !isSettingsOpen"
-          >
-            <IconCodexSettingsCog class="sidebar-settings-icon" />
-            <span>{{ t('Settings') }}</span>
-          </button>
-        </div>
-      </section>
+      <AppSidebar
+        v-model:search-query="sidebarSearchQuery"
+        v-model:is-search-visible="isSidebarSearchVisible"
+        v-model:is-settings-open="isSettingsOpen"
+        v-model:dictation-language="dictationLanguage"
+        v-model:is-telegram-config-open="isTelegramConfigOpen"
+        v-model:telegram-bot-token-draft="telegramBotTokenDraft"
+        v-model:telegram-allowed-user-ids-draft="telegramAllowedUserIdsDraft"
+        :is-sidebar-collapsed="isSidebarCollapsed"
+        :groups="projectGroups"
+        :project-display-name-by-id="projectDisplayNameById"
+        :project-git-repo-by-name="projectGitRepoByName"
+        :project-cwd-by-name="projectCwdByName"
+        :selected-thread-id="selectedThreadId"
+        :is-loading-threads="isLoadingThreads"
+        :is-thread-list-fully-loaded="isThreadListFullyLoaded"
+        :search-matched-thread-ids="serverMatchedThreadIds"
+        :accounts="accounts"
+        :is-accounts-section-collapsed="isAccountsSectionCollapsed"
+        :is-refreshing-accounts="isRefreshingAccounts"
+        :is-switching-accounts="isSwitchingAccounts"
+        :is-starting-codex-login="isStartingCodexLogin"
+        :is-completing-codex-login="isCompletingCodexLogin"
+        :is-account-switch-blocked="isAccountSwitchBlocked"
+        :removing-account-id="removingAccountId"
+        :confirming-remove-account-id="confirmingRemoveAccountId"
+        :hovered-account-id="hoveredAccountId"
+        :account-action-error="accountActionError"
+        :codex-login-url="codexLoginUrl"
+        :settings-help="SETTINGS_HELP"
+        :send-with-enter="sendWithEnter"
+        :in-progress-send-mode="inProgressSendMode"
+        :dark-mode="darkMode"
+        :ui-language="uiLanguage"
+        :ui-language-options="uiLanguageOptions"
+        :chat-width-label="chatWidthLabel"
+        :text-animations-enabled="textAnimationsEnabled"
+        :dictation-enabled="dictationEnabled"
+        :dictation-click-to-toggle="dictationClickToToggle"
+        :dictation-auto-send="dictationAutoSend"
+        :dictation-language-options="dictationLanguageOptions"
+        :telegram-config-error="telegramConfigError"
+        :is-telegram-saving="isTelegramSaving"
+        :telegram-status-text="telegramStatusText"
+        :show-thread-context-badge="showThreadContextBadge"
+        :thread-context-badge-state="threadContextBadgeState"
+        :thread-context-tooltip="threadContextTooltip"
+        :thread-context-primary-text="threadContextPrimaryText"
+        :thread-context-secondary-text="threadContextSecondaryText"
+        :account-rate-limit-snapshots="accountRateLimitSnapshots"
+        :worktree-name="worktreeName"
+        :app-version="appVersion"
+        @set-sidebar-collapsed="setSidebarCollapsed"
+        @start-new-thread-toolbar="onStartNewThreadFromToolbar"
+        @select-thread="onSelectThread"
+        @archive-thread="onArchiveThread"
+        @start-new-thread="onStartNewThread"
+        @rename-project="onRenameProject"
+        @browse-thread-files="onBrowseThreadFiles"
+        @browse-project-files="onBrowseProjectFiles"
+        @request-project-git-status="onRequestProjectGitStatus"
+        @create-project-worktree="onCreateProjectWorktree"
+        @rename-thread="onRenameThread"
+        @fork-thread="onForkThread"
+        @remove-project="onRemoveProject"
+        @reorder-project="onReorderProject"
+        @export-thread="onExportThread"
+        @toggle-accounts-section="toggleAccountsSectionCollapsed"
+        @refresh-accounts="onRefreshAccounts"
+        @start-codex-login="onStartCodexLogin"
+        @account-pointer-enter="onAccountCardPointerEnter"
+        @account-pointer-leave="onAccountCardPointerLeave"
+        @switch-account="onSwitchAccount"
+        @remove-account="onRemoveAccount"
+        @toggle-send-with-enter="toggleSendWithEnter"
+        @cycle-in-progress-send-mode="cycleInProgressSendMode"
+        @cycle-dark-mode="cycleDarkMode"
+        @set-ui-language="setUiLanguage"
+        @cycle-chat-width="cycleChatWidth"
+        @toggle-text-animations="toggleTextAnimations"
+        @toggle-dictation-enabled="toggleDictationEnabled"
+        @toggle-dictation-click-to-toggle="toggleDictationClickToToggle"
+        @toggle-dictation-auto-send="toggleDictationAutoSend"
+        @save-telegram-config="saveTelegramConfig"
+      />
     </template>
 
     <template #content>
@@ -798,227 +539,69 @@
             </div>
           </template>
         </section>
-        <Transition name="content-inspector-panel-transition">
-          <aside
-            v-if="showInspectorPanel"
-            class="content-inspector-panel"
-            :aria-label="t('Inspector')"
-          >
-            <div class="content-inspector-shell">
-              <div class="content-inspector-scroll">
-              <section class="content-inspector-section">
-                <div class="content-inspector-heading-row">
-                  <h2 class="content-inspector-heading">{{ t('Environment') }}</h2>
-                  <IconCodexSettingsCog class="content-inspector-heading-icon" aria-hidden="true" />
-                </div>
-                <div class="content-inspector-rows">
-                  <div class="content-inspector-row">
-                    <IconCodexPullRequestOpen class="content-inspector-row-icon" />
-                    <span class="content-inspector-row-label">{{ t('Changes') }}</span>
-                    <span class="content-inspector-row-value">{{ inspectorGitStatusText }}</span>
-                  </div>
-                  <div class="content-inspector-row">
-                    <IconCodexLaptop class="content-inspector-row-icon" />
-                    <span class="content-inspector-row-label">{{ t('Local') }}</span>
-                  </div>
-                  <HeaderGitBranchDropdown
-                    v-if="canShowContentHeaderBranchDropdown"
-                    class="content-inspector-branch-dropdown"
-                    :current-branch="currentThreadBranch"
-                    :head-sha="currentThreadHeadSha"
-                    :head-subject="currentThreadHeadSubject"
-                    :head-date="currentThreadHeadDate"
-                    :detached="isThreadDetachedHead"
-                    :dirty="isThreadWorktreeDirty"
-                    :branches="threadBranchOptions"
-                    :commits-by-branch="threadBranchCommitsByBranch"
-                    :commits-loading-for="threadBranchCommitsLoadingFor"
-                    :commits-error="threadBranchCommitsError"
-                    :loading="isLoadingThreadBranches"
-                    :busy="isSwitchingThreadBranch"
-                    :error="threadBranchError"
-                    :review-open="isReviewPaneOpen"
-                    placement="inspector"
-                    :show-review="false"
-                    @toggle-review="isReviewPaneOpen = !isReviewPaneOpen"
-                    @checkout-branch="onCheckoutContentHeaderBranch"
-                    @reset-branch-to-commit="onResetContentHeaderBranchToCommit"
-                    @load-commits="loadThreadBranchCommits"
-                  />
-                  <div v-if="canShowContentHeaderBranchDropdown" class="content-inspector-row">
-                    <IconCodexSendToCloud class="content-inspector-row-icon" />
-                    <span class="content-inspector-row-label">{{ t('Commit or push') }}</span>
-                  </div>
-                  <div v-if="inspectorCommitText" class="content-inspector-row">
-                    <span class="content-inspector-row-spacer" aria-hidden="true" />
-                    <span class="content-inspector-row-label content-inspector-row-label--muted">{{ inspectorCommitText }}</span>
-                  </div>
-                </div>
-              </section>
-
-              <section v-if="showInspectorProgressSection" class="content-inspector-section">
-                <div class="content-inspector-heading-row content-inspector-progress-heading-row">
-                  <h2 class="content-inspector-heading">{{ t('Progress') }}</h2>
-                  <button
-                    class="content-inspector-progress-heading-button"
-                    type="button"
-                    :aria-label="inspectorProgressToggleLabel"
-                    :title="inspectorProgressToggleLabel"
-                    @click="toggleInspectorProgress"
-                  >
-                    <IconCodexChevronRight
-                      class="content-inspector-progress-chevron"
-                      :class="{ 'is-expanded': isInspectorProgressExpanded }"
-                    />
-                  </button>
-                </div>
-                <div v-if="isInspectorProgressExpanded" class="content-inspector-rows content-inspector-progress-rows">
-                  <div
-                    v-for="item in inspectorProgressItems"
-                    :key="item.label"
-                    class="content-inspector-row"
-                  >
-                    <IconCodexCheckCircleFilled
-                      v-if="inspectorProgressDotState(item.status) === 'done'"
-                      class="content-inspector-status-icon"
-                      data-state="done"
-                      aria-hidden="true"
-                    />
-                    <IconCodexUnselectedCircle
-                      v-else
-                      class="content-inspector-status-icon"
-                      :data-state="inspectorProgressDotState(item.status)"
-                      aria-hidden="true"
-                    />
-                    <span class="content-inspector-row-label">{{ item.label }}</span>
-                  </div>
-                </div>
-              </section>
-
-              <section class="content-inspector-section">
-                <h2 class="content-inspector-heading">{{ t('Sources') }}</h2>
-                <div class="content-inspector-rows">
-                  <div v-if="inspectorSourceItems.length === 0" class="content-inspector-empty">
-                    {{ t('No sources yet') }}
-                  </div>
-                  <div
-                    v-for="item in inspectorSourceItems"
-                    :key="item.label"
-                    class="content-inspector-row"
-                  >
-                    <span v-if="item.mark" class="content-inspector-source-mark" aria-hidden="true">{{ item.mark }}</span>
-                    <span class="content-inspector-row-label">{{ item.label }}</span>
-                  </div>
-                </div>
-              </section>
-              </div>
-            </div>
-          </aside>
-        </Transition>
+        <ContentInspectorPanel
+          :visible="showInspectorPanel"
+          :git-status-text="inspectorGitStatusText"
+          :commit-text="inspectorCommitText"
+          :can-show-branch-dropdown="canShowContentHeaderBranchDropdown"
+          :current-branch="currentThreadBranch"
+          :head-sha="currentThreadHeadSha"
+          :head-subject="currentThreadHeadSubject"
+          :head-date="currentThreadHeadDate"
+          :detached="isThreadDetachedHead"
+          :dirty="isThreadWorktreeDirty"
+          :branches="threadBranchOptions"
+          :commits-by-branch="threadBranchCommitsByBranch"
+          :commits-loading-for="threadBranchCommitsLoadingFor"
+          :commits-error="threadBranchCommitsError"
+          :loading-branches="isLoadingThreadBranches"
+          :switching-branch="isSwitchingThreadBranch"
+          :branch-error="threadBranchError"
+          :review-open="isReviewPaneOpen"
+          :show-progress-section="showInspectorProgressSection"
+          :progress-toggle-label="inspectorProgressToggleLabel"
+          :progress-expanded="isInspectorProgressExpanded"
+          :progress-items="inspectorProgressItems"
+          :source-items="inspectorSourceItems"
+          @toggle-review="isReviewPaneOpen = !isReviewPaneOpen"
+          @checkout-branch="onCheckoutContentHeaderBranch"
+          @reset-branch-to-commit="onResetContentHeaderBranchToCommit"
+          @load-commits="loadThreadBranchCommits"
+          @toggle-progress="toggleInspectorProgress"
+        />
         </div>
       </section>
     </template>
   </DesktopLayout>
-  <div
+  <CodexLoginModal
     v-if="isCodexLoginModalOpen"
-    class="codex-login-modal-backdrop"
-    role="presentation"
-    @click="onCancelCodexLoginModal"
-  >
-    <form
-      class="codex-login-modal"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="t('Complete Codex login')"
-      @submit.prevent="onSubmitCodexLoginCallback"
-      @click.stop
-    >
-      <div class="codex-login-modal-header">
-        <h2 class="codex-login-modal-title">{{ t('Complete Codex login') }}</h2>
-        <button
-          class="codex-login-modal-close"
-          type="button"
-          :aria-label="t('Close')"
-          :disabled="isCompletingCodexLogin"
-          @click="onCancelCodexLoginModal"
-        >
-          ×
-        </button>
-      </div>
-      <p class="codex-login-modal-copy">
-        {{ t('Finish login in the browser, then paste the localhost callback URL here.') }}
-      </p>
-      <a
-        v-if="codexLoginUrl"
-        class="codex-login-modal-link"
-        :href="codexLoginUrl"
-        target="_blank"
-        rel="noreferrer"
-      >
-        {{ t('Open login URL') }}
-      </a>
-      <input
-        ref="codexLoginCallbackInputRef"
-        v-model="codexLoginCallbackUrl"
-        class="codex-login-modal-input"
-        type="url"
-        inputmode="url"
-        :placeholder="t('Paste localhost callback URL')"
-        :disabled="isCompletingCodexLogin"
-      >
-      <div v-if="accountActionError" class="codex-login-modal-error">
-        <span>{{ accountActionError }}</span>
-      </div>
-      <div class="codex-login-modal-actions">
-        <button
-          class="codex-login-modal-cancel"
-          type="button"
-          :disabled="isCompletingCodexLogin"
-          @click="onCancelCodexLoginModal"
-        >
-          {{ t('Cancel') }}
-        </button>
-        <button
-          class="codex-login-modal-submit"
-          type="submit"
-          :disabled="isCompletingCodexLogin || codexLoginCallbackUrl.trim().length === 0"
-        >
-          {{ isCompletingCodexLogin ? t('Completing…') : t('Complete') }}
-        </button>
-      </div>
-    </form>
-  </div>
+    v-model:callback-url="codexLoginCallbackUrl"
+    :error="accountActionError"
+    :is-completing="isCompletingCodexLogin"
+    :login-url="codexLoginUrl"
+    @cancel="onCancelCodexLoginModal"
+    @submit="onSubmitCodexLoginCallback"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DesktopLayout from './components/layout/DesktopLayout.vue'
-import SidebarThreadTree from './components/sidebar/SidebarThreadTree.vue'
+import AppSidebar from './components/sidebar/AppSidebar.vue'
 import ContentHeader from './components/content/ContentHeader.vue'
 import ThreadComposer from './components/content/ThreadComposer.vue'
 import ThreadPendingRequestPanel from './components/content/ThreadPendingRequestPanel.vue'
 import QueuedMessages from './components/content/QueuedMessages.vue'
-import RateLimitStatus from './components/content/RateLimitStatus.vue'
+import ContentInspectorPanel from './components/content/ContentInspectorPanel.vue'
+import CodexLoginModal from './components/content/CodexLoginModal.vue'
 import ComposerDropdown from './components/content/ComposerDropdown.vue'
-import HeaderGitBranchDropdown from './components/content/HeaderGitBranchDropdown.vue'
 import ComposerRuntimeDropdown from './components/content/ComposerRuntimeDropdown.vue'
-import SidebarMenuRow from './components/sidebar/SidebarMenuRow.vue'
 import SidebarThreadControls from './components/sidebar/SidebarThreadControls.vue'
-import CodexSwitch from './components/ui/CodexSwitch.vue'
 import IconTablerLayoutSidebar from './components/icons/IconTablerLayoutSidebar.vue'
 import IconTablerLayoutSidebarFilled from './components/icons/IconTablerLayoutSidebarFilled.vue'
 import {
-  IconCodexCheckCircleFilled,
-  IconCodexChevronRight,
-  IconCodexCompose,
-  IconCodexLaptop,
-  IconCodexPullRequestOpen,
-  IconCodexSearch,
-  IconCodexSendToCloud,
-  IconCodexSettingsCog,
   IconCodexSkills,
-  IconCodexUnselectedCircle,
   IconCodexX,
 } from './components/icons/codex'
 import { buildInspectorPlanProgress } from './components/content/inspectorProgress'
@@ -1028,13 +611,6 @@ import {
   WHISPER_LANGUAGES,
   buildSettingsHelp,
 } from './app/appConfig'
-import {
-  buildAccountTitle as buildAccountTitleText,
-  formatAccountMeta as formatAccountMetaText,
-  formatAccountQuota as formatAccountQuotaText,
-  isAccountUnavailable,
-  shortAccountId,
-} from './app/accountDisplay'
 import { buildDirectoryTryPrompt, getDirectoryTryItemKey } from './app/directoryTry'
 import {
   loadAccountsSectionCollapsed,
@@ -1106,7 +682,6 @@ import type {
   DarkModePreference,
   DirectoryTryItemPayload,
   InProgressSendMode,
-  InspectorProgressDotState,
   InspectorSourceItem,
 } from './app/appTypes'
 import { getPathLeafName, getPathParent, isProjectlessChatPath, normalizePathForUi } from './pathUtils.js'
@@ -1228,10 +803,6 @@ const worktreeInitStatus = ref<{ phase: 'idle' | 'running' | 'error'; title: str
 const isSidebarCollapsed = ref(loadSidebarCollapsed())
 const sidebarSearchQuery = ref('')
 const isSidebarSearchVisible = ref(false)
-const sidebarSearchInputRef = ref<HTMLInputElement | null>(null)
-const settingsAreaRef = ref<HTMLElement | null>(null)
-const settingsPanelRef = ref<HTMLElement | null>(null)
-const settingsButtonRef = ref<HTMLElement | null>(null)
 const serverMatchedThreadIds = ref<string[] | null>(null)
 let threadSearchTimer: ReturnType<typeof setTimeout> | null = null
 let threadBranchesRequestId = 0
@@ -1263,7 +834,6 @@ const isCompletingCodexLogin = ref(false)
 const isCodexLoginModalOpen = ref(false)
 const codexLoginUrl = ref('')
 const codexLoginCallbackUrl = ref('')
-const codexLoginCallbackInputRef = ref<HTMLInputElement | null>(null)
 const removingAccountId = ref('')
 const confirmingRemoveAccountId = ref('')
 const hoveredAccountId = ref('')
@@ -1443,12 +1013,6 @@ watch(
   },
   { immediate: true },
 )
-
-function inspectorProgressDotState(status: string): InspectorProgressDotState {
-  if (status === 'completed') return 'done'
-  if (status === 'inProgress') return 'active'
-  return 'idle'
-}
 
 function toggleInspectorProgress(): void {
   isInspectorProgressExpanded.value = !isInspectorProgressExpanded.value
@@ -1726,7 +1290,6 @@ const telegramStatusText = computed(() => {
 })
 
 onMounted(() => {
-  document.addEventListener('pointerdown', onDocumentPointerDown)
   window.addEventListener('keydown', onWindowKeyDown)
   document.addEventListener('visibilitychange', onDocumentVisibilityChange)
   window.addEventListener('pageshow', onWindowPageShow)
@@ -1746,7 +1309,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  document.removeEventListener('pointerdown', onDocumentPointerDown)
   window.removeEventListener('keydown', onWindowKeyDown)
   document.removeEventListener('visibilitychange', onDocumentVisibilityChange)
   window.removeEventListener('pageshow', onWindowPageShow)
@@ -1891,27 +1453,6 @@ async function saveTelegramConfig(): Promise<void> {
   }
 }
 
-function toggleSidebarSearch(): void {
-  isSidebarSearchVisible.value = !isSidebarSearchVisible.value
-  if (isSidebarSearchVisible.value) {
-    nextTick(() => sidebarSearchInputRef.value?.focus())
-  } else {
-    sidebarSearchQuery.value = ''
-  }
-}
-
-function clearSidebarSearch(): void {
-  sidebarSearchQuery.value = ''
-  sidebarSearchInputRef.value?.focus()
-}
-
-function onSidebarSearchKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') {
-    isSidebarSearchVisible.value = false
-    sidebarSearchQuery.value = ''
-  }
-}
-
 function onSelectThread(threadId: string): void {
   if (!threadId) return
   if (route.name === 'thread' && routeThreadId.value === threadId) return
@@ -1929,36 +1470,6 @@ async function onExportThread(threadId: string): Promise<void> {
   onExportChat()
 }
 
-function formatAccountMeta(account: UiAccountEntry): string {
-  return formatAccountMetaText(account, t)
-}
-
-function isAccountActionDisabled(account: UiAccountEntry): boolean {
-  return isRefreshingAccounts.value || isSwitchingAccounts.value || isStartingCodexLogin.value || isCompletingCodexLogin.value || removingAccountId.value.length > 0
-    || (account.isActive && removingAccountId.value !== account.accountId && isAccountSwitchBlocked.value)
-}
-
-function isRemoveConfirmationActive(account: UiAccountEntry): boolean {
-  return confirmingRemoveAccountId.value === account.accountId
-}
-
-function isRemoveVisible(account: UiAccountEntry): boolean {
-  return hoveredAccountId.value === account.accountId || isRemoveConfirmationActive(account)
-}
-
-function getAccountSwitchLabel(account: UiAccountEntry): string {
-  if (isAccountUnavailable(account)) return t('Unavailable')
-  if (account.isActive) return t('Active')
-  if (isSwitchingAccounts.value) return t('Switching…')
-  return t('Switch')
-}
-
-function getAccountRemoveLabel(account: UiAccountEntry): string {
-  if (removingAccountId.value === account.accountId) return t('Removing…')
-  if (isRemoveConfirmationActive(account)) return t('Click again to remove')
-  return t('Remove')
-}
-
 function onAccountCardPointerEnter(accountId: string): void {
   hoveredAccountId.value = accountId
 }
@@ -1971,14 +1482,6 @@ function onAccountCardPointerLeave(accountId: string): void {
   if (confirmingRemoveAccountId.value === accountId) {
     confirmingRemoveAccountId.value = ''
   }
-}
-
-function formatAccountQuota(account: UiAccountEntry): string {
-  return formatAccountQuotaText(account, t)
-}
-
-function buildAccountTitle(account: UiAccountEntry): string {
-  return buildAccountTitleText(account, t)
 }
 
 async function loadAccountsState(options: { silent?: boolean } = {}): Promise<void> {
@@ -2028,8 +1531,6 @@ async function onStartCodexLogin(): Promise<void> {
     codexLoginUrl.value = loginUrl
     isCodexLoginModalOpen.value = true
     window.open(loginUrl, '_blank', 'noopener,noreferrer')
-    await nextTick()
-    codexLoginCallbackInputRef.value?.focus()
   } catch (error) {
     accountActionError.value = error instanceof Error ? error.message : t('Failed to start Codex login')
   } finally {
@@ -2394,30 +1895,6 @@ function shouldInterruptSelectedTurnFromEscape(event: KeyboardEvent): boolean {
     if (target.closest('[role="dialog"], [data-codex-approval-surface]')) return false
   }
   return true
-}
-
-function onDocumentPointerDown(event: PointerEvent): void {
-  const target = event.target
-  if (!(target instanceof Node)) return
-  if (!isSettingsOpen.value) return
-  if (settingsPanelRef.value?.contains(target)) return
-  if (settingsButtonRef.value?.contains(target)) return
-  if (isSettingsPortalTarget(target)) return
-  isSettingsOpen.value = false
-}
-
-function onSettingsAreaClick(event: MouseEvent): void {
-  if (!isSettingsOpen.value) return
-  const target = event.target
-  if (!(target instanceof Node)) return
-  if (settingsPanelRef.value?.contains(target)) return
-  if (settingsButtonRef.value?.contains(target)) return
-  isSettingsOpen.value = false
-}
-
-function isSettingsPortalTarget(target: Node): boolean {
-  const targetElement = target instanceof Element ? target : target.parentElement
-  return Boolean(targetElement?.closest('.composer-dropdown-menu-wrap'))
 }
 
 function onDocumentVisibilityChange(): void {
@@ -3672,25 +3149,6 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 <style scoped>
 @reference "tailwindcss";
 
-.sidebar-root {
-  @apply h-full flex flex-col select-none transition-colors;
-  background-color: transparent;
-}
-
-.sidebar-root input,
-.sidebar-root textarea {
-  @apply select-text;
-}
-
-.sidebar-nav-sticky {
-  @apply shrink-0 px-2 pt-4 pb-2 flex flex-col gap-2;
-}
-
-.sidebar-scrollable {
-  @apply flex-1 min-h-0 overflow-y-auto px-2 pb-4 flex flex-col gap-2;
-  background-color: transparent;
-}
-
 .content-root {
   @apply h-full min-h-0 min-w-0 w-full flex flex-col overflow-y-hidden overflow-x-hidden transition-colors;
   background-color: var(--codex-bg);
@@ -3708,62 +3166,6 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 
 .content-workspace.is-inspector-open {
   @apply gap-0;
-}
-
-.sidebar-thread-controls-host {
-  @apply mt-1 -translate-y-px px-2 pb-1;
-}
-
-.sidebar-search-bar {
-  @apply flex items-center gap-1.5 mx-2 px-2 py-1 rounded-md border border-zinc-200 bg-white transition-colors focus-within:border-zinc-400;
-}
-
-.sidebar-search-bar-icon {
-  @apply w-3.5 h-3.5 text-zinc-400 shrink-0;
-}
-
-.sidebar-search-input {
-  @apply flex-1 min-w-0 bg-transparent text-sm text-zinc-800 placeholder-zinc-400 outline-none border-none p-0;
-}
-
-.sidebar-search-clear {
-  @apply w-4 h-4 rounded text-zinc-400 flex items-center justify-center transition hover:text-zinc-600;
-}
-
-.sidebar-search-clear-icon {
-  @apply w-3.5 h-3.5;
-}
-
-.sidebar-primary-link {
-  @apply mx-2 min-h-8 rounded-lg border border-transparent px-2 py-1 text-left transition cursor-pointer;
-  background-color: transparent;
-  color: var(--codex-muted-text);
-}
-
-.sidebar-primary-link:hover {
-  background-color: var(--codex-control-hover);
-  color: var(--codex-text);
-}
-
-.sidebar-primary-link.is-active {
-  @apply border-transparent;
-  background-color: var(--codex-control-hover);
-  color: var(--codex-text);
-}
-
-.sidebar-primary-link-icon {
-  @apply h-4 w-4 shrink-0;
-  color: var(--codex-muted-text);
-}
-
-.sidebar-primary-link:hover .sidebar-primary-link-icon,
-.sidebar-primary-link.is-active .sidebar-primary-link-icon {
-  color: var(--codex-text);
-}
-
-.sidebar-primary-link-title {
-  @apply truncate text-sm font-normal leading-5;
-  color: currentColor;
 }
 
 .sidebar-thread-controls-header-host {
@@ -3867,201 +3269,9 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
   @apply h-4.5 w-4.5;
 }
 
-.content-header-branch-dropdown :deep(.composer-dropdown-prefix-icon) {
-  @apply h-4 w-4 text-zinc-600;
-}
-
-.content-header-branch-dropdown :deep(.composer-dropdown-trigger) {
-  @apply gap-0.5;
-}
-
-.content-header-branch-dropdown :deep(.composer-dropdown-trigger) {
-  @apply rounded-full border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-700 transition hover:bg-zinc-50;
-}
-
-.content-header-branch-dropdown :deep(.composer-dropdown-value) {
-  @apply max-w-40 truncate;
-}
-
-.content-header-branch-dropdown :deep(.composer-dropdown-menu-wrap) {
-  left: auto;
-  right: 0;
-}
-
-.content-header-branch-dropdown.is-review-open :deep(.composer-dropdown-trigger) {
-  @apply border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800;
-}
-
-.content-header-branch-dropdown.is-review-open :deep(.composer-dropdown-chevron) {
-  @apply text-white;
-}
-
-.content-inspector-panel {
-  @apply min-h-0 w-[20.25rem] shrink-0 pl-2 pr-5 pt-3 pb-5;
-}
-
-.content-inspector-panel-transition-enter-active,
-.content-inspector-panel-transition-leave-active {
-  transition:
-    opacity 180ms ease,
-    transform 180ms ease,
-    width 180ms ease,
-    padding-left 180ms ease,
-    padding-right 180ms ease;
-  overflow: hidden;
-}
-
-.content-inspector-panel-transition-enter-from,
-.content-inspector-panel-transition-leave-to {
-  width: 0;
-  padding-left: 0;
-  padding-right: 0;
-  opacity: 0;
-  transform: translateX(12px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .content-inspector-panel-transition-enter-active,
-  .content-inspector-panel-transition-leave-active {
-    transition: none;
-  }
-}
-
-.content-inspector-shell {
-  @apply flex max-h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-zinc-200/80 bg-white/95 pt-3 shadow-[0_18px_48px_-30px_rgba(0,0,0,0.45)];
-  backdrop-filter: blur(18px);
-}
-
-.content-inspector-scroll {
-  @apply min-h-0 overflow-y-auto pb-3;
-}
-
-.content-inspector-section {
-  @apply relative flex flex-col pb-2.5;
-}
-
-.content-inspector-section::after {
-  content: '';
-  @apply absolute inset-x-4 bottom-0 h-px bg-zinc-200;
-}
-
-.content-inspector-section:last-child {
-  @apply pb-0;
-}
-
-.content-inspector-section:last-child::after {
-  display: none;
-}
-
-.content-inspector-heading {
-  @apply m-0 px-4 pb-1 text-sm font-medium leading-5 text-zinc-500;
-}
-
-.content-inspector-heading-row {
-  @apply flex items-center justify-between gap-3 px-4 pb-1;
-}
-
-.content-inspector-heading-row .content-inspector-heading {
-  @apply px-0 pb-0;
-}
-
-.content-inspector-heading-icon {
-  @apply h-4.5 w-4.5 shrink-0 text-zinc-500;
-}
-
-.content-inspector-progress-heading-row {
-  @apply items-center;
-}
-
-.content-inspector-progress-heading-button {
-  @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300;
-}
-
-.content-inspector-progress-chevron {
-  @apply h-4 w-4 transition-transform;
-}
-
-.content-inspector-progress-chevron.is-expanded {
-  transform: rotate(90deg);
-}
-
-.content-inspector-rows {
-  @apply flex flex-col gap-0 px-4;
-}
-
-.content-inspector-row {
-  @apply flex min-h-7 min-w-0 items-center gap-2.5 rounded-md px-0 py-0.5 text-sm leading-5 text-zinc-800;
-}
-
-.content-inspector-row-icon,
-.content-inspector-row-spacer {
-  @apply h-4.5 w-4.5 shrink-0;
-}
-
-.content-inspector-row-icon {
-  @apply text-zinc-500;
-}
-
-.content-inspector-row-label {
-  @apply min-w-0 flex-1 truncate leading-5;
-}
-
-.content-inspector-row-value {
-  @apply ml-auto max-w-40 shrink-0 truncate text-right text-xs text-zinc-500;
-}
-
-.content-inspector-row-label--muted {
-  @apply text-xs text-zinc-500;
-}
-
-.content-inspector-empty {
-  @apply py-0.5 text-sm leading-5 text-zinc-500;
-}
-
-.content-inspector-status-icon {
-  @apply h-4.5 w-4.5 shrink-0;
-  color: rgb(113 113 122);
-}
-
-.content-inspector-status-icon[data-state='done'] {
-  color: rgb(113 113 122);
-}
-
-.content-inspector-status-icon[data-state='active'] {
-  color: rgb(82 82 91);
-}
-
-.content-inspector-source-mark {
-  @apply inline-flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-[10px] font-semibold text-zinc-600;
-}
-
-.content-inspector-branch-dropdown {
-  @apply w-full min-w-0;
-}
-
-.content-inspector-branch-dropdown :deep(.header-git-trigger) {
-  @apply min-h-7 w-full max-w-none justify-start rounded-md border-0 bg-transparent px-0 py-0.5 text-sm text-zinc-800 hover:bg-transparent;
-}
-
-.content-inspector-branch-dropdown :deep(.header-git-trigger-label) {
-  @apply flex-1 text-left;
-}
-
-.content-inspector-branch-dropdown :deep(.header-git-menu-wrap) {
-  @apply z-[80];
-}
-
 @media (max-width: 920px) {
   .content-workspace {
     @apply relative;
-  }
-
-  .content-inspector-panel {
-    @apply absolute right-0 top-0 bottom-0 z-30 w-[min(19.75rem,calc(100vw-1rem))] pl-2 pr-2;
-  }
-
-  .content-inspector-shell {
-    @apply shadow-2xl shadow-zinc-900/20;
   }
 }
 
@@ -4408,368 +3618,6 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 
 .worktree-init-status-message {
   @apply break-all;
-}
-
-.sidebar-settings-area {
-  @apply shrink-0 pt-2 px-2 pb-2;
-  background-color: transparent;
-}
-
-.sidebar-settings-button {
-  @apply flex items-center gap-2 w-full rounded-lg border-0 bg-transparent px-2 py-2 text-sm text-zinc-600 transition hover:bg-zinc-200 hover:text-zinc-900 cursor-pointer;
-}
-
-.sidebar-settings-icon {
-  @apply w-4.5 h-4.5;
-}
-
-.sidebar-settings-panel {
-  @apply mb-1 max-h-[min(70vh,36rem)] overflow-y-auto rounded-lg border border-zinc-200 bg-white;
-}
-
-.sidebar-settings-row {
-  @apply flex items-center justify-between w-full px-3 py-2.5 text-sm text-zinc-700 border-0 bg-transparent transition hover:bg-zinc-50 cursor-pointer;
-}
-
-.sidebar-settings-row--select {
-  @apply cursor-default items-center gap-2;
-}
-
-.sidebar-settings-row--switch {
-  @apply cursor-default;
-}
-
-.sidebar-settings-language-dropdown {
-  @apply min-w-0 max-w-52;
-}
-
-.sidebar-settings-language-dropdown :deep(.composer-dropdown-trigger) {
-  @apply h-auto rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700;
-}
-
-.sidebar-settings-language-dropdown :deep(.composer-dropdown-value) {
-  @apply max-w-32;
-}
-
-:global(:root.dark) .sidebar-settings-language-dropdown :deep(.composer-dropdown-trigger) {
-  border-color: var(--codex-border-heavy);
-  background-color: var(--codex-control-bg);
-  color: var(--codex-text);
-}
-
-:global(:root.dark) .sidebar-settings-language-dropdown :deep(.composer-dropdown-chevron) {
-  color: var(--codex-muted-text);
-}
-
-.sidebar-settings-row + .sidebar-settings-row {
-  @apply border-t border-zinc-100;
-}
-
-.sidebar-settings-telegram-panel {
-  @apply border-t border-zinc-100 bg-zinc-50/70 px-3 py-3;
-}
-
-.sidebar-settings-field {
-  @apply flex flex-col gap-1.5;
-}
-
-.sidebar-settings-field + .sidebar-settings-field {
-  @apply mt-3;
-}
-
-.sidebar-settings-field-label {
-  @apply text-xs font-medium text-zinc-700;
-}
-
-.sidebar-settings-input,
-.sidebar-settings-textarea {
-  @apply w-full rounded-md border border-zinc-200 bg-white px-2.5 py-2 text-sm text-zinc-800 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200;
-}
-
-.sidebar-settings-textarea {
-  @apply min-h-20 resize-y font-mono text-xs;
-}
-
-.sidebar-settings-field-help {
-  @apply mt-2 text-xs leading-5 text-zinc-500;
-}
-
-.sidebar-settings-telegram-error {
-  @apply mt-2 rounded-md bg-rose-50 px-2.5 py-2 text-xs text-zinc-700;
-}
-
-.sidebar-settings-telegram-actions {
-  @apply mt-3 flex items-center justify-end;
-}
-
-.sidebar-settings-telegram-save {
-  @apply rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
-}
-
-.sidebar-settings-account-section {
-  @apply border-t border-zinc-100 bg-zinc-50/60 px-3 py-3;
-}
-
-.sidebar-settings-account-header {
-  @apply mb-2 flex items-center justify-between gap-2;
-}
-
-.sidebar-settings-account-header-main {
-  @apply flex items-center gap-2;
-}
-
-.sidebar-settings-account-collapse {
-  @apply inline-flex h-5 w-5 items-center justify-center rounded border border-zinc-200 bg-white text-zinc-600 transition hover:bg-zinc-100;
-}
-
-.sidebar-settings-account-collapse-icon {
-  @apply text-[11px] leading-none;
-}
-
-.sidebar-settings-account-title {
-  @apply text-sm font-medium text-zinc-800;
-}
-
-.sidebar-settings-account-count {
-  @apply rounded bg-zinc-200 px-1.5 py-0.5 text-[11px] text-zinc-600;
-}
-
-.sidebar-settings-account-error {
-  @apply mb-2 rounded-md bg-rose-50 px-2 py-1.5 text-xs text-zinc-700;
-}
-
-.sidebar-settings-account-refresh {
-  @apply shrink-0 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
-}
-
-.sidebar-settings-account-login {
-  @apply mb-2 flex items-center gap-2;
-}
-
-.sidebar-settings-account-login-button {
-  @apply shrink-0 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
-}
-
-.sidebar-settings-account-login-link {
-  @apply min-w-0 truncate text-xs text-blue-600 hover:text-blue-700 hover:underline;
-}
-
-.sidebar-settings-account-empty {
-  @apply text-xs text-zinc-500;
-}
-
-.codex-login-modal-backdrop {
-  @apply fixed inset-0 z-[100] flex items-center justify-center bg-black/35 px-4;
-}
-
-.codex-login-modal {
-  @apply flex w-full max-w-md flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-2xl;
-}
-
-.codex-login-modal-header {
-  @apply flex items-center justify-between gap-3;
-}
-
-.codex-login-modal-title {
-  @apply text-base font-semibold text-zinc-900;
-}
-
-.codex-login-modal-close {
-  @apply inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white text-lg leading-none text-zinc-600 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
-}
-
-.codex-login-modal-copy {
-  @apply text-sm leading-5 text-zinc-600;
-}
-
-.codex-login-modal-link {
-  @apply min-w-0 truncate text-sm text-blue-600 hover:text-blue-700 hover:underline;
-}
-
-.codex-login-modal-input {
-  @apply w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-zinc-400 disabled:cursor-default disabled:opacity-60;
-}
-
-.codex-login-modal-error {
-  @apply rounded-md bg-rose-50 px-3 py-2 text-xs text-zinc-700;
-}
-
-.codex-login-modal-actions {
-  @apply flex items-center justify-end gap-2;
-}
-
-.codex-login-modal-cancel,
-.codex-login-modal-submit {
-  @apply rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
-}
-
-.codex-login-modal-submit {
-  @apply border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800;
-}
-
-:global(:root.dark) .codex-login-modal {
-  @apply border-zinc-700 bg-zinc-900;
-}
-
-:global(:root.dark) .codex-login-modal-title {
-  @apply text-zinc-100;
-}
-
-:global(:root.dark) .codex-login-modal-close,
-:global(:root.dark) .codex-login-modal-cancel {
-  @apply border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700;
-}
-
-:global(:root.dark) .codex-login-modal-copy {
-  @apply text-zinc-300;
-}
-
-:global(:root.dark) .codex-login-modal-link {
-  @apply text-sky-300 hover:text-sky-200;
-}
-
-:global(:root.dark) .codex-login-modal-input {
-  @apply border-zinc-600 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-400;
-}
-
-:global(:root.dark) .codex-login-modal-error {
-  @apply bg-rose-950/40 text-zinc-200;
-}
-
-:global(:root.dark) .codex-login-modal-submit {
-  @apply border-zinc-200 bg-zinc-100 text-zinc-900 hover:bg-white;
-}
-
-.sidebar-settings-account-list {
-  @apply flex flex-col gap-2;
-}
-
-.sidebar-settings-account-item {
-  @apply flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-2;
-}
-
-.sidebar-settings-account-item.is-active {
-  @apply border-emerald-200 bg-emerald-50;
-}
-
-.sidebar-settings-account-item.is-unavailable {
-  @apply border-rose-200 bg-rose-50;
-}
-
-.sidebar-settings-account-main {
-  @apply min-w-0 flex-1;
-}
-
-.sidebar-settings-account-actions {
-  @apply flex w-24 shrink-0 flex-col items-end gap-1.5;
-}
-
-.sidebar-settings-account-email {
-  @apply truncate text-sm text-zinc-800;
-}
-
-.sidebar-settings-account-meta {
-  @apply truncate text-[11px] text-zinc-500;
-}
-
-.sidebar-settings-account-quota {
-  @apply truncate text-[11px] text-zinc-600;
-}
-
-.sidebar-settings-account-id {
-  @apply mt-1 inline-flex max-w-full rounded-full bg-zinc-100 px-2 py-0.5 font-mono text-[11px] text-zinc-700;
-}
-
-.sidebar-settings-account-item.is-active .sidebar-settings-account-id {
-  @apply bg-emerald-100 text-emerald-800;
-}
-
-.sidebar-settings-account-item.is-unavailable .sidebar-settings-account-id {
-  @apply bg-rose-100 text-zinc-700;
-}
-
-.sidebar-settings-account-switch {
-  @apply min-w-[4.75rem] shrink-0 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-center text-xs text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
-}
-
-.sidebar-settings-account-remove {
-  @apply invisible shrink-0 rounded-full border border-amber-200 bg-white px-2 py-0.5 text-[10px] leading-4 text-zinc-500 opacity-0 pointer-events-none transition-colors hover:bg-amber-50 disabled:cursor-default disabled:opacity-60;
-}
-
-.sidebar-settings-account-remove.is-visible {
-  @apply visible opacity-100 pointer-events-auto;
-}
-
-.sidebar-settings-account-remove.is-confirming {
-  @apply border-amber-300 bg-amber-50 text-amber-700 font-medium;
-}
-
-.sidebar-settings-label {
-  @apply text-left;
-}
-
-.sidebar-settings-value {
-  @apply text-xs text-zinc-500 bg-zinc-100 rounded px-1.5 py-0.5;
-}
-
-
-.sidebar-settings-language-select {
-  @apply min-w-0 max-w-40 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 outline-none transition-colors cursor-pointer;
-}
-
-.sidebar-settings-language-select:focus {
-  @apply border-zinc-400 ring-2 ring-zinc-200;
-}
-
-:root.dark .sidebar-settings-language-select {
-  @apply border-zinc-600 bg-zinc-800 text-zinc-200;
-}
-
-:root.dark .sidebar-settings-language-select:focus {
-  @apply border-zinc-500 ring-zinc-700;
-}
-
-.settings-panel-enter-active,
-.settings-panel-leave-active {
-  transition: all 150ms ease;
-}
-
-.settings-panel-enter-from,
-.settings-panel-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-.sidebar-settings-context-row {
-  @apply cursor-default;
-}
-
-.sidebar-settings-context-value {
-  @apply text-xs font-semibold text-zinc-700 text-right;
-}
-
-.sidebar-settings-context-value[data-state='ok'] {
-  @apply text-emerald-700;
-}
-
-.sidebar-settings-context-value[data-state='warning'] {
-  @apply text-amber-700;
-}
-
-.sidebar-settings-context-value[data-state='danger'] {
-  @apply text-zinc-700;
-}
-
-.sidebar-settings-context-meta {
-  @apply block text-[11px] font-normal text-zinc-500;
-}
-
-.sidebar-settings-rate-limits {
-  @apply border-t border-zinc-200 px-2 pt-2;
-}
-
-.sidebar-settings-build-label {
-  @apply border-t border-zinc-100 px-3 py-2 text-[11px] text-zinc-500;
 }
 
 </style>

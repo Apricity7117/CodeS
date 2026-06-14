@@ -1,0 +1,52 @@
+body {
+  background-color: var(--codex-bg);
+  color: var(--codex-text);
+  font-family: var(--codex-ui-font-family);
+  font-size: var(--codex-ui-font-size);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  @apply transition-colors;
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--codex-code-font-family);
+}
+
+.message-file-link {
+  color: var(--codex-link);
+}
+
+.message-file-link:hover {
+  color: var(--codex-link-hover);
+}
+
+.desktop-layout {
+  background-color: var(--codex-surface-under);
+  color: var(--codex-text);
+  @apply transition-colors;
+}
+
+.desktop-sidebar,
+.mobile-drawer {
+  background-color: var(--codex-sidebar-glass-bg);
+  -webkit-backdrop-filter: var(--codex-sidebar-glass-filter);
+  backdrop-filter: var(--codex-sidebar-glass-filter);
+  color: var(--codex-text);
+  @apply transition-colors;
+}
+
+.sidebar-scrollable {
+  background-color: transparent;
+  color: var(--codex-text);
+  @apply transition-colors;
+}
+
+.desktop-main {
+  background-color: var(--codex-bg);
+  color: var(--codex-text);
+  @apply transition-colors;
+}
