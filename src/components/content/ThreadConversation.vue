@@ -418,6 +418,7 @@
                     </button>
                   </div>
                 </div>
+                <p v-else-if="message.role === 'user'" class="message-text message-text-plain">{{ message.text }}</p>
                 <div
                   v-else
                   class="message-text-flow"
@@ -5052,5 +5053,77 @@ onBeforeUnmount(() => {
   .diff-viewer-line-code {
     @apply px-2 py-1 text-[11px] leading-5;
   }
+}
+</style>
+
+<!--
+  全局高亮覆盖：通过 v-html 注入的代码块（计划卡片、worked 过程）不带 scoped data-v 属性，
+  scoped 的 :deep(.hljs*) 规则无法命中它们，会回退到全局 github-dark 主题（深色背景 + 错误配色，
+  在浅色模式下尤为明显，例如 ```json``` 显示为深色块）。此处用非 scoped 规则统一两条渲染路径。
+-->
+<style>
+.message-code-pre .hljs {
+  display: block;
+  padding: 0;
+  background: transparent;
+  color: var(--codex-code-text);
+}
+
+.message-code-pre .hljs-subst {
+  color: var(--codex-code-text);
+}
+
+.message-code-pre .hljs-comment,
+.message-code-pre .hljs-quote {
+  color: var(--codex-code-comment);
+}
+
+.message-code-pre .hljs-keyword,
+.message-code-pre .hljs-selector-tag,
+.message-code-pre .hljs-meta .hljs-keyword,
+.message-code-pre .hljs-doctag,
+.message-code-pre .hljs-built_in,
+.message-code-pre .hljs-type {
+  color: var(--codex-code-keyword);
+}
+
+.message-code-pre .hljs-string,
+.message-code-pre .hljs-attr,
+.message-code-pre .hljs-symbol,
+.message-code-pre .hljs-bullet {
+  color: var(--codex-code-string);
+}
+
+.message-code-pre .hljs-title,
+.message-code-pre .hljs-section,
+.message-code-pre .hljs-name,
+.message-code-pre .hljs-selector-id,
+.message-code-pre .hljs-selector-class,
+.message-code-pre .hljs-function .hljs-title,
+.message-code-pre .hljs-class .hljs-title {
+  color: var(--codex-code-title);
+}
+
+.message-code-pre .hljs-number,
+.message-code-pre .hljs-literal,
+.message-code-pre .hljs-variable,
+.message-code-pre .hljs-template-variable {
+  color: var(--codex-code-number);
+}
+
+.message-code-pre .hljs-addition {
+  color: var(--codex-diff-added);
+  background-color: transparent;
+}
+
+.message-code-pre .hljs-deletion {
+  color: var(--codex-diff-removed);
+  background-color: transparent;
+}
+
+/* JSON 语法会输出大量 hljs-punctuation（{ } : , [ ]），github-dark 主题未配色，
+   统一使用代码文本色，避免与正文颜色不一致 */
+.message-code-pre .hljs-punctuation {
+  color: var(--codex-code-text);
 }
 </style>

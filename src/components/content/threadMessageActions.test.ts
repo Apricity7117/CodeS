@@ -66,14 +66,15 @@ describe('thread message action utilities', () => {
     })
   })
 
-  it('adds copyable user messages without losing assistant response copy text', () => {
+  it('copies only the plain text of user messages, excluding attachments', () => {
     const messages = [
       message({ id: 'assistant-anchor', text: 'Assistant answer' }),
       message({
         id: 'user-1',
         role: 'user',
-        text: 'User prompt',
+        text: '  User prompt  ',
         fileAttachments: [{ label: 'readme', path: 'README.md' }],
+        images: ['file:///tmp/image.png'],
       }),
     ]
 
@@ -81,7 +82,7 @@ describe('thread message action utilities', () => {
       'assistant-anchor': 'Assistant answer',
     })).toEqual({
       'assistant-anchor': 'Assistant answer',
-      'user-1': 'User prompt\n\nFiles:\nREADME.md',
+      'user-1': 'User prompt',
     })
   })
 

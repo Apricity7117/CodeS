@@ -80,6 +80,11 @@ export function buildCopyableResponseContentByAnchorId(
   return next
 }
 
+// 用户发送气泡仅复制纯文本，不包含附件、图片等额外内容
+export function buildCopyableUserMessageText(message: UiMessage): string {
+  return message.text.trim()
+}
+
 export function buildCopyableMessageContentByAnchorId(
   messages: UiMessage[],
   responseContentByAnchorId: Record<string, string>,
@@ -87,7 +92,7 @@ export function buildCopyableMessageContentByAnchorId(
   const next: Record<string, string> = { ...responseContentByAnchorId }
   for (const message of messages) {
     if (message.role !== 'user') continue
-    const content = buildCopyableMessageContent(message)
+    const content = buildCopyableUserMessageText(message)
     if (content) next[message.id] = content
   }
   return next
