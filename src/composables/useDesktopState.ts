@@ -961,6 +961,8 @@ type TurnSummaryState = {
   durationMs: number
 }
 
+type TurnSummariesByTurnIdState = Record<string, TurnSummaryState>
+
 type TurnActivityState = {
   label: string
   details: string[]
@@ -1045,24 +1047,62 @@ function buildTurnSummaryMessage(summary: TurnSummaryState): UiMessage {
   }
 }
 
-function findLastAssistantMessageIndex(messages: UiMessage[]): number {
+function readMessageTurnId(message: UiMessage): string {
+  return message.turnId?.trim() ?? ''
+}
+
+function findTurnSummaryInsertIndex(messages: UiMessage[], summary: TurnSummaryState): number {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index].role === 'assistant') {
+    const message = messages[index]
+    if (readMessageTurnId(message) === summary.turnId && message.role === 'assistant') {
       return index
     }
   }
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (readMessageTurnId(messages[index]) === summary.turnId) {
+      return index + 1
+    }
+  }
+
   return -1
 }
 
-function insertTurnSummaryMessage(messages: UiMessage[], summary: TurnSummaryState): UiMessage[] {
-  const summaryMessage = buildTurnSummaryMessage(summary)
-  const sanitizedMessages = messages.filter((message) => message.messageType !== WORKED_MESSAGE_TYPE)
-  const insertIndex = findLastAssistantMessageIndex(sanitizedMessages)
-  if (insertIndex < 0) {
-    return [...sanitizedMessages, summaryMessage]
+function hasWorkedMessageForTurn(messages: UiMessage[], turnId: string): boolean {
+  return messages.some((message) =>
+    message.messageType === WORKED_MESSAGE_TYPE && readMessageTurnId(message) === turnId,
+  )
+}
+
+export function insertTurnSummaryMessages(
+  messages: UiMessage[],
+  summaries: readonly TurnSummaryState[],
+): UiMessage[] {
+  const entries = summaries
+    .filter((summary) => summary.turnId.trim().length > 0 && !hasWorkedMessageForTurn(messages, summary.turnId))
+    .map((summary, order) => ({
+      order,
+      summary,
+      insertIndex: findTurnSummaryInsertIndex(messages, summary),
+    }))
+
+  if (entries.length === 0) return messages
+
+  const next = [...messages]
+  entries.sort((first, second) => {
+    if (first.insertIndex !== second.insertIndex) return second.insertIndex - first.insertIndex
+    return second.order - first.order
+  })
+
+  for (const entry of entries) {
+    const summaryMessage = buildTurnSummaryMessage(entry.summary)
+    if (entry.insertIndex < 0) {
+      next.push(summaryMessage)
+    } else {
+      next.splice(entry.insertIndex, 0, summaryMessage)
+    }
   }
-  const next = [...sanitizedMessages]
-  next.splice(insertIndex, 0, summaryMessage)
+
   return next
 }
 
@@ -1602,7 +1642,7 @@ export function useDesktopState() {
   const loadingOlderMessagesByThreadId = ref<Record<string, boolean>>({})
   const resumedThreadById = ref<Record<string, boolean>>({})
   const turnIndexByTurnIdByThreadId = ref<Record<string, Record<string, number>>>({})
-  const turnSummaryByThreadId = ref<Record<string, TurnSummaryState>>({})
+  const turnSummaryByThreadId = ref<Record<string, TurnSummariesByTurnIdState>>({})
   const turnActivityByThreadId = ref<Record<string, TurnActivityState>>({})
   const turnErrorByThreadId = ref<Record<string, TurnErrorState>>({})
   const activeTurnIdByThreadId = ref<Record<string, string>>({})
@@ -1739,9 +1779,9 @@ export function useDesktopState() {
     const liveFileChanges = liveFileChangeMessagesByThreadId.value[threadId] ?? []
     const combined = [...persisted, ...optimisticUser, ...livePlan, ...liveCommands, ...liveFileChanges, ...liveAgent]
 
-    const summary = turnSummaryByThreadId.value[threadId]
-    if (!summary) return combined
-    return insertTurnSummaryMessage(combined, summary)
+    const summaries = Object.values(turnSummaryByThreadId.value[threadId] ?? {})
+    if (summaries.length === 0) return combined
+    return insertTurnSummaryMessages(combined, summaries)
   })
   const hasMoreOlderMessages = computed(() => {
     const threadId = selectedThreadId.value
@@ -2339,18 +2379,48 @@ export function useDesktopState() {
   function setTurnSummaryForThread(threadId: string, summary: TurnSummaryState | null): void {
     if (!threadId) return
 
-    const previous = turnSummaryByThreadId.value[threadId]
     if (summary) {
+      const turnId = summary.turnId.trim()
+      if (!turnId) return
+      const previousByTurnId = turnSummaryByThreadId.value[threadId] ?? {}
+      const previous = previousByTurnId[turnId]
       if (areTurnSummariesEqual(previous, summary)) return
       turnSummaryByThreadId.value = {
         ...turnSummaryByThreadId.value,
-        [threadId]: summary,
+        [threadId]: {
+          ...previousByTurnId,
+          [turnId]: { ...summary, turnId },
+        },
       }
     } else {
+      const previous = turnSummaryByThreadId.value[threadId]
       if (previous) {
         turnSummaryByThreadId.value = omitKey(turnSummaryByThreadId.value, threadId)
       }
     }
+  }
+
+  function prunePersistedTurnSummariesForThread(threadId: string, messages: UiMessage[]): void {
+    const previousByTurnId = turnSummaryByThreadId.value[threadId]
+    if (!previousByTurnId) return
+
+    let changed = false
+    const nextByTurnId: TurnSummariesByTurnIdState = {}
+    for (const [turnId, summary] of Object.entries(previousByTurnId)) {
+      if (hasWorkedMessageForTurn(messages, turnId)) {
+        changed = true
+        continue
+      }
+      nextByTurnId[turnId] = summary
+    }
+
+    if (!changed) return
+    turnSummaryByThreadId.value = Object.keys(nextByTurnId).length > 0
+      ? {
+          ...turnSummaryByThreadId.value,
+          [threadId]: nextByTurnId,
+        }
+      : omitKey(turnSummaryByThreadId.value, threadId)
   }
 
   function setThreadInProgress(threadId: string, nextInProgress: boolean): void {
@@ -2554,6 +2624,7 @@ export function useDesktopState() {
         }
       }
     }
+    prunePersistedTurnSummariesForThread(threadId, nextMessages)
     if (areMessageArraysEqual(previous, nextMessages)) return
     persistedMessagesByThreadId.value = {
       ...persistedMessagesByThreadId.value,
@@ -3860,7 +3931,6 @@ export function useDesktopState() {
       maybeUnblockInterruptForActiveTurn(startedTurn.threadId, startedTurn.turnId)
       clearLivePlansForThread(startedTurn.threadId)
       clearLiveFileChangesForThread(startedTurn.threadId)
-      setTurnSummaryForThread(startedTurn.threadId, null)
       setTurnErrorForThread(startedTurn.threadId, null)
       setTurnActivityForThread(startedTurn.threadId, {
         label: turnActivityByThreadId.value[startedTurn.threadId]?.label ?? 'Thinking',
@@ -4917,7 +4987,6 @@ export function useDesktopState() {
 
     error.value = ''
     shouldAutoScrollOnNextAgentEvent = true
-    setTurnSummaryForThread(threadId, null)
     setTurnActivityForThread(
       threadId,
       {

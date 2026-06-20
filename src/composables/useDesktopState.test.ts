@@ -4,6 +4,7 @@ import {
   collectWorkspaceRootPathsForProjectRemoval,
   filterGroupsByWorkspaceRoots,
   findAdjacentThreadId,
+  insertTurnSummaryMessages,
   removeThreadFromGroups,
   isThreadUnreadByLastRead,
   useDesktopState,
@@ -77,6 +78,13 @@ function installTestWindow(initialStorage: Record<string, string> = {}) {
     setTimeout: vi.fn(),
     clearTimeout: vi.fn(),
   })
+}
+
+function uiMessage(overrides: Partial<UiMessage> & Pick<UiMessage, 'id' | 'role' | 'text'>): UiMessage {
+  return {
+    messageType: overrides.role === 'user' ? 'userMessage' : 'agentMessage',
+    ...overrides,
+  }
 }
 
 beforeEach(() => {
@@ -392,6 +400,70 @@ describe('thread unread state helpers', () => {
   })
 })
 
+describe('runtime worked summaries', () => {
+  it('inserts a runtime worked summary inside its own turn when a newer turn is already visible', () => {
+    const messages: UiMessage[] = [
+      uiMessage({
+        id: 'assistant-process',
+        role: 'assistant',
+        text: 'I will inspect the files.',
+        turnId: 'turn-1',
+        turnIndex: 0,
+      }),
+      uiMessage({
+        id: 'assistant-final',
+        role: 'assistant',
+        text: 'Done.',
+        turnId: 'turn-1',
+        turnIndex: 0,
+      }),
+      uiMessage({
+        id: 'user-next',
+        role: 'user',
+        text: 'next request',
+        turnId: 'turn-2',
+        turnIndex: 1,
+      }),
+      uiMessage({
+        id: 'assistant-next-live',
+        role: 'assistant',
+        text: 'Thinking...',
+        messageType: 'agentMessage.live',
+        turnId: 'turn-2',
+        turnIndex: 1,
+      }),
+    ]
+
+    expect(insertTurnSummaryMessages(messages, [{ turnId: 'turn-1', durationMs: 61_000 }]).map((message) => message.id)).toEqual([
+      'assistant-process',
+      'turn-summary:turn-1',
+      'assistant-final',
+      'user-next',
+      'assistant-next-live',
+    ])
+  })
+
+  it('does not duplicate a worked summary that is already persisted for the same turn', () => {
+    const messages: UiMessage[] = [
+      uiMessage({
+        id: 'turn-summary:turn-1',
+        role: 'system',
+        text: 'Worked for 1m 1s',
+        messageType: 'worked',
+        turnId: 'turn-1',
+      }),
+      uiMessage({
+        id: 'assistant-final',
+        role: 'assistant',
+        text: 'Done.',
+        turnId: 'turn-1',
+      }),
+    ]
+
+    expect(insertTurnSummaryMessages(messages, [{ turnId: 'turn-1', durationMs: 61_000 }])).toBe(messages)
+  })
+})
+
 describe('collaboration mode selection', () => {
   it('does not carry plan mode from new chats into existing threads', () => {
     installTestWindow({
@@ -423,6 +495,77 @@ describe('collaboration mode selection', () => {
 })
 
 describe('optimistic submitted user messages', () => {
+  it('keeps the previous worked summary visible while submitting the next turn', async () => {
+    installTestWindow()
+
+    const previousMessages: UiMessage[] = [
+      uiMessage({
+        id: 'assistant-process',
+        role: 'assistant',
+        text: 'I will inspect the files.',
+        turnId: 'turn-1',
+        turnIndex: 0,
+      }),
+      uiMessage({
+        id: 'assistant-final',
+        role: 'assistant',
+        text: 'Done.',
+        turnId: 'turn-1',
+        turnIndex: 0,
+      }),
+    ]
+    let emitNotification: (notification: { method: string; params?: unknown; atIso?: string }) => void = () => {}
+
+    gatewayMocks.getPendingServerRequests.mockResolvedValue([])
+    gatewayMocks.subscribeCodexNotifications.mockImplementation((callback) => {
+      emitNotification = callback
+      return vi.fn()
+    })
+    gatewayMocks.resumeThread.mockResolvedValue({
+      model: 'gpt-5.4',
+      messages: previousMessages,
+      inProgress: false,
+      activeTurnId: '',
+      hasMoreOlder: false,
+      turnIndexByTurnId: { 'turn-1': 0 },
+    })
+    gatewayMocks.startThreadTurn.mockResolvedValue('turn-2')
+
+    const state = useDesktopState()
+    state.primeSelectedThread('thread-a')
+    await state.loadMessages('thread-a')
+    state.startPolling()
+
+    emitNotification({
+      method: 'turn/completed',
+      params: {
+        threadId: 'thread-a',
+        turnId: 'turn-1',
+        durationMs: 61_000,
+      },
+      atIso: '2026-06-20T10:00:00.000Z',
+    })
+
+    expect(state.messages.value.map((message) => message.id)).toEqual([
+      'assistant-process',
+      'turn-summary:turn-1',
+      'assistant-final',
+    ])
+
+    await state.sendMessageToSelectedThread('next request')
+
+    expect(state.messages.value.slice(0, 3).map((message) => message.id)).toEqual([
+      'assistant-process',
+      'turn-summary:turn-1',
+      'assistant-final',
+    ])
+    expect(state.messages.value[3]).toMatchObject({
+      role: 'user',
+      text: 'next request',
+      messageType: 'userMessage.optimistic',
+    })
+  })
+
   it('marks the selected thread in progress even before a thread summary is available', async () => {
     installTestWindow()
 
