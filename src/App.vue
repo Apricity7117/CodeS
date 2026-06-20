@@ -627,11 +627,11 @@ import { useDesktopState } from './composables/useDesktopState'
 import { useMobile } from './composables/useMobile'
 import { useAccounts } from './composables/useAccounts'
 import { usePreferences } from './composables/usePreferences'
+import { useTelegramConfig } from './composables/useTelegramConfig'
 import { useUiLanguage } from './composables/useUiLanguage'
 import {
   checkoutGitBranch,
   cloneGithubRepository,
-  configureTelegramBot,
   createPermanentWorktree,
   createWorktree,
   createProjectlessThreadDirectory,
@@ -641,9 +641,7 @@ import {
   getWorktreeBranchOptions,
   createLocalDirectory,
   getHomeDirectory,
-  getTelegramConfig,
   getProjectRootSuggestion,
-  getTelegramStatus,
   getWorkspaceRootsState,
   listLocalDirectories,
   openProjectRoot,
@@ -652,7 +650,7 @@ import {
 } from './api/codexGateway'
 import type { ReasoningEffort, SpeedMode, UiServerRequest, UiServerRequestReply, UiThreadTokenUsage } from './types/codex'
 import type { ComposerDraftPayload, ThreadComposerExposed } from './components/content/ThreadComposer.vue'
-import type { GitCommitOption, LocalDirectoryEntry, TelegramStatus, WorktreeBranchOption } from './api/codexGateway'
+import type { GitCommitOption, LocalDirectoryEntry, WorktreeBranchOption } from './api/codexGateway'
 import type {
   DirectoryTryItemPayload,
   InspectorSourceItem,
@@ -819,11 +817,6 @@ const threadBranchCommitsError = ref('')
 const isLoadingThreadBranches = ref(false)
 const isSwitchingThreadBranch = ref(false)
 const createFolderInputRef = ref<HTMLInputElement | null>(null)
-const isTelegramConfigOpen = ref(false)
-const telegramBotTokenDraft = ref('')
-const telegramAllowedUserIdsDraft = ref('')
-const telegramConfigError = ref('')
-const isTelegramSaving = ref(false)
 const isCreateFolderOpen = ref(false)
 const createFolderDraft = ref('')
 const createFolderError = ref('')
@@ -848,15 +841,6 @@ const isExistingFolderLoading = ref(false)
 const isOpeningExistingFolder = ref(false)
 const showHiddenFolders = ref(false)
 const existingFolderFilter = ref('')
-const telegramStatus = ref<TelegramStatus>({
-  configured: false,
-  active: false,
-  mappedChats: 0,
-  mappedThreads: 0,
-  allowedUsers: 0,
-  allowAllUsers: false,
-  lastError: '',
-})
 const mobileHiddenAtMs = ref<number | null>(null)
 const mobileResumeReloadTriggered = ref(false)
 const mobileResumeSyncInProgress = ref(false)
@@ -960,6 +944,16 @@ const {
     includeSelectedThreadMessages: true,
   })
 })
+const {
+  isTelegramConfigOpen,
+  telegramBotTokenDraft,
+  telegramAllowedUserIdsDraft,
+  telegramConfigError,
+  isTelegramSaving,
+  telegramStatus,
+  telegramStatusText,
+  saveTelegramConfig,
+} = useTelegramConfig()
 const showInspectorPanel = computed(() => isInspectorPanelOpen.value)
 const inspectorPlanProgress = computed(() => buildInspectorPlanProgress(filteredMessages.value))
 const showInspectorProgressSection = computed(() => inspectorPlanProgress.value !== null)
@@ -1274,16 +1268,6 @@ const contentStyle = computed(() => {
     '--virtual-keyboard-inset': `${keyboardInset}px`,
   }
 })
-const telegramStatusText = computed(() => {
-  if (!telegramStatus.value.configured) return t('Not configured')
-  const base = telegramStatus.value.active ? t('Online') : t('Configured (offline)')
-  const allowlist = telegramStatus.value.allowAllUsers
-    ? t('allow all users')
-    : `${telegramStatus.value.allowedUsers} ${t('allowed user(s)')}`
-  const mapped = `${telegramStatus.value.mappedChats} ${t('chat(s)')}, ${telegramStatus.value.mappedThreads} ${t('thread(s)')}, ${allowlist}`
-  const error = telegramStatus.value.lastError ? `, ${t('error')}: ${telegramStatus.value.lastError}` : ''
-  return `${base}, ${mapped}${error}`
-})
 
 onMounted(() => {
   window.addEventListener('keydown', onWindowKeyDown)
@@ -1298,8 +1282,6 @@ onMounted(() => {
   void loadHomeDirectory()
   void loadWorkspaceRootOptionsState()
   void refreshDefaultProjectName()
-  void refreshTelegramConfig()
-  void refreshTelegramStatus()
 })
 
 onUnmounted(() => {
@@ -1350,76 +1332,6 @@ watch(sidebarSearchQuery, (value) => {
 
 function onSkillsChanged(): void {
   void refreshSkills()
-}
-
-async function refreshTelegramStatus(): Promise<void> {
-  try {
-    telegramStatus.value = await getTelegramStatus()
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load Telegram status'
-    telegramStatus.value = {
-      configured: false,
-      active: false,
-      mappedChats: 0,
-      mappedThreads: 0,
-      allowedUsers: 0,
-      allowAllUsers: false,
-      lastError: message,
-    }
-  }
-}
-
-async function refreshTelegramConfig(): Promise<void> {
-  try {
-    const config = await getTelegramConfig()
-    telegramBotTokenDraft.value = config.botToken
-    telegramAllowedUserIdsDraft.value = config.allowedUserIds.map((value) => String(value)).join('\n')
-    telegramConfigError.value = ''
-  } catch (error) {
-    telegramConfigError.value = error instanceof Error ? error.message : 'Failed to load Telegram configuration'
-  }
-}
-
-function parseTelegramAllowedUserIdsInput(value: string): Array<number | '*'> {
-  const rawEntries = value
-    .split(/[\n,]/)
-    .map((entry) => entry.trim().replace(/^(telegram|tg):/i, '').trim())
-    .filter(Boolean)
-  const allowAllUsers = rawEntries.includes('*')
-  const normalizedUserIds = Array.from(new Set(rawEntries
-    .filter((entry) => /^-?\d+$/.test(entry))
-    .map((entry) => Number.parseInt(entry, 10))))
-  return allowAllUsers ? ['*', ...normalizedUserIds] : normalizedUserIds
-}
-
-async function saveTelegramConfig(): Promise<void> {
-  const botToken = telegramBotTokenDraft.value.trim()
-  const allowedUserIds = parseTelegramAllowedUserIdsInput(telegramAllowedUserIdsDraft.value)
-  if (!botToken) {
-    telegramConfigError.value = t('Telegram bot token is required.')
-    return
-  }
-  if (allowedUserIds.length === 0) {
-    telegramConfigError.value = t('At least one allowed Telegram user ID or * is required.')
-    return
-  }
-
-  isTelegramSaving.value = true
-  telegramConfigError.value = ''
-  try {
-    await configureTelegramBot(botToken, allowedUserIds)
-    telegramAllowedUserIdsDraft.value = allowedUserIds.map((value) => String(value)).join('\n')
-    await Promise.all([
-      refreshTelegramConfig(),
-      refreshTelegramStatus(),
-    ])
-    window.alert(t('Telegram bot configured. Only allowlisted Telegram users can use the bridge.'))
-  } catch (error) {
-    telegramConfigError.value = error instanceof Error ? error.message : t('Failed to connect Telegram bot')
-    void refreshTelegramStatus()
-  } finally {
-    isTelegramSaving.value = false
-  }
 }
 
 function onSelectThread(threadId: string): void {
