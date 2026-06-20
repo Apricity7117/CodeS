@@ -608,36 +608,16 @@ import { buildInspectorPlanProgress } from './components/content/inspectorProgre
 import {
   CHAT_WIDTH_PRESETS,
   MOBILE_RESUME_RELOAD_MIN_HIDDEN_MS,
-  WHISPER_LANGUAGES,
   buildSettingsHelp,
 } from './app/appConfig'
 import { buildDirectoryTryPrompt, getDirectoryTryItemKey } from './app/directoryTry'
 import {
   loadAccountsSectionCollapsed,
-  loadChatWidthPref,
-  loadDarkModePref,
-  loadDictationAutoSendPref,
-  loadDictationClickToTogglePref,
-  loadDictationEnabledPref,
-  loadDictationLanguagePref,
-  loadInProgressSendModePref,
   loadInspectorPanelOpen,
-  loadSendWithEnterPref,
   loadSidebarCollapsed,
-  loadTextAnimationsPref,
-  normalizeToWhisperLanguage,
   saveAccountsSectionCollapsed,
-  saveChatWidthPref,
-  saveDarkModePref,
-  saveDictationAutoSendPref,
-  saveDictationClickToTogglePref,
-  saveDictationEnabledPref,
-  saveDictationLanguagePref,
-  saveInProgressSendModePref,
   saveInspectorPanelOpen,
-  saveSendWithEnterPref,
   saveSidebarCollapsed,
-  saveTextAnimationsPref,
 } from './app/preferences'
 import {
   buildExportFileName,
@@ -645,6 +625,7 @@ import {
 } from './app/threadExport'
 import { useDesktopState } from './composables/useDesktopState'
 import { useMobile } from './composables/useMobile'
+import { usePreferences } from './composables/usePreferences'
 import { useUiLanguage } from './composables/useUiLanguage'
 import {
   checkoutGitBranch,
@@ -678,14 +659,10 @@ import type { ReasoningEffort, SpeedMode, UiAccountEntry, UiServerRequest, UiSer
 import type { ComposerDraftPayload, ThreadComposerExposed } from './components/content/ThreadComposer.vue'
 import type { GitCommitOption, LocalDirectoryEntry, TelegramStatus, WorktreeBranchOption } from './api/codexGateway'
 import type {
-  ChatWidthMode,
-  DarkModePreference,
   DirectoryTryItemPayload,
-  InProgressSendMode,
   InspectorSourceItem,
 } from './app/appTypes'
 import { getPathLeafName, getPathParent, isProjectlessChatPath, normalizePathForUi } from './pathUtils.js'
-import { applyPwaThemeColor, resolvePwaThemeColor } from './utils/pwaTheme'
 
 const ThreadConversation = defineAsyncComponent(() => import('./components/content/ThreadConversation.vue'))
 const ReviewPane = defineAsyncComponent(() => import('./components/content/ReviewPane.vue'))
@@ -762,6 +739,27 @@ const {
 const route = useRoute()
 const router = useRouter()
 const { isMobile } = useMobile()
+const {
+  sendWithEnter,
+  inProgressSendMode,
+  darkMode,
+  chatWidth,
+  textAnimationsEnabled,
+  dictationEnabled,
+  dictationClickToToggle,
+  dictationAutoSend,
+  dictationLanguage,
+  chatWidthLabel,
+  dictationLanguageOptions,
+  toggleSendWithEnter,
+  cycleInProgressSendMode,
+  cycleDarkMode,
+  cycleChatWidth,
+  toggleTextAnimations,
+  toggleDictationEnabled,
+  toggleDictationClickToToggle,
+  toggleDictationAutoSend,
+} = usePreferences()
 type HistoryMessageEditState = {
   threadId: string
   turnId: string
@@ -838,16 +836,6 @@ const removingAccountId = ref('')
 const confirmingRemoveAccountId = ref('')
 const hoveredAccountId = ref('')
 const accountActionError = ref('')
-const sendWithEnter = ref(loadSendWithEnterPref())
-const inProgressSendMode = ref<InProgressSendMode>(loadInProgressSendModePref())
-const darkMode = ref<DarkModePreference>(loadDarkModePref())
-const chatWidth = ref<ChatWidthMode>(loadChatWidthPref())
-const textAnimationsEnabled = ref(loadTextAnimationsPref())
-const dictationEnabled = ref(loadDictationEnabledPref())
-const dictationClickToToggle = ref(loadDictationClickToTogglePref())
-const dictationAutoSend = ref(loadDictationAutoSendPref())
-const dictationLanguage = ref(loadDictationLanguagePref())
-const dictationLanguageOptions = computed(() => buildDictationLanguageOptions())
 const isTelegramConfigOpen = ref(false)
 const telegramBotTokenDraft = ref('')
 const telegramAllowedUserIdsDraft = ref('')
@@ -1262,8 +1250,6 @@ const existingFolderFilteredEntries = computed(() => {
     entry.kind === 'parent' || entry.name.toLowerCase().includes(filter),
   )
 })
-const darkModeMediaQuery = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null
-const chatWidthLabel = computed(() => t(CHAT_WIDTH_PRESETS[chatWidth.value].label))
 const contentStyle = computed(() => {
   const preset = CHAT_WIDTH_PRESETS[chatWidth.value]
   const keyboardInset = Math.max(
@@ -1298,8 +1284,6 @@ onMounted(() => {
   window.visualViewport?.addEventListener('resize', updateVisualViewportState)
   window.visualViewport?.addEventListener('scroll', updateVisualViewportState)
   updateVisualViewportState()
-  applyDarkMode()
-  darkModeMediaQuery?.addEventListener('change', applyDarkMode)
   void initialize()
   void loadHomeDirectory()
   void loadWorkspaceRootOptionsState()
@@ -1316,7 +1300,6 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateVisualViewportState)
   window.visualViewport?.removeEventListener('resize', updateVisualViewportState)
   window.visualViewport?.removeEventListener('scroll', updateVisualViewportState)
-  darkModeMediaQuery?.removeEventListener('change', applyDarkMode)
   if (accountStatePollTimer !== null) {
     window.clearInterval(accountStatePollTimer)
     accountStatePollTimer = null
@@ -2695,111 +2678,6 @@ function onExportChat(): void {
   link.click()
   document.body.removeChild(link)
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0)
-}
-
-function toggleSendWithEnter(): void {
-  sendWithEnter.value = !sendWithEnter.value
-  saveSendWithEnterPref(sendWithEnter.value)
-}
-
-function cycleInProgressSendMode(): void {
-  inProgressSendMode.value = inProgressSendMode.value === 'steer' ? 'queue' : 'steer'
-  saveInProgressSendModePref(inProgressSendMode.value)
-}
-
-function cycleDarkMode(): void {
-  const order: DarkModePreference[] = ['system', 'light', 'dark']
-  const idx = order.indexOf(darkMode.value)
-  darkMode.value = order[(idx + 1) % order.length]
-  saveDarkModePref(darkMode.value)
-  applyDarkMode()
-}
-
-function cycleChatWidth(): void {
-  const order: ChatWidthMode[] = ['standard', 'wide', 'extra-wide']
-  const idx = order.indexOf(chatWidth.value)
-  chatWidth.value = order[(idx + 1) % order.length]
-  saveChatWidthPref(chatWidth.value)
-}
-
-function toggleTextAnimations(): void {
-  textAnimationsEnabled.value = !textAnimationsEnabled.value
-  saveTextAnimationsPref(textAnimationsEnabled.value)
-}
-
-function toggleDictationEnabled(): void {
-  dictationEnabled.value = !dictationEnabled.value
-  saveDictationEnabledPref(dictationEnabled.value)
-}
-
-function toggleDictationClickToToggle(): void {
-  dictationClickToToggle.value = !dictationClickToToggle.value
-  saveDictationClickToTogglePref(dictationClickToToggle.value)
-}
-
-function toggleDictationAutoSend(): void {
-  dictationAutoSend.value = !dictationAutoSend.value
-  saveDictationAutoSendPref(dictationAutoSend.value)
-}
-
-
-function onDictationLanguageChange(nextValue: string): void {
-  const normalized = normalizeToWhisperLanguage(nextValue.trim())
-  const value = normalized || 'auto'
-  dictationLanguage.value = value
-  saveDictationLanguagePref(value)
-}
-
-function buildDictationLanguageOptions(): Array<{ value: string; label: string }> {
-  const options: Array<{ value: string; label: string }> = [{ value: 'auto', label: t('Auto-detect') }]
-  const seen = new Set<string>(['auto'])
-  function formatLanguageLabel(value: string): string {
-    const languageName = WHISPER_LANGUAGES[value] || value
-    const title = languageName.charAt(0).toUpperCase() + languageName.slice(1)
-    return `${title} (${value})`
-  }
-
-  for (const raw of typeof navigator !== 'undefined' ? (navigator.languages ?? []) : []) {
-    const value = normalizeToWhisperLanguage(raw)
-    if (!value || seen.has(value)) continue
-    seen.add(value)
-    options.push({
-      value,
-      label: `Preferred: ${formatLanguageLabel(value)}`,
-    })
-  }
-
-  for (const value of Object.keys(WHISPER_LANGUAGES)) {
-    if (seen.has(value)) continue
-    seen.add(value)
-    options.push({
-      value,
-      label: formatLanguageLabel(value),
-    })
-  }
-
-  const current = dictationLanguage.value.trim()
-  if (current && !seen.has(current)) {
-    options.push({
-      value: current,
-      label: formatLanguageLabel(current),
-    })
-  }
-
-  return options
-}
-
-function applyDarkMode(): void {
-  const root = document.documentElement
-  const prefersDark = darkModeMediaQuery?.matches ?? false
-  if (darkMode.value === 'dark') {
-    root.classList.add('dark')
-  } else if (darkMode.value === 'light') {
-    root.classList.remove('dark')
-  } else {
-    root.classList.toggle('dark', prefersDark)
-  }
-  applyPwaThemeColor(document, resolvePwaThemeColor(darkMode.value, prefersDark))
 }
 
 function toggleAccountsSectionCollapsed(): void {
