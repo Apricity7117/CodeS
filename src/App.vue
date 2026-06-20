@@ -628,6 +628,7 @@ import { useMobile } from './composables/useMobile'
 import { useAccounts } from './composables/useAccounts'
 import { usePreferences } from './composables/usePreferences'
 import { useTelegramConfig } from './composables/useTelegramConfig'
+import { useHomeDirectory } from './composables/useHomeDirectory'
 import { useUiLanguage } from './composables/useUiLanguage'
 import {
   checkoutGitBranch,
@@ -640,7 +641,6 @@ import {
   getGitRepositoryStatus,
   getWorktreeBranchOptions,
   createLocalDirectory,
-  getHomeDirectory,
   getProjectRootSuggestion,
   getWorkspaceRootsState,
   listLocalDirectories,
@@ -656,6 +656,7 @@ import type {
   InspectorSourceItem,
 } from './app/appTypes'
 import { getPathLeafName, getPathParent, isProjectlessChatPath, normalizePathForUi } from './pathUtils.js'
+import { hasDuplicateFolderLeaf, isWorktreePath, joinPath, normalizeAbsolutePath } from './utils/pathHelpers'
 
 const ThreadConversation = defineAsyncComponent(() => import('./components/content/ThreadConversation.vue'))
 const ReviewPane = defineAsyncComponent(() => import('./components/content/ReviewPane.vue'))
@@ -799,7 +800,6 @@ let threadSearchTimer: ReturnType<typeof setTimeout> | null = null
 let threadBranchesRequestId = 0
 let threadBranchCommitsRequestId = 0
 const defaultNewProjectName = ref('New Project (1)')
-const homeDirectory = ref('')
 const isSettingsOpen = ref(false)
 const isAccountsSectionCollapsed = ref(loadAccountsSectionCollapsed())
 const isReviewPaneOpen = ref(false)
@@ -954,6 +954,7 @@ const {
   telegramStatusText,
   saveTelegramConfig,
 } = useTelegramConfig()
+const { homeDirectory, loadHomeDirectory } = useHomeDirectory()
 const showInspectorPanel = computed(() => isInspectorPanelOpen.value)
 const inspectorPlanProgress = computed(() => buildInspectorPlanProgress(filteredMessages.value))
 const showInspectorProgressSection = computed(() => inspectorPlanProgress.value !== null)
@@ -1065,16 +1066,6 @@ const threadContextSecondaryText = computed(() => {
 })
 
 const threadContextTooltip = computed(() => buildThreadContextTooltip(selectedThreadTokenUsage.value))
-
-function hasDuplicateFolderLeaf(path: string, knownPaths: string[]): boolean {
-  const normalizedPath = normalizePathForUi(path).trim()
-  const leafName = getPathLeafName(normalizedPath)
-  if (!normalizedPath || !leafName) return false
-  return knownPaths.some((knownPath) => {
-    const normalizedKnownPath = normalizePathForUi(knownPath).trim()
-    return normalizedKnownPath !== normalizedPath && getPathLeafName(normalizedKnownPath) === leafName
-  })
-}
 
 function getFolderOptionLabel(path: string, fallbackLabel = ''): string {
   const normalizedPath = normalizePathForUi(path).trim()
@@ -1279,7 +1270,6 @@ onMounted(() => {
   window.visualViewport?.addEventListener('scroll', updateVisualViewportState)
   updateVisualViewportState()
   void initialize()
-  void loadHomeDirectory()
   void loadWorkspaceRootOptionsState()
   void refreshDefaultProjectName()
 })
@@ -1364,12 +1354,6 @@ async function onForkThread(threadId: string): Promise<void> {
     await router.replace({ name: 'thread', params: { threadId: nextThreadId } })
   }
   if (isMobile.value) setSidebarCollapsed(true)
-}
-
-function isWorktreePath(cwdRaw: string): boolean {
-  const cwd = cwdRaw.trim().replace(/\\/gu, '/')
-  if (!cwd) return false
-  return cwd.includes('/.codex/worktrees/') || cwd.includes('/.git/worktrees/')
 }
 
 function resolvePreferredLocalCwd(projectName: string, fallbackCwd = ''): string {
@@ -2221,9 +2205,8 @@ async function resolveProjectBaseDirectory(): Promise<string> {
   const baseDir = getProjectBaseDirectory()
   if (baseDir) return baseDir
   try {
-    const loadedHomeDirectory = await getHomeDirectory()
+    const loadedHomeDirectory = await loadHomeDirectory()
     if (loadedHomeDirectory) {
-      homeDirectory.value = loadedHomeDirectory
       return loadedHomeDirectory
     }
   } catch {
@@ -2253,14 +2236,6 @@ function getProjectBaseDirectory(): string {
   const first = newThreadFolderOptions.value[0]?.value?.trim() ?? ''
   if (first) return getPathParent(first)
   return homeDirectory.value.trim()
-}
-
-async function loadHomeDirectory(): Promise<void> {
-  try {
-    homeDirectory.value = await getHomeDirectory()
-  } catch {
-    homeDirectory.value = ''
-  }
 }
 
 async function loadWorkspaceRootOptionsState(): Promise<void> {
@@ -2302,67 +2277,6 @@ async function loadExistingFolderListing(path: string): Promise<void> {
       isExistingFolderLoading.value = false
     }
   }
-}
-
-function joinPath(parent: string, child: string): string {
-  const rawParent = normalizePathForUi(parent).trim()
-  const normalizedChild = normalizePathForUi(child).trim().replace(/^[\\/]+/u, '')
-  if (!rawParent || !normalizedChild) return ''
-  const separator = rawParent.includes('\\') && !rawParent.includes('/') ? '\\' : '/'
-  if (/^[a-zA-Z]:[\\/]?$/u.test(rawParent)) {
-    return `${rawParent.slice(0, 2)}${separator}${normalizedChild}`
-  }
-  if (/^\/+$/u.test(rawParent)) {
-    return `/${normalizedChild}`
-  }
-  const normalizedParent = rawParent.replace(/[\\/]+$/u, '')
-  if (!normalizedParent) return ''
-  return `${normalizedParent}${separator}${normalizedChild}`
-}
-
-function normalizeAbsolutePath(value: string): string {
-  const normalizedValue = normalizePathForUi(value).trim()
-  if (!normalizedValue) return ''
-
-  const uncMatch = normalizedValue.match(/^\\\\([^\\/]+)[\\/]+([^\\/]+)([\\/].*)?$/u)
-  if (uncMatch) {
-    const [, server, share, suffix = ''] = uncMatch
-    const segments = collapsePathSegments(suffix.split(/[\\/]+/u))
-    return segments.length > 0
-      ? `\\\\${server}\\${share}\\${segments.join('\\')}`
-      : `\\\\${server}\\${share}`
-  }
-
-  const driveMatch = normalizedValue.match(/^([a-zA-Z]:)([\\/].*)?$/u)
-  if (driveMatch) {
-    const [, drive, suffix = ''] = driveMatch
-    const separator = normalizedValue.includes('\\') && !normalizedValue.includes('/') ? '\\' : '/'
-    const segments = collapsePathSegments(suffix.split(/[\\/]+/u))
-    return segments.length > 0 ? `${drive}${separator}${segments.join(separator)}` : `${drive}${separator}`
-  }
-
-  if (normalizedValue.startsWith('/')) {
-    const segments = collapsePathSegments(normalizedValue.split('/'))
-    return segments.length > 0 ? `/${segments.join('/')}` : '/'
-  }
-
-  return normalizedValue
-}
-
-function collapsePathSegments(rawSegments: readonly string[]): string[] {
-  const segments: string[] = []
-  for (const rawSegment of rawSegments) {
-    const segment = rawSegment.trim()
-    if (!segment || segment === '.') continue
-    if (segment === '..') {
-      if (segments.length > 0) {
-        segments.pop()
-      }
-      continue
-    }
-    segments.push(segment)
-  }
-  return segments
 }
 
 function onReorderQueuedMessage(payload: { draggedId: string; targetId: string }): void {
