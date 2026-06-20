@@ -625,6 +625,7 @@ import {
 } from './app/threadExport'
 import { useDesktopState } from './composables/useDesktopState'
 import { useMobile } from './composables/useMobile'
+import { useAccounts } from './composables/useAccounts'
 import { usePreferences } from './composables/usePreferences'
 import { useUiLanguage } from './composables/useUiLanguage'
 import {
@@ -638,8 +639,6 @@ import {
   getGitBranchCommits,
   getGitRepositoryStatus,
   getWorktreeBranchOptions,
-  getAccounts,
-  completeCodexLogin,
   createLocalDirectory,
   getHomeDirectory,
   getTelegramConfig,
@@ -648,14 +647,10 @@ import {
   getWorkspaceRootsState,
   listLocalDirectories,
   openProjectRoot,
-  removeAccount,
-  refreshAccountsFromAuth,
   resetGitBranchToCommit,
-  startCodexLogin,
   searchThreads,
-  switchAccount,
 } from './api/codexGateway'
-import type { ReasoningEffort, SpeedMode, UiAccountEntry, UiServerRequest, UiServerRequestReply, UiThreadTokenUsage } from './types/codex'
+import type { ReasoningEffort, SpeedMode, UiServerRequest, UiServerRequestReply, UiThreadTokenUsage } from './types/codex'
 import type { ComposerDraftPayload, ThreadComposerExposed } from './components/content/ThreadComposer.vue'
 import type { GitCommitOption, LocalDirectoryEntry, TelegramStatus, WorktreeBranchOption } from './api/codexGateway'
 import type {
@@ -824,18 +819,6 @@ const threadBranchCommitsError = ref('')
 const isLoadingThreadBranches = ref(false)
 const isSwitchingThreadBranch = ref(false)
 const createFolderInputRef = ref<HTMLInputElement | null>(null)
-const accounts = ref<UiAccountEntry[]>([])
-const isRefreshingAccounts = ref(false)
-const isSwitchingAccounts = ref(false)
-const isStartingCodexLogin = ref(false)
-const isCompletingCodexLogin = ref(false)
-const isCodexLoginModalOpen = ref(false)
-const codexLoginUrl = ref('')
-const codexLoginCallbackUrl = ref('')
-const removingAccountId = ref('')
-const confirmingRemoveAccountId = ref('')
-const hoveredAccountId = ref('')
-const accountActionError = ref('')
 const isTelegramConfigOpen = ref(false)
 const telegramBotTokenDraft = ref('')
 const telegramAllowedUserIdsDraft = ref('')
@@ -880,8 +863,6 @@ const mobileResumeSyncInProgress = ref(false)
 const visualViewportHeight = ref(typeof window !== 'undefined' ? window.visualViewport?.height ?? window.innerHeight : 0)
 const visualViewportOffsetTop = ref(typeof window !== 'undefined' ? window.visualViewport?.offsetTop ?? 0 : 0)
 const layoutViewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 0)
-let accountStatePollTimer: number | null = null
-let isAccountStatePollInFlight = false
 let existingFolderBrowseRequestId = 0
 const isInspectorPanelOpen = ref(loadInspectorPanelOpen())
 
@@ -950,6 +931,35 @@ const isAccountSwitchBlocked = computed(() =>
   isSelectedThreadInProgress.value ||
   selectedThreadServerRequests.value.length > 0,
 )
+const {
+  accounts,
+  isRefreshingAccounts,
+  isSwitchingAccounts,
+  isStartingCodexLogin,
+  isCompletingCodexLogin,
+  isCodexLoginModalOpen,
+  codexLoginUrl,
+  codexLoginCallbackUrl,
+  removingAccountId,
+  confirmingRemoveAccountId,
+  hoveredAccountId,
+  accountActionError,
+  loadAccountsState,
+  onRefreshAccounts,
+  onStartCodexLogin,
+  onCancelCodexLoginModal,
+  onSubmitCodexLoginCallback,
+  onSwitchAccount,
+  onRemoveAccount,
+  onAccountCardPointerEnter,
+  onAccountCardPointerLeave,
+} = useAccounts(isAccountSwitchBlocked, () => {
+  stopPolling()
+  startPolling()
+  void refreshAll({
+    includeSelectedThreadMessages: true,
+  })
+})
 const showInspectorPanel = computed(() => isInspectorPanelOpen.value)
 const inspectorPlanProgress = computed(() => buildInspectorPlanProgress(filteredMessages.value))
 const showInspectorProgressSection = computed(() => inspectorPlanProgress.value !== null)
@@ -1300,10 +1310,6 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateVisualViewportState)
   window.visualViewport?.removeEventListener('resize', updateVisualViewportState)
   window.visualViewport?.removeEventListener('scroll', updateVisualViewportState)
-  if (accountStatePollTimer !== null) {
-    window.clearInterval(accountStatePollTimer)
-    accountStatePollTimer = null
-  }
   if (threadSearchTimer) {
     clearTimeout(threadSearchTimer)
     threadSearchTimer = null
@@ -1341,26 +1347,6 @@ watch(sidebarSearchQuery, (value) => {
       })
   }, 220)
 })
-
-watch(accounts, () => {
-  if (typeof window === 'undefined') return
-  const shouldPoll = accounts.value.some((account) => account.quotaStatus === 'loading')
-  if (!shouldPoll) {
-    if (accountStatePollTimer !== null) {
-      window.clearInterval(accountStatePollTimer)
-      accountStatePollTimer = null
-    }
-    return
-  }
-  if (accountStatePollTimer !== null) return
-  accountStatePollTimer = window.setInterval(() => {
-    if (isAccountStatePollInFlight) return
-    isAccountStatePollInFlight = true
-    void loadAccountsState({ silent: true }).finally(() => {
-      isAccountStatePollInFlight = false
-    })
-  }, 1500)
-}, { deep: true })
 
 function onSkillsChanged(): void {
   void refreshSkills()
@@ -1451,173 +1437,6 @@ async function onExportThread(threadId: string): Promise<void> {
   }
   await nextTick()
   onExportChat()
-}
-
-function onAccountCardPointerEnter(accountId: string): void {
-  hoveredAccountId.value = accountId
-}
-
-function onAccountCardPointerLeave(accountId: string): void {
-  if (hoveredAccountId.value === accountId) {
-    hoveredAccountId.value = ''
-  }
-  if (removingAccountId.value === accountId) return
-  if (confirmingRemoveAccountId.value === accountId) {
-    confirmingRemoveAccountId.value = ''
-  }
-}
-
-async function loadAccountsState(options: { silent?: boolean } = {}): Promise<void> {
-  try {
-    const result = await getAccounts()
-    accounts.value = result.accounts
-    if (!result.accounts.some((account) => account.accountId === hoveredAccountId.value)) {
-      hoveredAccountId.value = ''
-    }
-    if (!result.accounts.some((account) => account.accountId === confirmingRemoveAccountId.value)) {
-      confirmingRemoveAccountId.value = ''
-    }
-  } catch (error) {
-    if (options.silent === true) return
-    accountActionError.value = error instanceof Error ? error.message : t('Failed to load accounts')
-  }
-}
-
-async function onRefreshAccounts(): Promise<void> {
-  if (isRefreshingAccounts.value || isSwitchingAccounts.value || isStartingCodexLogin.value || isCompletingCodexLogin.value) return
-  accountActionError.value = ''
-  hoveredAccountId.value = ''
-  confirmingRemoveAccountId.value = ''
-  isRefreshingAccounts.value = true
-  try {
-    const result = await refreshAccountsFromAuth()
-    accounts.value = result.accounts
-    stopPolling()
-    startPolling()
-    void refreshAll({
-      includeSelectedThreadMessages: true,
-    })
-  } catch (error) {
-    accountActionError.value = error instanceof Error ? error.message : t('Failed to refresh accounts')
-  } finally {
-    isRefreshingAccounts.value = false
-  }
-}
-
-async function onStartCodexLogin(): Promise<void> {
-  if (isRefreshingAccounts.value || isSwitchingAccounts.value || isStartingCodexLogin.value || isCompletingCodexLogin.value) return
-  accountActionError.value = ''
-  codexLoginCallbackUrl.value = ''
-  isStartingCodexLogin.value = true
-  try {
-    const loginUrl = await startCodexLogin()
-    codexLoginUrl.value = loginUrl
-    isCodexLoginModalOpen.value = true
-    window.open(loginUrl, '_blank', 'noopener,noreferrer')
-  } catch (error) {
-    accountActionError.value = error instanceof Error ? error.message : t('Failed to start Codex login')
-  } finally {
-    isStartingCodexLogin.value = false
-  }
-}
-
-function onCancelCodexLoginModal(): void {
-  if (isCompletingCodexLogin.value) return
-  isCodexLoginModalOpen.value = false
-  codexLoginCallbackUrl.value = ''
-}
-
-async function onSubmitCodexLoginCallback(): Promise<void> {
-  const callbackUrl = codexLoginCallbackUrl.value.trim()
-  if (!callbackUrl) return
-  await completeCodexLoginFromCallback(callbackUrl)
-}
-
-async function completeCodexLoginFromCallback(callbackUrl: string): Promise<void> {
-  if (isCompletingCodexLogin.value || callbackUrl.length === 0) return
-  accountActionError.value = ''
-  isCompletingCodexLogin.value = true
-  try {
-    const result = await completeCodexLogin(callbackUrl)
-    accounts.value = result.accounts
-    codexLoginUrl.value = ''
-    codexLoginCallbackUrl.value = ''
-    isCodexLoginModalOpen.value = false
-    stopPolling()
-    startPolling()
-    void refreshAll({
-      includeSelectedThreadMessages: true,
-    })
-  } catch (error) {
-    accountActionError.value = error instanceof Error ? error.message : t('Failed to complete Codex login')
-  } finally {
-    isCompletingCodexLogin.value = false
-  }
-}
-
-async function onSwitchAccount(accountId: string): Promise<void> {
-  if (isSwitchingAccounts.value || isRefreshingAccounts.value || isStartingCodexLogin.value || isCompletingCodexLogin.value) return
-  if (isAccountSwitchBlocked.value) {
-    accountActionError.value = t('Finish the current turn and pending requests before switching accounts.')
-    return
-  }
-  accountActionError.value = ''
-  hoveredAccountId.value = ''
-  confirmingRemoveAccountId.value = ''
-  isSwitchingAccounts.value = true
-  try {
-    const nextActiveAccount = await switchAccount(accountId)
-    accounts.value = accounts.value.map((account) => (
-      account.accountId === accountId
-        ? nextActiveAccount
-        : { ...account, isActive: false }
-    ))
-    stopPolling()
-    startPolling()
-    void refreshAll({
-      includeSelectedThreadMessages: true,
-    })
-    void loadAccountsState({ silent: true })
-  } catch (error) {
-    accountActionError.value = error instanceof Error ? error.message : t('Failed to switch account')
-  } finally {
-    isSwitchingAccounts.value = false
-  }
-}
-
-async function onRemoveAccount(accountId: string): Promise<void> {
-  if (isRefreshingAccounts.value || isSwitchingAccounts.value || isStartingCodexLogin.value || isCompletingCodexLogin.value || removingAccountId.value.length > 0) return
-  const targetAccount = accounts.value.find((account) => account.accountId === accountId) ?? null
-  if (!targetAccount) return
-  if (confirmingRemoveAccountId.value !== accountId) {
-    confirmingRemoveAccountId.value = accountId
-    return
-  }
-  if (targetAccount.isActive && isAccountSwitchBlocked.value) {
-    accountActionError.value = t('Finish the current turn and pending requests before removing the active account.')
-    return
-  }
-
-  const removedWasActive = targetAccount.isActive
-  accountActionError.value = ''
-  confirmingRemoveAccountId.value = ''
-  removingAccountId.value = accountId
-  try {
-    const result = await removeAccount(accountId)
-    accounts.value = result.accounts
-    stopPolling()
-    startPolling()
-    if (removedWasActive) {
-      void refreshAll({
-        includeSelectedThreadMessages: true,
-      })
-    }
-    void loadAccountsState({ silent: true })
-  } catch (error) {
-    accountActionError.value = error instanceof Error ? error.message : t('Failed to remove account')
-  } finally {
-    removingAccountId.value = ''
-  }
 }
 
 function onArchiveThread(threadId: string): void {
