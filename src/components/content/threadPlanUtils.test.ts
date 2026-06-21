@@ -10,6 +10,8 @@ import {
   planStepStatusIcon,
   readPlanData,
   readPlanMarkdown,
+  showMessageInThread,
+  showPlanCardInThread,
   showImplementPlanButton,
 } from './threadPlanUtils'
 
@@ -77,6 +79,19 @@ describe('thread plan utilities', () => {
   it('keeps plan card labels and implement button rules', () => {
     expect(isPlanMessage(planMessage())).toBe(true)
     expect(planCardTitle(planMessage({ messageType: 'plan.live' }))).toBe('Writing plan')
+    expect(showPlanCardInThread(planMessage({
+      messageType: 'plan.live',
+      plan: { steps: [{ step: 'Dock only', status: 'inProgress' }], presentation: 'dock' },
+    }))).toBe(false)
+    expect(showPlanCardInThread(planMessage({
+      messageType: 'plan.live',
+      plan: { steps: [{ step: 'Inline plan', status: 'inProgress' }], presentation: 'inline' },
+    }))).toBe(true)
+    expect(showMessageInThread(planMessage({
+      messageType: 'plan.live',
+      plan: { steps: [{ step: 'Dock only', status: 'inProgress' }], presentation: 'dock' },
+    }))).toBe(false)
+    expect(showMessageInThread(planMessage({ messageType: 'agentMessage' }))).toBe(true)
     expect(showImplementPlanButton(planMessage())).toBe(true)
     expect(showImplementPlanButton(planMessage({ messageType: 'plan.live' }))).toBe(false)
     expect(showImplementPlanButton(planMessage({ role: 'user' }))).toBe(false)

@@ -56,6 +56,14 @@ export function isPlanMessage(message: UiMessage): boolean {
   return message.messageType === 'plan' || message.messageType === 'plan.live'
 }
 
+export function showPlanCardInThread(message: UiMessage): boolean {
+  return isPlanMessage(message) && message.plan?.presentation !== 'dock'
+}
+
+export function showMessageInThread(message: UiMessage): boolean {
+  return !isPlanMessage(message) || showPlanCardInThread(message)
+}
+
 export function planCardTitle(message: UiMessage): string {
   return message.messageType === 'plan.live' ? 'Writing plan' : 'Plan'
 }

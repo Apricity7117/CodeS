@@ -348,7 +348,7 @@
                   </div>
                 </div>
                 <div
-                  v-else-if="isPlanMessage(message)"
+                  v-else-if="showPlanCardInThread(message)"
                   class="plan-card"
                   :data-streaming="message.messageType === 'plan.live'"
                   :data-collapsed="isPlanCollapsed(message)"
@@ -985,12 +985,13 @@ import ThinkingShimmer from './ThinkingShimmer.vue'
 import { buildWorkedTurnGroups } from './threadWorkedGrouping'
 import {
   buildPlanCopyText,
-  isPlanMessage,
   planCardTitle,
   planStepStatusIcon,
   readPlanExplanation,
   readPlanMarkdown,
   readPlanSteps,
+  showMessageInThread,
+  showPlanCardInThread,
   showImplementPlanButton,
 } from './threadPlanUtils'
 import {
@@ -1487,7 +1488,7 @@ const LOAD_MORE_SCROLL_THRESHOLD_PX = 200
 const renderWindowStart = ref(0)
 const isLoadingMore = ref(false)
 
-const visibleMessages = computed(() => props.messages.slice(renderWindowStart.value))
+const visibleMessages = computed(() => props.messages.slice(renderWindowStart.value).filter(showMessageInThread))
 const hasMoreAbove = computed(() => renderWindowStart.value > 0 || props.hasMorePersistedAbove === true)
 
 const showJumpToLatestButton = computed(

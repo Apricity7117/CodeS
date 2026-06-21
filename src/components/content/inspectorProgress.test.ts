@@ -39,6 +39,20 @@ describe('buildInspectorPlanProgress', () => {
     expect(progress?.isComplete).toBe(false)
   })
 
+  it('keeps dock-presented plan steps for the inspector progress section', () => {
+    const progress = buildInspectorPlanProgress([
+      {
+        ...message('plan', [{ step: 'Inspector only', status: 'inProgress' }]),
+        plan: {
+          steps: [{ step: 'Inspector only', status: 'inProgress' }],
+          presentation: 'dock',
+        },
+      },
+    ])
+
+    expect(progress?.items).toEqual([{ label: 'Inspector only', status: 'inProgress' }])
+  })
+
   it('marks complete only when every step is completed', () => {
     expect(buildInspectorPlanProgress([
       message('plan', [
