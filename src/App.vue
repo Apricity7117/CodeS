@@ -543,30 +543,16 @@
           :visible="showInspectorPanel"
           :git-status-text="inspectorGitStatusText"
           :commit-text="inspectorCommitText"
-          :can-show-branch-dropdown="canShowContentHeaderBranchDropdown"
+          :can-show-branch-status="canShowInspectorBranchStatus"
           :current-branch="currentThreadBranch"
           :head-sha="currentThreadHeadSha"
           :head-subject="currentThreadHeadSubject"
-          :head-date="currentThreadHeadDate"
-          :detached="isThreadDetachedHead"
-          :dirty="isThreadWorktreeDirty"
-          :branches="threadBranchOptions"
-          :commits-by-branch="threadBranchCommitsByBranch"
-          :commits-loading-for="threadBranchCommitsLoadingFor"
-          :commits-error="threadBranchCommitsError"
           :loading-branches="isLoadingThreadBranches"
-          :switching-branch="isSwitchingThreadBranch"
-          :branch-error="threadBranchError"
-          :review-open="isReviewPaneOpen"
           :show-progress-section="showInspectorProgressSection"
           :progress-toggle-label="inspectorProgressToggleLabel"
           :progress-expanded="isInspectorProgressExpanded"
           :progress-items="inspectorProgressItems"
           :source-items="inspectorSourceItems"
-          @toggle-review="isReviewPaneOpen = !isReviewPaneOpen"
-          @checkout-branch="onCheckoutContentHeaderBranch"
-          @reset-branch-to-commit="onResetContentHeaderBranchToCommit"
-          @load-commits="loadThreadBranchCommits"
           @toggle-progress="toggleInspectorProgress"
         />
         </div>
@@ -631,13 +617,11 @@ import { useTelegramConfig } from './composables/useTelegramConfig'
 import { useHomeDirectory } from './composables/useHomeDirectory'
 import { useUiLanguage } from './composables/useUiLanguage'
 import {
-  checkoutGitBranch,
   cloneGithubRepository,
   createPermanentWorktree,
   createWorktree,
   createProjectlessThreadDirectory,
   getGitBranchState,
-  getGitBranchCommits,
   getGitRepositoryStatus,
   getWorktreeBranchOptions,
   createLocalDirectory,
@@ -645,12 +629,11 @@ import {
   getWorkspaceRootsState,
   listLocalDirectories,
   openProjectRoot,
-  resetGitBranchToCommit,
   searchThreads,
 } from './api/codexGateway'
 import type { ReasoningEffort, SpeedMode, UiServerRequest, UiServerRequestReply, UiThreadTokenUsage } from './types/codex'
 import type { ComposerDraftPayload, ThreadComposerExposed } from './components/content/ThreadComposer.vue'
-import type { GitCommitOption, LocalDirectoryEntry, WorktreeBranchOption } from './api/codexGateway'
+import type { LocalDirectoryEntry, WorktreeBranchOption } from './api/codexGateway'
 import type {
   DirectoryTryItemPayload,
   InspectorSourceItem,
@@ -798,24 +781,16 @@ const isSidebarSearchVisible = ref(false)
 const serverMatchedThreadIds = ref<string[] | null>(null)
 let threadSearchTimer: ReturnType<typeof setTimeout> | null = null
 let threadBranchesRequestId = 0
-let threadBranchCommitsRequestId = 0
 const defaultNewProjectName = ref('New Project (1)')
 const isSettingsOpen = ref(false)
 const isAccountsSectionCollapsed = ref(loadAccountsSectionCollapsed())
 const isReviewPaneOpen = ref(false)
-const threadBranchOptions = ref<WorktreeBranchOption[]>([])
 const currentThreadBranch = ref<string | null>(null)
 const currentThreadHeadSha = ref<string | null>(null)
 const currentThreadHeadSubject = ref<string | null>(null)
-const currentThreadHeadDate = ref<string | null>(null)
 const isThreadDetachedHead = ref(false)
 const isThreadWorktreeDirty = ref(false)
-const threadBranchError = ref('')
-const threadBranchCommitsByBranch = ref<Record<string, GitCommitOption[]>>({})
-const threadBranchCommitsLoadingFor = ref('')
-const threadBranchCommitsError = ref('')
 const isLoadingThreadBranches = ref(false)
-const isSwitchingThreadBranch = ref(false)
 const createFolderInputRef = ref<HTMLInputElement | null>(null)
 const isCreateFolderOpen = ref(false)
 const createFolderDraft = ref('')
@@ -898,7 +873,7 @@ const composerCwd = computed(() => {
   if (isHomeRoute.value) return newThreadCwd.value.trim()
   return selectedThread.value?.cwd?.trim() ?? ''
 })
-const canShowContentHeaderBranchDropdown = computed(() => (
+const canShowInspectorBranchStatus = computed(() => (
   (route.name === 'thread' && selectedThreadId.value.length > 0) ||
   (isHomeRoute.value && isNewThreadCwdGitRepo.value)
 ))
@@ -965,9 +940,8 @@ const inspectorProgressToggleLabel = computed(() => (
   isInspectorProgressExpanded.value ? t('Collapse progress') : t('Expand progress')
 ))
 const inspectorGitStatusText = computed(() => {
-  if (!canShowContentHeaderBranchDropdown.value) return t('No Git repository')
+  if (!canShowInspectorBranchStatus.value) return t('No Git repository')
   if (isLoadingThreadBranches.value) return t('Loading Git state')
-  if (threadBranchError.value.trim()) return threadBranchError.value
   if (isThreadDetachedHead.value) return t('Detached HEAD')
   if (isThreadWorktreeDirty.value) return t('Local changes present')
   return t('Working tree clean')
@@ -1812,18 +1786,11 @@ function canLoadBranchStateForCwd(cwd: string): boolean {
 
 function resetThreadBranchState(): void {
   threadBranchesRequestId += 1
-  threadBranchCommitsRequestId += 1
-  threadBranchOptions.value = []
   currentThreadBranch.value = null
   currentThreadHeadSha.value = null
   currentThreadHeadSubject.value = null
-  currentThreadHeadDate.value = null
   isThreadDetachedHead.value = false
   isThreadWorktreeDirty.value = false
-  threadBranchCommitsByBranch.value = {}
-  threadBranchCommitsLoadingFor.value = ''
-  threadBranchCommitsError.value = ''
-  threadBranchError.value = ''
   isLoadingThreadBranches.value = false
 }
 
@@ -1835,24 +1802,19 @@ async function loadThreadBranches(cwd: string): Promise<void> {
   }
   const requestId = ++threadBranchesRequestId
   isLoadingThreadBranches.value = true
-  threadBranchError.value = ''
   try {
     const state = await getGitBranchState(targetCwd)
     if (requestId !== threadBranchesRequestId || !canLoadBranchStateForCwd(targetCwd)) return
-    threadBranchOptions.value = state.options
     currentThreadBranch.value = state.currentBranch
     currentThreadHeadSha.value = state.headSha
     currentThreadHeadSubject.value = state.headSubject
-    currentThreadHeadDate.value = state.headDate
     isThreadDetachedHead.value = state.detached
     isThreadWorktreeDirty.value = state.dirty
   } catch {
     if (requestId !== threadBranchesRequestId || !canLoadBranchStateForCwd(targetCwd)) return
-    threadBranchOptions.value = []
     currentThreadBranch.value = null
     currentThreadHeadSha.value = null
     currentThreadHeadSubject.value = null
-    currentThreadHeadDate.value = null
     isThreadDetachedHead.value = false
     isThreadWorktreeDirty.value = false
   } finally {
@@ -1860,97 +1822,6 @@ async function loadThreadBranches(cwd: string): Promise<void> {
       isLoadingThreadBranches.value = false
     }
   }
-}
-
-function applyThreadGitState(state: { currentBranch: string | null; headSha: string | null; headSubject: string | null; headDate: string | null; detached: boolean; dirty: boolean }): void {
-  currentThreadBranch.value = state.currentBranch
-  currentThreadHeadSha.value = state.headSha
-  currentThreadHeadSubject.value = state.headSubject
-  currentThreadHeadDate.value = state.headDate
-  isThreadDetachedHead.value = state.detached
-  isThreadWorktreeDirty.value = state.dirty
-}
-
-function onCheckoutContentHeaderBranch(value: string): void {
-  if (isSwitchingThreadBranch.value) return
-  const targetBranch = value.trim()
-  if (!targetBranch || targetBranch === (currentThreadBranch.value ?? '')) return
-  const cwd = composerCwd.value.trim()
-  if (!cwd) return
-
-  isSwitchingThreadBranch.value = true
-  threadBranchError.value = ''
-  void checkoutGitBranch(cwd, targetBranch)
-    .then((branch) => {
-      currentThreadBranch.value = branch || targetBranch
-      currentThreadHeadSha.value = null
-      currentThreadHeadSubject.value = null
-      currentThreadHeadDate.value = null
-      isThreadDetachedHead.value = false
-      isReviewPaneOpen.value = false
-      return loadThreadBranches(cwd)
-    })
-    .catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Failed to switch branch'
-      void loadThreadBranches(cwd).finally(() => {
-        threadBranchError.value = message
-      })
-    })
-    .finally(() => {
-      isSwitchingThreadBranch.value = false
-    })
-}
-
-function onResetContentHeaderBranchToCommit(payload: { branch: string; sha: string }): void {
-  if (isSwitchingThreadBranch.value) return
-  const targetBranch = payload.branch.trim()
-  const targetSha = payload.sha.trim()
-  const cwd = composerCwd.value.trim()
-  if (!targetBranch || !targetSha || !cwd) return
-  isSwitchingThreadBranch.value = true
-  threadBranchError.value = ''
-  void resetGitBranchToCommit(cwd, targetBranch, targetSha)
-    .then((state) => {
-      applyThreadGitState(state)
-      isReviewPaneOpen.value = false
-      return loadThreadBranches(cwd)
-    })
-    .catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Failed to reset branch to commit'
-      void loadThreadBranches(cwd).finally(() => {
-        threadBranchError.value = message
-      })
-    })
-    .finally(() => {
-      isSwitchingThreadBranch.value = false
-    })
-}
-
-function loadThreadBranchCommits(branch: string): void {
-  const targetBranch = branch.trim()
-  const cwd = composerCwd.value.trim()
-  if (!targetBranch || !cwd || threadBranchCommitsLoadingFor.value === targetBranch) return
-  if (threadBranchCommitsByBranch.value[targetBranch]) return
-  const requestId = ++threadBranchCommitsRequestId
-  threadBranchCommitsLoadingFor.value = targetBranch
-  threadBranchCommitsError.value = ''
-  void getGitBranchCommits(cwd, targetBranch)
-    .then((commits) => {
-      if (requestId !== threadBranchCommitsRequestId || !canLoadBranchStateForCwd(cwd)) return
-      threadBranchCommitsByBranch.value = {
-        ...threadBranchCommitsByBranch.value,
-        [targetBranch]: commits,
-      }
-    })
-    .catch((error: unknown) => {
-      if (requestId !== threadBranchCommitsRequestId || !canLoadBranchStateForCwd(cwd)) return
-      threadBranchCommitsError.value = error instanceof Error ? error.message : 'Failed to load branch commits'
-    })
-    .finally(() => {
-      if (requestId === threadBranchCommitsRequestId && threadBranchCommitsLoadingFor.value === targetBranch) {
-        threadBranchCommitsLoadingFor.value = ''
-      }
-    })
 }
 
 async function onOpenProjectSetupModal(): Promise<void> {
@@ -2553,10 +2424,6 @@ watch(
       resetThreadBranchState()
       return
     }
-    threadBranchCommitsRequestId += 1
-    threadBranchCommitsByBranch.value = {}
-    threadBranchCommitsLoadingFor.value = ''
-    threadBranchCommitsError.value = ''
     void loadThreadBranches(cwd)
   },
   { immediate: true },

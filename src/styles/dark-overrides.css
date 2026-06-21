@@ -357,10 +357,6 @@
   color: var(--codex-text);
 }
 
-:root.dark .content-inspector-branch-dropdown .header-git-trigger {
-  @apply border-transparent bg-transparent text-zinc-200 hover:bg-transparent;
-}
-
 :root.dark .sidebar-thread-controls-button {
   @apply text-zinc-400 hover:border-zinc-600 hover:bg-zinc-800;
 }
@@ -933,104 +929,6 @@
 
 :root.dark .diff-viewer-close {
   @apply border-zinc-700 bg-zinc-800 text-zinc-100;
-}
-
-:root.dark .content-header-branch-dropdown .composer-dropdown-trigger {
-  @apply border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800;
-}
-
-:root.dark .content-header-branch-dropdown.is-review-open .composer-dropdown-trigger {
-  @apply border-zinc-200 bg-zinc-200 text-zinc-900 hover:bg-white;
-}
-
-:root.dark .content-header-branch-dropdown.is-review-open .composer-dropdown-chevron {
-  @apply text-zinc-900;
-}
-
-:root.dark .header-git-trigger {
-  border-color: var(--codex-border);
-  background-color: var(--codex-control-bg);
-  color: var(--codex-text);
-}
-
-:root.dark .header-git-trigger:hover {
-  background-color: var(--codex-control-hover);
-}
-
-:root.dark .header-git-dropdown.is-review-open .header-git-trigger {
-  @apply border-zinc-200 bg-zinc-200 text-zinc-900 hover:bg-white;
-}
-
-:root.dark .header-git-menu {
-  border-color: var(--codex-border-heavy);
-  background-color: var(--codex-popover-surface);
-}
-
-:root.dark .header-git-review-row,
-:root.dark .header-git-branch-button,
-:root.dark .header-git-commit {
-  color: var(--codex-text);
-}
-
-:root.dark .header-git-review-row:hover,
-:root.dark .header-git-branch-expand:hover,
-:root.dark .header-git-branch-button:hover,
-:root.dark .header-git-commit:hover {
-  background-color: var(--codex-control-hover);
-}
-
-:root.dark .header-git-commit.is-current,
-:root.dark .header-git-branch-button.is-current {
-  background-color: var(--codex-selected-surface);
-}
-
-:root.dark .header-git-commit.is-current {
-  --tw-ring-color: var(--codex-border-heavy);
-}
-
-:root.dark .header-git-state,
-:root.dark .header-git-commits {
-  border-color: var(--codex-border);
-  background-color: var(--codex-surface);
-}
-
-:root.dark .header-git-state-value {
-  color: var(--codex-text);
-}
-
-:root.dark .header-git-state-label,
-:root.dark .header-git-state-meta,
-:root.dark .header-git-branch-meta,
-:root.dark .header-git-branch-section-label,
-:root.dark .header-git-commit-top,
-:root.dark .header-git-empty,
-:root.dark .header-git-commits-empty {
-  color: var(--codex-muted-text);
-}
-
-:root.dark .header-git-search {
-  border-color: var(--codex-border);
-  background-color: var(--codex-control-bg);
-  color: var(--codex-text);
-}
-
-:root.dark .header-git-search:focus {
-  border-color: var(--codex-border-heavy);
-}
-
-:root.dark .header-git-commit-top code,
-:root.dark .header-git-branch-meta {
-  background-color: var(--codex-subtle-surface);
-  color: var(--codex-text);
-}
-
-:root.dark .header-git-status {
-  @apply bg-amber-950/40 text-amber-300;
-}
-
-:root.dark .header-git-status.is-error,
-:root.dark .header-git-commits-empty.is-error {
-  @apply bg-red-950/40 text-zinc-300;
 }
 
 :root.dark .review-pane {

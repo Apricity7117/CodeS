@@ -22,31 +22,11 @@
                 <IconCodexLaptop class="content-inspector-row-icon" />
                 <span class="content-inspector-row-label">{{ t('Local') }}</span>
               </div>
-              <HeaderGitBranchDropdown
-                v-if="canShowBranchDropdown"
-                class="content-inspector-branch-dropdown"
-                :current-branch="currentBranch"
-                :head-sha="headSha"
-                :head-subject="headSubject"
-                :head-date="headDate"
-                :detached="detached"
-                :dirty="dirty"
-                :branches="branches"
-                :commits-by-branch="commitsByBranch"
-                :commits-loading-for="commitsLoadingFor"
-                :commits-error="commitsError"
-                :loading="loadingBranches"
-                :busy="switchingBranch"
-                :error="branchError"
-                :review-open="reviewOpen"
-                placement="inspector"
-                :show-review="false"
-                @toggle-review="$emit('toggle-review')"
-                @checkout-branch="$emit('checkout-branch', $event)"
-                @reset-branch-to-commit="$emit('reset-branch-to-commit', $event)"
-                @load-commits="$emit('load-commits', $event)"
-              />
-              <div v-if="canShowBranchDropdown" class="content-inspector-row">
+              <div v-if="canShowBranchStatus" class="content-inspector-row" :title="branchStatusTitle">
+                <IconCodexWorktree class="content-inspector-row-icon" />
+                <span class="content-inspector-row-label">{{ branchDisplayLabel }}</span>
+              </div>
+              <div v-if="canShowBranchStatus" class="content-inspector-row">
                 <IconCodexSendToCloud class="content-inspector-row-icon" />
                 <span class="content-inspector-row-label">{{ t('Commit or push') }}</span>
               </div>
@@ -119,8 +99,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useUiLanguage } from '../../composables/useUiLanguage'
-import type { GitCommitOption, WorktreeBranchOption } from '../../api/codexGateway'
 import type { InspectorSourceItem } from '../../app/appTypes'
 import type { InspectorPlanProgressItem } from './inspectorProgress'
 import {
@@ -131,28 +111,18 @@ import {
   IconCodexSendToCloud,
   IconCodexSettingsCog,
   IconCodexUnselectedCircle,
+  IconCodexWorktree,
 } from '../icons/codex'
-import HeaderGitBranchDropdown from './HeaderGitBranchDropdown.vue'
 
-defineProps<{
+const props = defineProps<{
   visible: boolean
   gitStatusText: string
   commitText: string
-  canShowBranchDropdown: boolean
+  canShowBranchStatus: boolean
   currentBranch: string | null
   headSha: string | null
   headSubject: string | null
-  headDate: string | null
-  detached: boolean
-  dirty: boolean
-  branches: WorktreeBranchOption[]
-  commitsByBranch: Record<string, GitCommitOption[]>
-  commitsLoadingFor: string
-  commitsError: string
   loadingBranches: boolean
-  switchingBranch: boolean
-  branchError: string
-  reviewOpen: boolean
   showProgressSection: boolean
   progressToggleLabel: string
   progressExpanded: boolean
@@ -161,14 +131,17 @@ defineProps<{
 }>()
 
 defineEmits<{
-  'toggle-review': []
-  'checkout-branch': [value: string]
-  'reset-branch-to-commit': [payload: { branch: string; sha: string }]
-  'load-commits': [branch: string]
   'toggle-progress': []
 }>()
 
 const { t } = useUiLanguage()
+const branchDisplayLabel = computed(() => {
+  if (props.currentBranch) return props.currentBranch
+  if (props.headSubject) return props.headSubject
+  if (props.headSha) return `Detached ${props.headSha}`
+  return props.loadingBranches ? t('Loading Git state') : t('Detached HEAD')
+})
+const branchStatusTitle = computed(() => `${t('Current branch')}: ${branchDisplayLabel.value}`)
 
 function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
   if (status === 'completed') return 'done'
@@ -319,22 +292,6 @@ function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
   @apply inline-flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-[10px] font-semibold text-zinc-600;
 }
 
-.content-inspector-branch-dropdown {
-  @apply w-full min-w-0;
-}
-
-.content-inspector-branch-dropdown :deep(.header-git-trigger) {
-  @apply min-h-7 w-full max-w-none justify-start rounded-md border-0 bg-transparent px-0 py-0.5 text-sm text-zinc-800 hover:bg-transparent;
-}
-
-.content-inspector-branch-dropdown :deep(.header-git-trigger-label) {
-  @apply flex-1 text-left;
-}
-
-.content-inspector-branch-dropdown :deep(.header-git-menu-wrap) {
-  @apply z-[80];
-}
-
 :global(:root.dark) .content-inspector-shell {
   border-color: rgba(255, 255, 255, 0.14);
   background-color: #303030;
@@ -386,10 +343,6 @@ function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
 :global(:root.dark) .content-inspector-source-mark {
   background-color: var(--codex-subtle-surface);
   color: var(--codex-muted-text);
-}
-
-:global(:root.dark) .content-inspector-branch-dropdown .header-git-trigger {
-  color: var(--codex-text);
 }
 
 @media (max-width: 920px) {
