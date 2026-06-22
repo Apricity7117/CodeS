@@ -2,6 +2,8 @@ import { computed, ref } from 'vue'
 import {
 
   archiveThread,
+  deleteProjectSessions,
+  deleteThreadSession,
   forkThread,
   getAvailableCollaborationModes,
   getAccountRateLimits,
@@ -4368,6 +4370,21 @@ export function useDesktopState() {
     applyThreadFlags()
   }
 
+  function removeThreadIdsFromLoadedLists(threadIds: string[]): void {
+    const normalizedThreadIds = [...new Set(threadIds.map((threadId) => threadId.trim()).filter(Boolean))]
+    if (normalizedThreadIds.length === 0) return
+
+    for (const threadId of normalizedThreadIds) {
+      loadedThreadListGroups = removeThreadFromGroups(loadedThreadListGroups, threadId)
+      sourceGroups.value = removeThreadFromGroups(sourceGroups.value, threadId)
+    }
+
+    const threadIdSet = new Set(normalizedThreadIds)
+    inProgressById.value = omitKeys(inProgressById.value, threadIdSet)
+    threadTitleById.value = omitKeys(threadTitleById.value, threadIdSet)
+    applyThreadFlags()
+  }
+
   function mergeThreadGroupPages(previous: UiProjectGroup[], incoming: UiProjectGroup[]): UiProjectGroup[] {
     if (previous.length === 0) return incoming
     if (incoming.length === 0) return previous
@@ -4764,6 +4781,41 @@ export function useDesktopState() {
       if (wasSelectedThread && nextSelectedThreadId && selectedThreadId.value === nextSelectedThreadId) {
         await ensureThreadMessagesLoaded(nextSelectedThreadId, { silent: true })
       }
+    } catch (unknownError) {
+      error.value = unknownError instanceof Error ? unknownError.message : 'Unknown application error'
+    }
+  }
+
+  async function deleteThreadSessionById(threadId: string): Promise<void> {
+    const normalizedThreadId = threadId.trim()
+    if (!normalizedThreadId) return
+
+    const selectedThreadWasDeleted = selectedThreadId.value === normalizedThreadId
+    const adjacentThreadId = selectedThreadWasDeleted
+      ? findAdjacentThreadId(flattenThreads(projectGroups.value), normalizedThreadId)
+      : ''
+
+    try {
+      const result = await deleteThreadSession(normalizedThreadId)
+      const deletedThreadIds = result.deletedThreadIds.length > 0
+        ? result.deletedThreadIds
+        : [normalizedThreadId]
+      removeThreadIdsFromLoadedLists(deletedThreadIds)
+
+      const flatThreads = flattenThreads(projectGroups.value)
+      const currentExists = flatThreads.some((thread) => thread.id === selectedThreadId.value)
+      if (selectedThreadWasDeleted || !currentExists) {
+        const nextSelectedThreadId = flatThreads.some((thread) => thread.id === adjacentThreadId)
+          ? adjacentThreadId
+          : (flatThreads[0]?.id ?? '')
+        setSelectedThreadId(nextSelectedThreadId)
+        if (nextSelectedThreadId) {
+          void loadMessages(nextSelectedThreadId, { silent: true })
+        }
+      }
+
+      pruneThreadScopedState(flatThreads)
+      await loadThreads()
     } catch (unknownError) {
       error.value = unknownError instanceof Error ? unknownError.message : 'Unknown application error'
     }
@@ -5450,6 +5502,25 @@ export function useDesktopState() {
     await persistProjectOrderToWorkspaceRoots()
   }
 
+  async function deleteProjectSessionsByCwd(projectName: string, cwd: string): Promise<void> {
+    const normalizedProjectName = projectName.trim()
+    const normalizedCwd = cwd.trim()
+    if (!normalizedProjectName) return
+    if (!normalizedCwd) {
+      error.value = 'Missing project path'
+      return
+    }
+
+    try {
+      const result = await deleteProjectSessions(normalizedCwd)
+      removeThreadIdsFromLoadedLists(result.deletedThreadIds)
+      await removeProject(normalizedProjectName)
+      await loadThreads()
+    } catch (unknownError) {
+      error.value = unknownError instanceof Error ? unknownError.message : 'Unknown application error'
+    }
+  }
+
   function reorderProject(projectName: string, toIndex: number): void {
     if (projectName.length === 0) return
     if (sourceGroups.value.length === 0) return
@@ -5784,6 +5855,7 @@ export function useDesktopState() {
     loadOlderMessages,
     ensureThreadMessagesLoaded,
     archiveThreadById,
+    deleteThreadSessionById,
     renameThreadById,
     forkThreadById,
     forkThreadFromTurn,
@@ -5806,6 +5878,7 @@ export function useDesktopState() {
     respondToPendingServerRequest,
     renameProject,
     removeProject,
+    deleteProjectSessionsByCwd,
     reorderProject,
     pinProjectToTop,
     startPolling,

@@ -14,6 +14,8 @@ import type { WorkspaceRootsState } from '../api/codexGateway'
 
 const gatewayMocks = vi.hoisted(() => ({
   archiveThread: vi.fn(),
+  deleteProjectSessions: vi.fn(),
+  deleteThreadSession: vi.fn(),
   forkThread: vi.fn(),
   getAccountRateLimits: vi.fn(),
   getAvailableCollaborationModes: vi.fn(),
@@ -78,6 +80,20 @@ function installTestWindow(initialStorage: Record<string, string> = {}) {
     setTimeout: vi.fn(),
     clearTimeout: vi.fn(),
   })
+}
+
+function setupRefreshMocks(groups: UiProjectGroup[]): void {
+  gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups, nextCursor: null })
+  gatewayMocks.getAvailableCollaborationModes.mockResolvedValue([{ value: 'default', label: 'Default' }])
+  gatewayMocks.getSkillsList.mockResolvedValue([])
+  gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
+  gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+    model: 'gpt-5.4',
+    providerId: 'codex',
+    reasoningEffort: 'medium',
+    speedMode: 'standard',
+  })
+  gatewayMocks.getAvailableModelIds.mockResolvedValue(['gpt-5.4'])
 }
 
 function uiMessage(overrides: Partial<UiMessage> & Pick<UiMessage, 'id' | 'role' | 'text'>): UiMessage {
@@ -330,6 +346,77 @@ describe('removeThreadFromGroups', () => {
     ]
 
     expect(removeThreadFromGroups(groups, 'missing-thread')).toBe(groups)
+  })
+})
+
+describe('destructive session deletion state', () => {
+  it('deletes a thread session and removes it from loaded groups', async () => {
+    installTestWindow()
+    const initialGroups: UiProjectGroup[] = [
+      {
+        projectName: 'alpha',
+        threads: [
+          thread('keep-alpha', '/tmp/alpha'),
+          thread('delete-alpha', '/tmp/alpha'),
+        ],
+      },
+    ]
+    const nextGroups: UiProjectGroup[] = [
+      {
+        projectName: 'alpha',
+        threads: [thread('keep-alpha', '/tmp/alpha')],
+      },
+    ]
+    setupRefreshMocks(initialGroups)
+    gatewayMocks.getThreadGroupsPage
+      .mockResolvedValueOnce({ groups: initialGroups, nextCursor: null })
+      .mockResolvedValue({ groups: nextGroups, nextCursor: null })
+    gatewayMocks.deleteThreadSession.mockResolvedValue({ deletedThreadIds: ['delete-alpha'] })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    await state.deleteThreadSessionById('delete-alpha')
+
+    expect(gatewayMocks.deleteThreadSession).toHaveBeenCalledWith('delete-alpha')
+    expect(state.projectGroups.value.map((group) => [group.projectName, group.threads.map((row) => row.id)])).toEqual([
+      ['alpha', ['keep-alpha']],
+    ])
+  })
+
+  it('deletes exact-cwd project sessions and hides the project row', async () => {
+    installTestWindow()
+    const initialGroups: UiProjectGroup[] = [
+      {
+        projectName: 'alpha',
+        threads: [thread('delete-alpha', '/tmp/alpha')],
+      },
+      {
+        projectName: 'beta',
+        threads: [thread('keep-beta', '/tmp/beta')],
+      },
+    ]
+    const nextGroups: UiProjectGroup[] = [
+      {
+        projectName: 'beta',
+        threads: [thread('keep-beta', '/tmp/beta')],
+      },
+    ]
+    setupRefreshMocks(initialGroups)
+    gatewayMocks.getThreadGroupsPage
+      .mockResolvedValueOnce({ groups: initialGroups, nextCursor: null })
+      .mockResolvedValue({ groups: nextGroups, nextCursor: null })
+    gatewayMocks.deleteProjectSessions.mockResolvedValue({ deletedThreadIds: ['delete-alpha'] })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    await state.deleteProjectSessionsByCwd('alpha', '/tmp/alpha')
+
+    expect(gatewayMocks.deleteProjectSessions).toHaveBeenCalledWith('/tmp/alpha')
+    expect(state.projectGroups.value.map((group) => [group.projectName, group.threads.map((row) => row.id)])).toEqual([
+      ['beta', ['keep-beta']],
+    ])
   })
 })
 

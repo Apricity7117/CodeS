@@ -1043,6 +1043,49 @@ export async function archiveThread(threadId: string): Promise<void> {
   await callRpc('thread/archive', { threadId })
 }
 
+export type DeletedThreadSessionsResult = {
+  deletedThreadIds: string[]
+}
+
+function normalizeDeletedThreadSessionsResult(payload: unknown): DeletedThreadSessionsResult {
+  const envelope =
+    payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? (payload as Record<string, unknown>)
+      : {}
+  const data =
+    envelope.data && typeof envelope.data === 'object' && !Array.isArray(envelope.data)
+      ? (envelope.data as Record<string, unknown>)
+      : {}
+  const deletedThreadIds = Array.isArray(data.deletedThreadIds)
+    ? data.deletedThreadIds.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : []
+  return { deletedThreadIds }
+}
+
+export async function deleteThreadSession(threadId: string): Promise<DeletedThreadSessionsResult> {
+  const params = new URLSearchParams({ threadId })
+  const response = await fetch(`/codex-api/thread-session?${params.toString()}`, {
+    method: 'DELETE',
+  })
+  const payload = await response.json()
+  if (!response.ok) {
+    throw new Error(getErrorMessageFromPayload(payload, 'Failed to delete thread session'))
+  }
+  return normalizeDeletedThreadSessionsResult(payload)
+}
+
+export async function deleteProjectSessions(cwd: string): Promise<DeletedThreadSessionsResult> {
+  const params = new URLSearchParams({ cwd })
+  const response = await fetch(`/codex-api/project-sessions?${params.toString()}`, {
+    method: 'DELETE',
+  })
+  const payload = await response.json()
+  if (!response.ok) {
+    throw new Error(getErrorMessageFromPayload(payload, 'Failed to delete project sessions'))
+  }
+  return normalizeDeletedThreadSessionsResult(payload)
+}
+
 export async function renameThread(threadId: string, threadName: string): Promise<void> {
   await callRpc('thread/name/set', { threadId, name: threadName })
 }

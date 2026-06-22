@@ -7,7 +7,7 @@ import { request as httpRequest } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 import { homedir } from 'node:os'
 import { tmpdir } from 'node:os'
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 import { writeFile } from 'node:fs/promises'
 import { handleAccountRoutes } from './accountRoutes.js'
@@ -107,6 +107,16 @@ type ThreadSearchDocument = {
 
 type ThreadSearchIndex = {
   docsById: Map<string, ThreadSearchDocument>
+}
+
+type ThreadSessionDeletionTarget = {
+  threadId: string
+  sessionPath: string | null
+  fileExists: boolean
+}
+
+type DeletedThreadSessionsResult = {
+  deletedThreadIds: string[]
 }
 
 type ProviderModelsResponse = {
@@ -2687,6 +2697,14 @@ function getCodexSessionIndexPath(): string {
   return join(getCodexHomeDir(), 'session_index.jsonl')
 }
 
+function getCodexStateDatabasePath(): string {
+  return join(getCodexHomeDir(), 'state_5.sqlite')
+}
+
+function getCodexLogsDatabasePath(): string {
+  return join(getCodexHomeDir(), 'logs_2.sqlite')
+}
+
 type ThreadTitleCache = { titles: Record<string, string>; order: string[] }
 const MAX_THREAD_TITLES = 500
 const EMPTY_THREAD_TITLE_CACHE: ThreadTitleCache = { titles: {}, order: [] }
@@ -3140,6 +3158,386 @@ async function readMergedThreadTitleCache(): Promise<ThreadTitleCache> {
     readThreadTitleCache(),
   ])
   return mergeThreadTitleCaches(persistedCache, sessionIndexCache)
+}
+
+function removeThreadIdsFromThreadTitleCache(cache: ThreadTitleCache, threadIds: Set<string>): ThreadTitleCache {
+  const titles = { ...cache.titles }
+  for (const threadId of threadIds) {
+    delete titles[threadId]
+  }
+  return trimThreadTitleCache({
+    titles,
+    order: cache.order.filter((threadId) => !threadIds.has(threadId)),
+  })
+}
+
+function isPathInsideDirectory(pathValue: string, directory: string): boolean {
+  const relativePath = relative(resolve(directory), resolve(pathValue))
+  return relativePath.length > 0 && !relativePath.startsWith('..') && !isAbsolute(relativePath)
+}
+
+function getAllowedSessionDirectories(): string[] {
+  const codexHome = getCodexHomeDir()
+  return [
+    join(codexHome, 'sessions'),
+    join(codexHome, 'archived_sessions'),
+    join(codexHome, 'browser', 'sessions'),
+  ]
+}
+
+function assertAllowedThreadSessionPath(sessionPath: string): string {
+  if (!sessionPath || !isAbsolute(sessionPath)) {
+    throw new Error('Thread session path is missing or not absolute')
+  }
+
+  const resolvedPath = resolve(sessionPath)
+  if (!resolvedPath.endsWith('.jsonl')) {
+    throw new Error('Thread session path is not a JSONL file')
+  }
+
+  if (!getAllowedSessionDirectories().some((directory) => isPathInsideDirectory(resolvedPath, directory))) {
+    throw new Error('Thread session path is outside allowed Codex session directories')
+  }
+
+  return resolvedPath
+}
+
+async function doesFileExist(filePath: string): Promise<boolean> {
+  try {
+    const info = await stat(filePath)
+    return info.isFile()
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return false
+    throw error
+  }
+}
+
+async function doesRegularFileExist(filePath: string): Promise<boolean> {
+  try {
+    const info = await lstat(filePath)
+    if (!info.isFile()) {
+      throw new Error('Thread session path is not a regular file')
+    }
+    return true
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return false
+    throw error
+  }
+}
+
+function sqlStringLiteral(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`
+}
+
+function sqlIdentifier(value: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(value)) {
+    throw new Error(`Invalid SQLite identifier: ${value}`)
+  }
+  return `"${value}"`
+}
+
+async function runSqliteScript(databasePath: string, script: string): Promise<string> {
+  const sqliteCommand = readFirstTrimmedEnv(['CODES_SQLITE_COMMAND', 'SQLITE3']) || 'sqlite3'
+  const invocation = getSpawnInvocation(sqliteCommand, [databasePath])
+  return await new Promise<string>((resolve, reject) => {
+    const proc = spawn(invocation.command, invocation.args, {
+      env: process.env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    let stdout = ''
+    let stderr = ''
+    proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString() })
+    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
+    proc.on('error', (error) => {
+      reject(new Error(`sqlite3 is required to update Codex session database: ${error.message}`))
+    })
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve(stdout.trim())
+        return
+      }
+      const details = [stderr.trim(), stdout.trim()].filter(Boolean).join('\n')
+      reject(new Error(details || `sqlite3 failed with exit code ${String(code)}`))
+    })
+    proc.stdin.end(`${script.trim()}\n`)
+  })
+}
+
+async function sqliteTableExists(databasePath: string, tableName: string): Promise<boolean> {
+  const output = await runSqliteScript(
+    databasePath,
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${sqlStringLiteral(tableName)} LIMIT 1;`,
+  )
+  return output.split(/\r?\n/u).some((line) => line.trim() === tableName)
+}
+
+async function deleteThreadIdsFromSqliteTable(
+  databasePath: string,
+  tableName: string,
+  threadIdColumn: string,
+  threadIds: Set<string>,
+): Promise<number> {
+  if (threadIds.size === 0) return 0
+  if (!await doesFileExist(databasePath)) return 0
+  if (!await sqliteTableExists(databasePath, tableName)) return 0
+
+  const table = sqlIdentifier(tableName)
+  const column = sqlIdentifier(threadIdColumn)
+  const idList = Array.from(threadIds).map(sqlStringLiteral).join(', ')
+  const output = await runSqliteScript(databasePath, `
+    PRAGMA foreign_keys = ON;
+    PRAGMA busy_timeout = 5000;
+    BEGIN IMMEDIATE;
+    DELETE FROM ${table} WHERE ${column} IN (${idList});
+    SELECT changes();
+    COMMIT;
+  `)
+  const changedRows = Number.parseInt(output.split(/\r?\n/u).at(-1)?.trim() ?? '0', 10)
+  return Number.isFinite(changedRows) ? changedRows : 0
+}
+
+async function readThreadRolloutPathFromStateDatabase(threadId: string): Promise<string | null> {
+  const stateDatabasePath = getCodexStateDatabasePath()
+  if (!await doesFileExist(stateDatabasePath)) return null
+  if (!await sqliteTableExists(stateDatabasePath, 'threads')) return null
+
+  const output = await runSqliteScript(stateDatabasePath, `
+    .mode tabs
+    SELECT id, COALESCE(rollout_path, '')
+    FROM threads
+    WHERE id = ${sqlStringLiteral(threadId)}
+    LIMIT 1;
+  `)
+  const firstLine = output.split(/\r?\n/u).find((line) => line.trim().length > 0)
+  if (!firstLine) return null
+  const [rowThreadId, ...rolloutPathParts] = firstLine.split('\t')
+  if (rowThreadId !== threadId) return null
+  return rolloutPathParts.join('\t').trim()
+}
+
+function isMissingThreadSessionReadError(error: unknown): boolean {
+  const message = getErrorMessage(error, '').toLowerCase()
+  return (
+    message.includes('enoent') ||
+    message.includes('no such file') ||
+    message.includes('not found') ||
+    message.includes('no rollout found') ||
+    message.includes('missing rollout')
+  )
+}
+
+async function resolveMissingThreadSessionDeletionTarget(threadId: string): Promise<ThreadSessionDeletionTarget | null> {
+  const rolloutPath = await readThreadRolloutPathFromStateDatabase(threadId)
+  if (rolloutPath === null) return null
+  if (!rolloutPath) {
+    return { threadId, sessionPath: null, fileExists: false }
+  }
+
+  const sessionPath = assertAllowedThreadSessionPath(rolloutPath)
+  const fileExists = await doesRegularFileExist(sessionPath)
+  return { threadId, sessionPath, fileExists }
+}
+
+function isThreadRecordInProgress(thread: Record<string, unknown> | null): boolean {
+  if (!thread) return false
+  if (thread.inProgress === true) return true
+
+  const status = asRecord(thread.status)
+  const statusType = readNonEmptyString(status?.type) || readNonEmptyString(thread.status)
+  if (statusType === 'inProgress' || statusType === 'running' || statusType === 'active') return true
+
+  const turns = Array.isArray(thread.turns) ? thread.turns : []
+  return turns.some((turn) => readNonEmptyString(asRecord(turn)?.status) === 'inProgress')
+}
+
+async function resolveThreadSessionDeletionTarget(
+  appServer: RpcExecutor,
+  threadId: string,
+): Promise<ThreadSessionDeletionTarget> {
+  const normalizedThreadId = threadId.trim()
+  if (!normalizedThreadId) {
+    throw new Error('threadId is required')
+  }
+
+  let threadReadResult: Record<string, unknown> | null = null
+  try {
+    threadReadResult = asRecord(await appServer.rpc('thread/read', {
+      threadId: normalizedThreadId,
+      includeTurns: true,
+    }))
+  } catch (error) {
+    if (isMissingThreadSessionReadError(error)) {
+      const fallbackTarget = await resolveMissingThreadSessionDeletionTarget(normalizedThreadId)
+      if (fallbackTarget) return fallbackTarget
+    }
+    throw error
+  }
+  const thread = asRecord(threadReadResult?.thread)
+  if (!thread) {
+    throw new Error(`Thread not found: ${normalizedThreadId}`)
+  }
+
+  const resultThreadId = readNonEmptyString(thread.id) || normalizedThreadId
+  if (resultThreadId !== normalizedThreadId) {
+    throw new Error('thread/read returned a different thread')
+  }
+
+  if (isThreadRecordInProgress(thread)) {
+    throw new Error(`Thread is still running: ${normalizedThreadId}`)
+  }
+
+  const sessionPath = assertAllowedThreadSessionPath(readNonEmptyString(thread.path))
+  const fileExists = await doesRegularFileExist(sessionPath)
+
+  return {
+    threadId: normalizedThreadId,
+    sessionPath,
+    fileExists,
+  }
+}
+
+async function listThreadIdsByExactCwd(
+  appServer: RpcExecutor,
+  cwd: string,
+  archived: boolean,
+): Promise<string[]> {
+  const threadIds: string[] = []
+  let cursor: string | null = null
+
+  do {
+    const response = asRecord(await appServer.rpc('thread/list', {
+      archived,
+      cwd,
+      limit: 100,
+      sortKey: 'updated_at',
+      modelProviders: [],
+      cursor,
+    }))
+    const data = Array.isArray(response?.data) ? response.data : []
+    for (const row of data) {
+      const threadId = readNonEmptyString(asRecord(row)?.id)
+      if (threadId && !threadIds.includes(threadId)) {
+        threadIds.push(threadId)
+      }
+    }
+    cursor = readNonEmptyString(response?.nextCursor) || null
+  } while (cursor)
+
+  return threadIds
+}
+
+async function removeThreadIdsFromSessionIndex(threadIds: Set<string>): Promise<void> {
+  if (threadIds.size === 0) return
+
+  const sessionIndexPath = getCodexSessionIndexPath()
+  let raw = ''
+  try {
+    raw = await readFile(sessionIndexPath, 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return
+    throw error
+  }
+
+  const nextLines: string[] = []
+  for (const line of raw.split('\n')) {
+    if (!line.trim()) continue
+    let shouldRemove = false
+    try {
+      const record = asRecord(JSON.parse(line) as unknown)
+      shouldRemove =
+        threadIds.has(readNonEmptyString(record?.id)) ||
+        threadIds.has(readNonEmptyString(record?.session_id))
+    } catch {
+      shouldRemove = false
+    }
+    if (!shouldRemove) {
+      nextLines.push(line)
+    }
+  }
+
+  await writeFile(sessionIndexPath, nextLines.length > 0 ? `${nextLines.join('\n')}\n` : '', 'utf8')
+  sessionIndexThreadTitleCacheState = {
+    fileSignature: null,
+    cache: EMPTY_THREAD_TITLE_CACHE,
+  }
+}
+
+async function removeThreadIdsFromStateDatabase(threadIds: Set<string>): Promise<void> {
+  await deleteThreadIdsFromSqliteTable(getCodexStateDatabasePath(), 'threads', 'id', threadIds)
+}
+
+async function removeThreadIdsFromLogsDatabase(threadIds: Set<string>): Promise<void> {
+  try {
+    await deleteThreadIdsFromSqliteTable(getCodexLogsDatabasePath(), 'logs', 'thread_id', threadIds)
+  } catch {
+    // 日志库不存在或结构漂移不应阻止会话本体删除。
+  }
+}
+
+async function cleanupDeletedThreadMetadata(threadIds: Set<string>): Promise<void> {
+  if (threadIds.size === 0) return
+
+  const titleCache = await readThreadTitleCache()
+  await writeThreadTitleCache(removeThreadIdsFromThreadTitleCache(titleCache, threadIds))
+
+  const pinnedThreadIds = await readPinnedThreadIds()
+  await writePinnedThreadIds(pinnedThreadIds.filter((threadId) => !threadIds.has(threadId)))
+
+  await withThreadQueueStateUpdate((state) => {
+    const nextState = { ...state }
+    for (const threadId of threadIds) {
+      delete nextState[threadId]
+    }
+    return { nextState, result: undefined }
+  })
+
+  await removeThreadIdsFromSessionIndex(threadIds)
+}
+
+async function deleteResolvedThreadSessions(targets: ThreadSessionDeletionTarget[]): Promise<DeletedThreadSessionsResult> {
+  const deletedThreadIds = targets.map((target) => target.threadId)
+  const deletedThreadIdSet = new Set(deletedThreadIds)
+  await removeThreadIdsFromStateDatabase(deletedThreadIdSet)
+  await removeThreadIdsFromLogsDatabase(deletedThreadIdSet)
+
+  for (const target of targets) {
+    if (target.fileExists && target.sessionPath) {
+      await rm(target.sessionPath, { force: false })
+    }
+  }
+  await cleanupDeletedThreadMetadata(deletedThreadIdSet)
+  return { deletedThreadIds }
+}
+
+export async function deleteThreadSessionsById(
+  appServer: RpcExecutor,
+  threadIds: string[],
+): Promise<DeletedThreadSessionsResult> {
+  const normalizedThreadIds = [...new Set(threadIds.map((threadId) => threadId.trim()).filter(Boolean))]
+  if (normalizedThreadIds.length === 0) {
+    return { deletedThreadIds: [] }
+  }
+
+  const targets = await Promise.all(
+    normalizedThreadIds.map((threadId) => resolveThreadSessionDeletionTarget(appServer, threadId)),
+  )
+  return deleteResolvedThreadSessions(targets)
+}
+
+export async function deleteThreadSessionsByExactCwd(
+  appServer: RpcExecutor,
+  cwd: string,
+): Promise<DeletedThreadSessionsResult> {
+  const normalizedCwd = cwd.trim()
+  if (!normalizedCwd) {
+    throw new Error('cwd is required')
+  }
+
+  const threadIds = [
+    ...await listThreadIdsByExactCwd(appServer, normalizedCwd, false),
+    ...await listThreadIdsByExactCwd(appServer, normalizedCwd, true),
+  ]
+  return deleteThreadSessionsById(appServer, threadIds)
 }
 
 async function readWorkspaceRootsState(): Promise<WorkspaceRootsState> {
@@ -3747,6 +4145,15 @@ class AppServerProcess {
     this.liveStateCache.delete(threadId)
   }
 
+  clearDeletedThreadState(threadId: string): void {
+    this.lastThreadReadSnapshotByThreadId.delete(threadId)
+    this.threadTurnPageReadCacheByThreadId.delete(threadId)
+    this.threadTurnPageReadPromiseByThreadId.delete(threadId)
+    this.capturedItemsByThreadId.delete(threadId)
+    this.liveStateCache.delete(threadId)
+    this.streamEventsByThreadId.delete(threadId)
+  }
+
   private captureItemFromNotification(notification: { method: string; params: unknown }): void {
     if (notification.method !== 'item/started' && notification.method !== 'item/completed') return
 
@@ -4117,6 +4524,14 @@ export class BackendQueueProcessor {
     timer.unref?.()
     this.queueDrainTimersByThreadId.set(threadId, timer)
     this.queueDrainDueAtByThreadId.set(threadId, nextDueAt)
+  }
+
+  cancelThread(threadId: string): void {
+    const timer = this.queueDrainTimersByThreadId.get(threadId)
+    if (timer) clearTimeout(timer)
+    this.queueDrainTimersByThreadId.delete(threadId)
+    this.queueDrainDueAtByThreadId.delete(threadId)
+    this.processingThreadIds.delete(threadId)
   }
 
   async processThreadQueue(threadId: string): Promise<void> {
@@ -4558,6 +4973,16 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
     }
     return threadSearchIndexPromise
   }
+
+  function clearDeletedThreadRuntimeState(threadIds: string[]): void {
+    if (threadIds.length === 0) return
+    threadSearchIndex = null
+    threadSearchIndexPromise = null
+    for (const threadId of threadIds) {
+      appServer.clearDeletedThreadState(threadId)
+      backendQueueProcessor.cancelThread(threadId)
+    }
+  }
   void readTelegramBridgeConfig()
     .then((config) => {
       if (!config.botToken) return
@@ -4692,6 +5117,40 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
         }
 
         setJson(res, 200, { result })
+        return
+      }
+
+      if (req.method === 'DELETE' && url.pathname === '/codex-api/thread-session') {
+        const threadId = url.searchParams.get('threadId')?.trim() ?? ''
+        if (!threadId) {
+          setJson(res, 400, { error: 'Missing threadId' })
+          return
+        }
+        try {
+          const result = await deleteThreadSessionsById(appServer, [threadId])
+          clearDeletedThreadRuntimeState(result.deletedThreadIds)
+          setJson(res, 200, { data: result })
+        } catch (error) {
+          const message = getErrorMessage(error, 'Failed to delete thread session')
+          setJson(res, message.includes('still running') ? 409 : 400, { error: message })
+        }
+        return
+      }
+
+      if (req.method === 'DELETE' && url.pathname === '/codex-api/project-sessions') {
+        const cwd = url.searchParams.get('cwd')?.trim() ?? ''
+        if (!cwd) {
+          setJson(res, 400, { error: 'Missing cwd' })
+          return
+        }
+        try {
+          const result = await deleteThreadSessionsByExactCwd(appServer, cwd)
+          clearDeletedThreadRuntimeState(result.deletedThreadIds)
+          setJson(res, 200, { data: result })
+        } catch (error) {
+          const message = getErrorMessage(error, 'Failed to delete project sessions')
+          setJson(res, message.includes('still running') ? 409 : 400, { error: message })
+        }
         return
       }
 

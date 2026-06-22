@@ -79,7 +79,9 @@
         @create-project-worktree="$emit('create-project-worktree', $event)"
         @rename-thread="$emit('rename-thread', $event)"
         @fork-thread="$emit('fork-thread', $event)"
-        @remove-project="$emit('remove-project', $event)"
+        @delete-thread="$emit('delete-thread', $event)"
+        @hide-project="$emit('hide-project', $event)"
+        @delete-project="$emit('delete-project', $event)"
         @reorder-project="$emit('reorder-project', $event)"
         @export-thread="$emit('export-thread', $event)"
         @start-new-chat="$emit('start-new-thread-toolbar')"
@@ -450,7 +452,9 @@ const emit = defineEmits<{
   'create-project-worktree': [projectName: string]
   'rename-thread': [payload: { threadId: string; title: string }]
   'fork-thread': [threadId: string]
-  'remove-project': [projectName: string]
+  'delete-thread': [threadId: string]
+  'hide-project': [projectName: string]
+  'delete-project': [projectName: string]
   'reorder-project': [payload: { projectName: string; toIndex: number }]
   'export-thread': [threadId: string]
   'update:isSettingsOpen': [value: boolean]

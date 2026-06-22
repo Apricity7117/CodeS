@@ -65,7 +65,9 @@
         @create-project-worktree="onCreateProjectWorktree"
         @rename-thread="onRenameThread"
         @fork-thread="onForkThread"
-        @remove-project="onRemoveProject"
+        @delete-thread="onDeleteThread"
+        @hide-project="onHideProject"
+        @delete-project="onDeleteProject"
         @reorder-project="onReorderProject"
         @export-thread="onExportThread"
         @toggle-accounts-section="toggleAccountsSectionCollapsed"
@@ -686,6 +688,7 @@ const {
   ensureThreadMessagesLoaded,
   loadOlderMessages,
   archiveThreadById,
+  deleteThreadSessionById,
   forkThreadById,
   renameThreadById,
   forkThreadFromTurn,
@@ -705,6 +708,7 @@ const {
   respondToPendingServerRequest,
   renameProject,
   removeProject,
+  deleteProjectSessionsByCwd,
   reorderProject,
   pinProjectToTop,
   startPolling,
@@ -1319,6 +1323,10 @@ function onArchiveThread(threadId: string): void {
   void archiveThreadById(threadId)
 }
 
+function onDeleteThread(threadId: string): void {
+  void deleteThreadSessionById(threadId)
+}
+
 async function onForkThread(threadId: string): Promise<void> {
   const nextThreadId = await forkThreadById(threadId)
   if (!nextThreadId) return
@@ -1482,8 +1490,15 @@ function onRenameThread(payload: { threadId: string; title: string }): void {
   void renameThreadById(payload.threadId, payload.title)
 }
 
-async function onRemoveProject(projectName: string): Promise<void> {
+async function onHideProject(projectName: string): Promise<void> {
   await removeProject(projectName)
+  await loadWorkspaceRootOptionsState()
+  void refreshDefaultProjectName()
+}
+
+async function onDeleteProject(projectName: string): Promise<void> {
+  const cwd = getProjectCwd(projectName)
+  await deleteProjectSessionsByCwd(projectName, cwd)
   await loadWorkspaceRootOptionsState()
   void refreshDefaultProjectName()
 }

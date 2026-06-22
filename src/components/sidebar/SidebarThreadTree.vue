@@ -38,6 +38,7 @@
                   class="thread-delete-button"
                   type="button"
                   :data-confirming="isInlineDeleteConfirming(thread.id)"
+                  :data-inline-delete-confirming-id="isInlineDeleteConfirming(thread.id) ? thread.id : undefined"
                   :title="isInlineDeleteConfirming(thread.id) ? t('Confirm delete') : t('Delete thread')"
                   @click.stop="onInlineDeleteClick(thread.id)"
                 >
@@ -194,6 +195,7 @@
                 class="thread-delete-button"
                 type="button"
                 :data-confirming="isInlineDeleteConfirming(thread.id)"
+                :data-inline-delete-confirming-id="isInlineDeleteConfirming(thread.id) ? thread.id : undefined"
                 :title="isInlineDeleteConfirming(thread.id) ? t('Confirm delete') : t('Delete thread')"
                 @click.stop="onInlineDeleteClick(thread.id)"
               >
@@ -323,6 +325,7 @@
                       class="thread-delete-button"
                       type="button"
                       :data-confirming="isInlineDeleteConfirming(thread.id)"
+                      :data-inline-delete-confirming-id="isInlineDeleteConfirming(thread.id) ? thread.id : undefined"
                       :title="isInlineDeleteConfirming(thread.id) ? t('Confirm delete') : t('Delete thread')"
                       @click.stop="onInlineDeleteClick(thread.id)"
                     >
@@ -442,6 +445,7 @@
                   class="thread-delete-button"
                   type="button"
                   :data-confirming="isInlineDeleteConfirming(thread.id)"
+                  :data-inline-delete-confirming-id="isInlineDeleteConfirming(thread.id) ? thread.id : undefined"
                   :title="isInlineDeleteConfirming(thread.id) ? t('Confirm delete') : t('Delete thread')"
                   @click.stop="onInlineDeleteClick(thread.id)"
                 >
@@ -519,11 +523,18 @@
             {{ t('Rename project') }}
           </button>
           <button
+            class="project-menu-item"
+            type="button"
+            @click="onHideProject(openProjectMenuGroup.projectName)"
+          >
+            {{ t('Hide') }}
+          </button>
+          <button
             class="project-menu-item project-menu-item-danger"
             type="button"
-            @click="onRemoveProject(openProjectMenuGroup.projectName)"
+            @click="openDeleteProjectDialog(openProjectMenuGroup.projectName)"
           >
-            {{ t('Remove') }}
+            {{ t('Delete') }}
           </button>
         </template>
         <template v-else>
@@ -564,6 +575,9 @@
         <button class="thread-menu-item" type="button" @click="openRenameThreadDialog(openThreadMenuThread.id, openThreadMenuThread.title)">
           {{ t('Rename thread') }}
         </button>
+        <button class="thread-menu-item" type="button" @click="openArchiveThreadDialog(openThreadMenuThread.id, openThreadMenuThread.title)">
+          {{ t('Archive thread') }}
+        </button>
         <button class="thread-menu-item thread-menu-item-danger" type="button" @click="openDeleteThreadDialog(openThreadMenuThread.id, openThreadMenuThread.title)">
           {{ t('Delete thread') }}
         </button>
@@ -593,15 +607,49 @@
     </Teleport>
 
     <Teleport to="body">
+      <div v-if="archiveThreadDialogVisible" class="rename-thread-overlay" @click.self="closeArchiveThreadDialog">
+        <div class="rename-thread-panel" role="dialog" aria-modal="true" :aria-label="t('Archive thread')">
+          <h3 class="rename-thread-title">{{ t('Archive thread?') }}</h3>
+          <p class="rename-thread-subtitle">
+            {{ t('This will archive the thread "{title}". You can find it later in archived threads.', { title: archiveThreadTitle }) }}
+          </p>
+          <div class="rename-thread-actions">
+            <button class="rename-thread-button" type="button" @click="closeArchiveThreadDialog">{{ t('Cancel') }}</button>
+            <button class="rename-thread-button rename-thread-button-danger" type="button" @click="submitArchiveThread">
+              {{ t('Archive') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
       <div v-if="deleteThreadDialogVisible" class="rename-thread-overlay" @click.self="closeDeleteThreadDialog">
         <div class="rename-thread-panel" role="dialog" aria-modal="true" :aria-label="t('Delete thread')">
           <h3 class="rename-thread-title">{{ t('Delete thread?') }}</h3>
           <p class="rename-thread-subtitle">
-            {{ t('This will archive the thread "{title}". You can find it later in archived threads.', { title: deleteThreadTitle }) }}
+            {{ t('This will permanently delete the thread "{title}" from disk. It cannot be restored in Codex CLI.', { title: deleteThreadTitle }) }}
           </p>
           <div class="rename-thread-actions">
             <button class="rename-thread-button" type="button" @click="closeDeleteThreadDialog">{{ t('Cancel') }}</button>
             <button class="rename-thread-button rename-thread-button-danger" type="button" @click="submitDeleteThread">
+              {{ t('Delete') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="deleteProjectDialogVisible" class="rename-thread-overlay" @click.self="closeDeleteProjectDialog">
+        <div class="rename-thread-panel" role="dialog" aria-modal="true" :aria-label="t('Delete project sessions')">
+          <h3 class="rename-thread-title">{{ t('Delete project sessions?') }}</h3>
+          <p class="rename-thread-subtitle">
+            {{ t('This will permanently delete all sessions for project "{name}" from disk. Project files will not be deleted.', { name: deleteProjectTitle }) }}
+          </p>
+          <div class="rename-thread-actions">
+            <button class="rename-thread-button" type="button" @click="closeDeleteProjectDialog">{{ t('Cancel') }}</button>
+            <button class="rename-thread-button rename-thread-button-danger" type="button" @click="submitDeleteProject">
               {{ t('Delete') }}
             </button>
           </div>
@@ -660,7 +708,9 @@ const emit = defineEmits<{
   'create-project-worktree': [projectName: string]
   'rename-project': [payload: { projectName: string; displayName: string }]
   'rename-thread': [payload: { threadId: string; title: string }]
-  'remove-project': [projectName: string]
+  'delete-thread': [threadId: string]
+  'hide-project': [projectName: string]
+  'delete-project': [projectName: string]
   'reorder-project': [payload: { projectName: string; toIndex: number }]
   'export-thread': [threadId: string]
   'fork-thread': [threadId: string]
@@ -732,9 +782,15 @@ const renameThreadDialogVisible = ref(false)
 const renameThreadDialogThreadId = ref('')
 const renameThreadDraft = ref('')
 const renameThreadInputRef = ref<HTMLInputElement | null>(null)
+const archiveThreadDialogVisible = ref(false)
+const archiveThreadDialogThreadId = ref('')
+const archiveThreadTitle = ref('')
 const deleteThreadDialogVisible = ref(false)
 const deleteThreadDialogThreadId = ref('')
 const deleteThreadTitle = ref('')
+const deleteProjectDialogVisible = ref(false)
+const deleteProjectName = ref('')
+const deleteProjectTitle = ref('')
 const groupsContainerRef = ref<HTMLElement | null>(null)
 const pendingProjectDrag = ref<PendingProjectDrag | null>(null)
 const activeProjectDrag = ref<ActiveProjectDrag | null>(null)
@@ -1241,6 +1297,27 @@ function submitRenameThread(): void {
   closeRenameThreadDialog()
 }
 
+function openArchiveThreadDialog(threadId: string, currentTitle: string): void {
+  inlineDeleteConfirmThreadId.value = ''
+  archiveThreadDialogThreadId.value = threadId
+  archiveThreadTitle.value = currentTitle
+  archiveThreadDialogVisible.value = true
+  closeThreadMenu()
+}
+
+function closeArchiveThreadDialog(): void {
+  archiveThreadDialogVisible.value = false
+  archiveThreadDialogThreadId.value = ''
+  archiveThreadTitle.value = ''
+}
+
+async function submitArchiveThread(): Promise<void> {
+  const threadId = archiveThreadDialogThreadId.value
+  if (!threadId) return
+  archiveThreadById(threadId)
+  closeArchiveThreadDialog()
+}
+
 function openDeleteThreadDialog(threadId: string, currentTitle: string): void {
   inlineDeleteConfirmThreadId.value = ''
   deleteThreadDialogThreadId.value = threadId
@@ -1278,6 +1355,13 @@ function onInlineDeleteClick(threadId: string): void {
 }
 
 function deleteThreadById(threadId: string): void {
+  inlineDeleteConfirmThreadId.value = ''
+  closeThreadMenu()
+  pinnedThreadIds.value = pinnedThreadIds.value.filter((id) => id !== threadId)
+  emit('delete-thread', threadId)
+}
+
+function archiveThreadById(threadId: string): void {
   if (!optimisticallyArchivedThreadIdSet.value.has(threadId)) {
     optimisticallyArchivedThreadIds.value = [threadId, ...optimisticallyArchivedThreadIds.value]
   }
@@ -1414,9 +1498,29 @@ function onProjectNameInput(projectName: string): void {
   })
 }
 
-function onRemoveProject(projectName: string): void {
-  emit('remove-project', projectName)
+function onHideProject(projectName: string): void {
+  emit('hide-project', projectName)
   closeProjectMenu()
+}
+
+function openDeleteProjectDialog(projectName: string): void {
+  deleteProjectName.value = projectName
+  deleteProjectTitle.value = getProjectDisplayName(projectName)
+  deleteProjectDialogVisible.value = true
+  closeProjectMenu()
+}
+
+function closeDeleteProjectDialog(): void {
+  deleteProjectDialogVisible.value = false
+  deleteProjectName.value = ''
+  deleteProjectTitle.value = ''
+}
+
+function submitDeleteProject(): void {
+  const projectName = deleteProjectName.value
+  if (!projectName) return
+  emit('delete-project', projectName)
+  closeDeleteProjectDialog()
 }
 
 function onProjectHeaderKeyDown(event: KeyboardEvent, projectName: string): void {
@@ -1553,6 +1657,16 @@ function isEventInsideOpenThreadMenu(event: Event): boolean {
   return target instanceof Node ? panelElement.contains(target) : false
 }
 
+function isEventInsideInlineDeleteConfirm(event: Event): boolean {
+  const confirmingThreadId = inlineDeleteConfirmThreadId.value
+  if (!confirmingThreadId) return false
+  const eventPath = typeof event.composedPath === 'function' ? event.composedPath() : []
+  return eventPath.some((item) => {
+    if (!(item instanceof HTMLElement)) return false
+    return item.dataset.inlineDeleteConfirmingId === confirmingThreadId
+  })
+}
+
 function onProjectMenuPointerDown(event: PointerEvent): void {
   if (isOrganizeMenuOpen.value) {
     const organizeElement = organizeMenuWrapRef.value
@@ -1572,6 +1686,10 @@ function onProjectMenuPointerDown(event: PointerEvent): void {
 
   if (openThreadMenuId.value && !isEventInsideOpenThreadMenu(event)) {
     closeThreadMenu()
+  }
+
+  if (inlineDeleteConfirmThreadId.value && !isEventInsideInlineDeleteConfirm(event)) {
+    inlineDeleteConfirmThreadId.value = ''
   }
 }
 
@@ -1594,6 +1712,7 @@ function onWindowBlurForProjectMenu(): void {
   if (openThreadMenuId.value) {
     closeThreadMenu()
   }
+  inlineDeleteConfirmThreadId.value = ''
 }
 
 function bindProjectMenuDismissListeners(): void {
@@ -1951,7 +2070,7 @@ watch(
 )
 
 const hasOpenDismissableMenu = computed(
-  () => isOrganizeMenuOpen.value || openProjectMenuId.value !== '' || openThreadMenuId.value !== '',
+  () => isOrganizeMenuOpen.value || openProjectMenuId.value !== '' || openThreadMenuId.value !== '' || inlineDeleteConfirmThreadId.value !== '',
 )
 const hasOpenPositionedMenu = computed(
   () => openProjectMenuId.value !== '' || openThreadMenuId.value !== '',
