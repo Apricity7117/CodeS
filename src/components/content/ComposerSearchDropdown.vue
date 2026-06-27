@@ -29,10 +29,7 @@
               class="search-dropdown-search"
               type="text"
               :placeholder="searchPlaceholder"
-              @keydown.escape.prevent="isOpen = false"
-              @keydown.enter.prevent="selectHighlighted"
-              @keydown.arrow-down.prevent="moveHighlight(1)"
-              @keydown.arrow-up.prevent="moveHighlight(-1)"
+              @keydown="onSearchKeydown"
             />
             <button
               v-if="createLabel"
@@ -110,6 +107,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useUiLanguage } from '../../composables/useUiLanguage'
 import { IconCodexChevron } from '../icons/codex'
+import { isImeComposingKeydown } from './threadComposerKeyboard'
 
 export type SearchDropdownOption = {
   value: string
@@ -228,6 +226,30 @@ function onSelect(opt: SearchDropdownOption): void {
 function moveHighlight(delta: number): void {
   if (filtered.value.length === 0) return
   highlightIdx.value = (highlightIdx.value + delta + filtered.value.length) % filtered.value.length
+}
+
+function onSearchKeydown(event: KeyboardEvent): void {
+  if (isImeComposingKeydown(event)) return
+
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    isOpen.value = false
+    return
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    selectHighlighted()
+    return
+  }
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    moveHighlight(1)
+    return
+  }
+  if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    moveHighlight(-1)
+  }
 }
 
 function selectHighlighted(): void {

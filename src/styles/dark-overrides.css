@@ -157,6 +157,23 @@
   color: var(--codex-muted-text);
 }
 
+:root.dark .sidebar-settings-language-select {
+  color-scheme: dark;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-language-select:focus {
+  border-color: var(--codex-border-heavy);
+  box-shadow: 0 0 0 2px var(--codex-focus-ring);
+}
+
+:root.dark .sidebar-settings-language-select option {
+  background-color: var(--codex-popover-surface);
+  color: var(--codex-text);
+}
+
 :root.dark .sidebar-settings-language-dropdown .composer-dropdown-trigger {
   border-color: var(--codex-border-heavy) !important;
   background-color: var(--codex-control-bg) !important;
@@ -1293,11 +1310,23 @@
 }
 
 :root.dark .new-thread-folder-action {
-  @apply border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .new-thread-folder-action:hover {
+  background-color: var(--codex-control-hover);
 }
 
 :root.dark .new-thread-folder-action-primary {
-  @apply border-zinc-100 bg-zinc-100 text-zinc-950 hover:bg-white;
+  border-color: var(--codex-border-heavy);
+  background-color: color-mix(in srgb, var(--codex-control-bg) 82%, var(--codex-text) 18%);
+  color: var(--codex-text);
+}
+
+:root.dark .new-thread-folder-action-primary:hover {
+  background-color: color-mix(in srgb, var(--codex-control-bg) 72%, var(--codex-text) 28%);
 }
 
 :root.dark .new-thread-open-folder,
@@ -1324,6 +1353,65 @@
   @apply border-zinc-700 bg-zinc-900 text-zinc-100 focus:border-zinc-500;
 }
 
+:root.dark .new-thread-open-folder-toggle {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .new-thread-open-folder-toggle-input {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+}
+
+:root.dark .new-thread-open-folder-toggle-input:focus-visible {
+  box-shadow: 0 0 0 3px var(--codex-focus-ring);
+}
+
+:root.dark .new-thread-open-folder-toggle-input:checked {
+  border-color: var(--codex-text);
+  background-color: var(--codex-text);
+}
+
+:root.dark .new-thread-open-folder-toggle-input:checked::after {
+  border-color: var(--codex-bg);
+}
+
+:root.dark .new-thread-open-folder-status {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-muted-text);
+}
+
+:root.dark .new-thread-open-folder-list {
+  scrollbar-color: #5f5f5f var(--codex-subtle-surface);
+}
+
+:root.dark .new-thread-open-folder-list::-webkit-scrollbar-track {
+  background: var(--codex-subtle-surface);
+}
+
+:root.dark .new-thread-open-folder-list::-webkit-scrollbar-thumb {
+  background: #5f5f5f;
+  border-color: var(--codex-subtle-surface);
+}
+
+:root.dark .new-thread-open-folder-list::-webkit-scrollbar-thumb:hover {
+  background: #777777;
+}
+
+:root.dark .new-thread-open-folder-item-main,
+:root.dark .new-thread-open-folder-item-open {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .new-thread-open-folder-item-main:hover,
+:root.dark .new-thread-open-folder-item-open:hover {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
+}
+
 :root.dark .new-thread-project-mode-tabs {
   @apply border-zinc-700 bg-zinc-900;
 }
@@ -1333,7 +1421,8 @@
 }
 
 :root.dark .new-thread-project-mode-tab.is-active {
-  @apply bg-zinc-100 text-zinc-950;
+  background-color: var(--codex-selected-surface);
+  color: var(--codex-text);
 }
 
 :root.dark .new-thread-open-folder-error {

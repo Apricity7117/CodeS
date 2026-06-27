@@ -11,6 +11,9 @@ package-lock.json
 .env.local
 
 .omx/
+
+# Codex 桌面客户端逆向参考源码（来自 anti-codex/src，仅供对照，不入库）
+reference/
 .agents/skills/codex-app-parity/SKILL.md
 .agents/skills/codex-app-parity/agents/openai.yaml
 .agents/skills/github-pr-acceptance/SKILL.md
