@@ -166,15 +166,16 @@ export function buildEffectiveModelCatalog(input: ModelCatalogBuildInput): UiMod
     configuredOrder.push(configModel.id)
   }
 
+  const idsByLabel = buildIdsByLabel(optionsById)
   const orderedIds: string[] = []
-  for (const id of input.config.order) {
-    appendUniqueExistingId(orderedIds, optionsById, id)
+  for (const orderEntry of input.config.order) {
+    appendUniqueExistingId(orderedIds, optionsById, idsByLabel, orderEntry)
   }
   for (const id of discoveredOrder) {
-    appendUniqueExistingId(orderedIds, optionsById, id)
+    appendUniqueExistingId(orderedIds, optionsById, idsByLabel, id)
   }
   for (const id of configuredOrder) {
-    appendUniqueExistingId(orderedIds, optionsById, id)
+    appendUniqueExistingId(orderedIds, optionsById, idsByLabel, id)
   }
 
   return orderedIds.map((id) => optionsById.get(id)).filter((option): option is UiModelOption => Boolean(option))
@@ -302,7 +303,7 @@ function normalizeOrder(value: unknown): string[] {
     if (!id) {
       throw new Error(`order[${index}] must be a non-empty string`)
     }
-    // order 可以提前列出自动发现模型；配置内模型也在这里去重。
+    // order 可按模型 id 或唯一 label 排序，也可以提前列出自动发现模型。
     if (orderedIds.includes(id)) continue
     orderedIds.push(id)
   }
@@ -348,8 +349,33 @@ function readEffectiveDefaultReasoningEffort(
   return reasoningEfforts.includes('medium') ? 'medium' : reasoningEfforts[0] ?? 'medium'
 }
 
-function appendUniqueExistingId(ids: string[], optionsById: Map<string, UiModelOption>, id: string): void {
-  if (!optionsById.has(id) || ids.includes(id)) return
+function buildIdsByLabel(optionsById: Map<string, UiModelOption>): Map<string, string | null> {
+  const idsByLabel = new Map<string, string | null>()
+  for (const option of optionsById.values()) {
+    const label = option.label.trim()
+    if (!label) continue
+    idsByLabel.set(label, idsByLabel.has(label) ? null : option.id)
+  }
+  return idsByLabel
+}
+
+function resolveOrderEntry(
+  optionsById: Map<string, UiModelOption>,
+  idsByLabel: Map<string, string | null>,
+  entry: string,
+): string | null {
+  if (optionsById.has(entry)) return entry
+  return idsByLabel.get(entry) ?? null
+}
+
+function appendUniqueExistingId(
+  ids: string[],
+  optionsById: Map<string, UiModelOption>,
+  idsByLabel: Map<string, string | null>,
+  entry: string,
+): void {
+  const id = resolveOrderEntry(optionsById, idsByLabel, entry)
+  if (!id || !optionsById.has(id) || ids.includes(id)) return
   ids.push(id)
 }
 

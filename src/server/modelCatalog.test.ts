@@ -61,6 +61,46 @@ describe('model catalog', () => {
     ])
   })
 
+  it('allows order entries to match unique labels while keeping id priority', () => {
+    const config = parseModelCatalogConfigText(JSON.stringify({
+      order: ['GLM 5.2', 'claude-fable-5', 'Duplicated Label'],
+      models: [
+        {
+          id: 'z-ai/glm-5.2(max)[1m]',
+          label: 'GLM 5.2',
+        },
+        {
+          id: 'claude-fable-5(max)[1m]',
+          label: 'Claude Fable 5',
+        },
+        {
+          id: 'claude-fable-5',
+          label: 'Claude Fable 5 Alias',
+        },
+        {
+          id: 'duplicate-a',
+          label: 'Duplicated Label',
+        },
+        {
+          id: 'duplicate-b',
+          label: 'Duplicated Label',
+        },
+      ],
+    }))
+
+    expect(buildEffectiveModelCatalog({
+      codexModelIds: [],
+      providerModelIds: [],
+      config,
+    }).map((option) => option.id)).toEqual([
+      'z-ai/glm-5.2(max)[1m]',
+      'claude-fable-5',
+      'claude-fable-5(max)[1m]',
+      'duplicate-a',
+      'duplicate-b',
+    ])
+  })
+
   it('rejects invalid model catalog config', () => {
     expect(() => parseModelCatalogConfigText('{')).toThrow('Invalid JSON')
     expect(() => parseModelCatalogConfigText(JSON.stringify({
