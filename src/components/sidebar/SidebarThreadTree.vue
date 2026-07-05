@@ -741,7 +741,7 @@ type ActiveProjectDrag = {
   groupHeight: number
   groupOuterHeight: number
   ghostTop: number
-  dropTargetIndexFull: number | null
+  dropTargetIndex: number | null
 }
 
 type DragPointerSample = {
@@ -1124,17 +1124,19 @@ function toggleChatsSection(): void {
 
 const projectedDropProjectIndex = computed<number | null>(() => {
   const drag = activeProjectDrag.value
-  if (!drag || drag.dropTargetIndexFull === null || props.groups.length === 0) return null
+  const projectCount = visibleProjectNames.value.length
+  if (!drag || drag.dropTargetIndex === null || projectCount === 0) return null
 
-  const boundedDropIndex = Math.max(0, Math.min(drag.dropTargetIndexFull, props.groups.length))
+  const boundedDropIndex = Math.max(0, Math.min(drag.dropTargetIndex, projectCount))
   const projectedIndex = boundedDropIndex > drag.fromIndex ? boundedDropIndex - 1 : boundedDropIndex
-  const boundedProjectedIndex = Math.max(0, Math.min(projectedIndex, props.groups.length - 1))
+  const boundedProjectedIndex = Math.max(0, Math.min(projectedIndex, projectCount - 1))
   return boundedProjectedIndex === drag.fromIndex ? null : boundedProjectedIndex
 })
 
+const visibleProjectNames = computed<string[]>(() => filteredGroups.value.map((group) => group.projectName))
+
 const layoutProjectOrder = computed<string[]>(() => {
-  const sourceGroups = isSearchActive.value ? filteredGroups.value : props.groups
-  const names = sourceGroups.map((group) => group.projectName)
+  const names = visibleProjectNames.value
   const drag = activeProjectDrag.value
   const projectedIndex = projectedDropProjectIndex.value
 
@@ -1556,17 +1558,17 @@ function onProjectHeaderKeyDown(event: KeyboardEvent, projectName: string): void
   if (!event.altKey) return
   if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
 
-  const currentIndex = props.groups.findIndex((group) => group.projectName === projectName)
+  const currentIndex = visibleProjectNames.value.indexOf(projectName)
   if (currentIndex < 0) return
 
   const delta = event.key === 'ArrowUp' ? -1 : 1
-  const targetIndex = Math.max(0, Math.min(currentIndex + delta, props.groups.length - 1))
+  const targetIndex = Math.max(0, Math.min(currentIndex + delta, visibleProjectNames.value.length - 1))
   if (targetIndex === currentIndex) return
 
   event.preventDefault()
   emit('reorder-project', {
     projectName,
-    toIndex: targetIndex,
+    toIndex: toFullProjectReorderIndex(projectName, targetIndex),
   })
 }
 
@@ -1804,7 +1806,7 @@ function onProjectHandleMouseDown(event: MouseEvent, projectName: string): void 
   if (isSearchActive.value) return
   if (pendingProjectDrag.value || activeProjectDrag.value) return
 
-  const fromIndex = props.groups.findIndex((group) => group.projectName === projectName)
+  const fromIndex = visibleProjectNames.value.indexOf(projectName)
   const projectGroupElement = projectGroupElementByName.get(projectName)
   if (fromIndex < 0 || !projectGroupElement) return
 
@@ -1854,13 +1856,13 @@ function onProjectDragMouseUp(event: MouseEvent): void {
 
   const drag = activeProjectDrag.value
   if (drag && projectedDropProjectIndex.value !== null) {
-    const currentProjectIndex = props.groups.findIndex((group) => group.projectName === drag.projectName)
+    const currentProjectIndex = visibleProjectNames.value.indexOf(drag.projectName)
     if (currentProjectIndex >= 0) {
       const toIndex = projectedDropProjectIndex.value
       if (toIndex !== currentProjectIndex) {
         emit('reorder-project', {
           projectName: drag.projectName,
-          toIndex,
+          toIndex: toFullProjectReorderIndex(drag.projectName, toIndex),
         })
       }
     }
@@ -1925,7 +1927,7 @@ function processProjectDragPointerSample(sample: DragPointerSample): void {
       groupHeight: pending.groupHeight,
       groupOuterHeight: pending.groupOuterHeight,
       ghostTop: sample.clientY - pending.pointerOffsetY,
-      dropTargetIndexFull: null,
+      dropTargetIndex: null,
     }
   }
 
@@ -1939,41 +1941,36 @@ function updateProjectDropTarget(sample: DragPointerSample): void {
 
   drag.ghostTop = sample.clientY - drag.pointerOffsetY
   if (!isPointerInProjectDropZone(sample)) {
-    drag.dropTargetIndexFull = null
+    drag.dropTargetIndex = null
     return
   }
 
   const cursorY = sample.clientY
   const groupsContainer = groupsContainerRef.value
   if (!groupsContainer) {
-    drag.dropTargetIndexFull = null
+    drag.dropTargetIndex = null
     return
   }
 
   const containerRect = groupsContainer.getBoundingClientRect()
-  const projectIndexByName = new Map(props.groups.map((group, index) => [group.projectName, index]))
-  const nonDraggedProjectNames = props.groups
-    .map((group) => group.projectName)
-    .filter((projectName) => projectName !== drag.projectName)
+  const projectNames = visibleProjectNames.value
+  const nonDraggedProjectNames = projectNames.filter((projectName) => projectName !== drag.projectName)
 
   let accumulatedTop = 0
-  let nextDropTarget = props.groups.length
+  let nextDropTarget = projectNames.length
 
   for (const projectName of nonDraggedProjectNames) {
-    const originalIndex = projectIndexByName.get(projectName)
-    if (originalIndex === undefined) continue
-
     const groupOuterHeight = getProjectOuterHeight(projectName)
     const groupMiddleY = containerRect.top + accumulatedTop + groupOuterHeight / 2
     if (cursorY < groupMiddleY) {
-      nextDropTarget = originalIndex
+      nextDropTarget = projectNames.indexOf(projectName)
       break
     }
 
     accumulatedTop += groupOuterHeight
   }
 
-  drag.dropTargetIndexFull = nextDropTarget
+  drag.dropTargetIndex = nextDropTarget
 }
 
 function isPointerInProjectDropZone(sample: DragPointerSample): boolean {
@@ -1988,6 +1985,38 @@ function isPointerInProjectDropZone(sample: DragPointerSample): boolean {
 
 function isDraggingProject(projectName: string): boolean {
   return activeProjectDrag.value?.projectName === projectName
+}
+
+function toFullProjectReorderIndex(projectName: string, visibleToIndex: number): number {
+  const fullOrder = props.groups.map((group) => group.projectName)
+  const fullFromIndex = fullOrder.indexOf(projectName)
+  if (fullFromIndex < 0) return visibleToIndex
+
+  const currentVisibleOrder = visibleProjectNames.value
+  const visibleFromIndex = currentVisibleOrder.indexOf(projectName)
+  if (visibleFromIndex < 0) return fullFromIndex
+
+  const boundedVisibleToIndex = Math.max(0, Math.min(visibleToIndex, currentVisibleOrder.length - 1))
+  const nextVisibleOrder = [...currentVisibleOrder]
+  nextVisibleOrder.splice(visibleFromIndex, 1)
+  nextVisibleOrder.splice(boundedVisibleToIndex, 0, projectName)
+
+  const movedVisibleIndex = nextVisibleOrder.indexOf(projectName)
+  const nextVisibleProject = nextVisibleOrder[movedVisibleIndex + 1]
+  const previousVisibleProject = movedVisibleIndex > 0 ? nextVisibleOrder[movedVisibleIndex - 1] : undefined
+  const fullOrderWithoutMoved = fullOrder.filter((name) => name !== projectName)
+
+  if (nextVisibleProject) {
+    const nextFullIndex = fullOrderWithoutMoved.indexOf(nextVisibleProject)
+    if (nextFullIndex >= 0) return nextFullIndex
+  }
+
+  if (previousVisibleProject) {
+    const previousFullIndex = fullOrderWithoutMoved.indexOf(previousVisibleProject)
+    if (previousFullIndex >= 0) return Math.min(previousFullIndex + 1, fullOrder.length - 1)
+  }
+
+  return 0
 }
 
 function projectGroupStyle(projectName: string): Record<string, string> | undefined {
