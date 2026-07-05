@@ -100,7 +100,7 @@ function resolvePassword(input: string | boolean): PasswordResolution {
 }
 
 function getGeneratedPasswordPath(): string {
-  return join(getCodexHomePath(), 'codexui-password')
+  return join(getCodexHomePath(), 'codes-password')
 }
 
 async function persistGeneratedPassword(password: string): Promise<string> {

@@ -716,6 +716,7 @@ const {
   readModelIdForThread,
   isModelSelectableForThread,
   setSelectedModelIdForThread,
+  resetNewThreadRunConfig,
 
   setSelectedReasoningEffort,
   updateSelectedSpeedMode,
@@ -2349,6 +2350,14 @@ watch(
 
     if (route.name === 'thread' && routeThreadId.value === threadId) return
     await router.replace({ name: 'thread', params: { threadId } })
+  },
+)
+
+watch(
+  () => route.name,
+  (routeName) => {
+    if (!hasInitialized.value || routeName !== 'home') return
+    resetNewThreadRunConfig()
   },
 )
 

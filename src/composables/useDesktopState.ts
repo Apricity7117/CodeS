@@ -260,44 +260,58 @@ function loadSelectedModelMap(): Record<string, string> {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return createStringKeyedRecord<string>()
 
       const next = createStringKeyedRecord<string>()
+      let droppedTransientModel = false
       for (const [contextId, value] of Object.entries(parsed as Record<string, unknown>)) {
         if (typeof contextId !== 'string' || contextId.length === 0) continue
+        if (isNewThreadContextId(contextId)) {
+          droppedTransientModel = true
+          continue
+        }
         const normalizedModelId = normalizeStoredModelId(value)
         if (normalizedModelId) {
           next[contextId] = normalizedModelId
         }
       }
+      if (droppedTransientModel || window.localStorage.getItem(LEGACY_SELECTED_MODEL_STORAGE_KEY) !== null) {
+        saveSelectedModelMap(next)
+      }
       return next
     }
   } catch {
-    // Fall back to the legacy global preference below.
+    return createStringKeyedRecord<string>()
   }
 
-  const legacyModelId = normalizeStoredModelId(window.localStorage.getItem(LEGACY_SELECTED_MODEL_STORAGE_KEY))
-  const next = createStringKeyedRecord<string>()
-  if (legacyModelId) {
-    next[NEW_THREAD_COLLABORATION_MODE_CONTEXT] = legacyModelId
+  if (window.localStorage.getItem(LEGACY_SELECTED_MODEL_STORAGE_KEY) !== null) {
+    saveSelectedModelMap(createStringKeyedRecord<string>())
   }
-  return next
+  return createStringKeyedRecord<string>()
 }
 
 function readSelectedModel(
   state: Record<string, string>,
   threadId: string,
+  fallbackModelId = '',
 ): string {
   const contextId = toThreadContextId(threadId)
   const contextModelId = normalizeStoredModelId(state[contextId])
   if (contextModelId) return contextModelId
-  return normalizeStoredModelId(state[NEW_THREAD_COLLABORATION_MODE_CONTEXT])
+  return normalizeStoredModelId(fallbackModelId)
 }
 
 function saveSelectedModelMap(state: Record<string, string>): void {
   if (typeof window === 'undefined') return
   try {
-    if (Object.keys(state).length === 0) {
+    const persisted = createStringKeyedRecord<string>()
+    for (const [contextId, modelId] of Object.entries(state)) {
+      if (isNewThreadContextId(contextId)) continue
+      const normalizedModelId = normalizeStoredModelId(modelId)
+      if (normalizedModelId) persisted[contextId] = normalizedModelId
+    }
+
+    if (Object.keys(persisted).length === 0) {
       window.localStorage.removeItem(SELECTED_MODEL_BY_CONTEXT_STORAGE_KEY)
     } else {
-      window.localStorage.setItem(SELECTED_MODEL_BY_CONTEXT_STORAGE_KEY, JSON.stringify(state))
+      window.localStorage.setItem(SELECTED_MODEL_BY_CONTEXT_STORAGE_KEY, JSON.stringify(persisted))
     }
     window.localStorage.removeItem(LEGACY_SELECTED_MODEL_STORAGE_KEY)
   } catch {
@@ -1663,10 +1677,16 @@ export function useDesktopState() {
     loadSelectedCollaborationModeMap(),
   )
   const selectedModelIdByContext = ref<Record<string, string>>(loadSelectedModelMap())
+  const codexDefaultModelId = ref('')
+  const codexDefaultReasoningEffort = ref<ReasoningEffort | ''>('medium')
   const selectedCollaborationMode = ref<CollaborationModeKind>(
     readSelectedCollaborationMode(selectedCollaborationModeByContext.value, selectedThreadId.value),
   )
-  const selectedModelId = ref(readSelectedModel(selectedModelIdByContext.value, selectedThreadId.value))
+  const selectedModelId = ref(readSelectedModel(
+    selectedModelIdByContext.value,
+    selectedThreadId.value,
+    codexDefaultModelId.value,
+  ))
   const selectedReasoningEffort = ref<ReasoningEffort | ''>('medium')
   const selectedSpeedMode = ref<SpeedMode>('standard')
   const codexCliMissingError = ref('')
@@ -1845,7 +1865,7 @@ export function useDesktopState() {
   }
 
   function readModelIdForThread(threadId: string): string {
-    return readSelectedModel(selectedModelIdByContext.value, threadId).trim()
+    return readSelectedModel(selectedModelIdByContext.value, threadId, codexDefaultModelId.value).trim()
   }
 
   function findModelOption(modelId: string): UiModelOption | null {
@@ -1878,6 +1898,33 @@ export function useDesktopState() {
     if (!option.reasoningEfforts.includes(selectedReasoningEffort.value as ReasoningEffort)) {
       selectedReasoningEffort.value = option.defaultReasoningEffort
     }
+  }
+
+  function readDefaultReasoningEffortForModel(modelId: string): ReasoningEffort | '' {
+    const option = findModelOption(modelId)
+    const defaultEffort = codexDefaultReasoningEffort.value
+    if (!option) return defaultEffort
+    if (defaultEffort && option.reasoningEfforts.includes(defaultEffort)) {
+      return defaultEffort
+    }
+    return option.defaultReasoningEffort
+  }
+
+  function resetNewThreadRunConfig(): void {
+    const nextModelMap = omitStringKeyedRecordKey(
+      selectedModelIdByContext.value,
+      NEW_THREAD_COLLABORATION_MODE_CONTEXT,
+    )
+    if (nextModelMap !== selectedModelIdByContext.value) {
+      selectedModelIdByContext.value = nextModelMap
+      saveSelectedModelMap(selectedModelIdByContext.value)
+    }
+    if (isNewThreadContextId(toThreadContextId(selectedThreadId.value))) {
+      selectedModelId.value = readModelIdForThread(NEW_THREAD_COLLABORATION_MODE_CONTEXT)
+    }
+    selectedReasoningEffort.value = readDefaultReasoningEffortForModel(
+      readModelIdForThread(NEW_THREAD_COLLABORATION_MODE_CONTEXT),
+    )
   }
 
   function isModelSelectableForThread(threadId: string): boolean {
@@ -2204,6 +2251,11 @@ export function useDesktopState() {
     try {
       const currentConfig = await getCurrentModelConfig()
       const normalizedConfiguredModelId = currentConfig.model.trim()
+      const configuredReasoningEffort = currentConfig.reasoningEffort && REASONING_EFFORT_OPTIONS.includes(currentConfig.reasoningEffort)
+        ? currentConfig.reasoningEffort
+        : 'medium'
+      codexDefaultModelId.value = normalizedConfiguredModelId
+      codexDefaultReasoningEffort.value = configuredReasoningEffort
       const normalizedSelectedModelId = readModelIdForThread(selectedThreadId.value)
       const discoveredOptions = await readModelOptionsWithFallback()
       const nextModelOptions = [...discoveredOptions]
@@ -2215,18 +2267,23 @@ export function useDesktopState() {
 
       const selectedOption = findModelOption(normalizedSelectedModelId)
       const selectedModelStillKnown = normalizedSelectedModelId && selectedOption !== null
+      const selectedContextId = toThreadContextId(selectedThreadId.value)
       if (!normalizedSelectedModelId || !selectedModelStillKnown) {
-        setSelectedModelId(chooseFallbackModelId(normalizedConfiguredModelId, availableModelIds.value))
+        const fallbackModelId = chooseFallbackModelId(normalizedConfiguredModelId, availableModelIds.value)
+        if (isNewThreadContextId(selectedContextId)) {
+          selectedModelId.value = fallbackModelId
+        } else {
+          setSelectedModelId(fallbackModelId)
+        }
       } else if (selectedModelId.value.trim() !== normalizedSelectedModelId) {
-        setSelectedModelId(normalizedSelectedModelId)
+        if (isNewThreadContextId(selectedContextId)) {
+          selectedModelId.value = normalizedSelectedModelId
+        } else {
+          setSelectedModelId(normalizedSelectedModelId)
+        }
       }
 
-      if (
-        currentConfig.reasoningEffort &&
-        REASONING_EFFORT_OPTIONS.includes(currentConfig.reasoningEffort)
-      ) {
-        selectedReasoningEffort.value = currentConfig.reasoningEffort
-      }
+      selectedReasoningEffort.value = configuredReasoningEffort
       applyReasoningEffortForModel(readModelIdForThread(selectedThreadId.value))
       selectedSpeedMode.value = currentConfig.speedMode
     } catch (unknownError) {
@@ -5818,6 +5875,10 @@ export function useDesktopState() {
         void recoverBridgeState()
         return
       }
+      if (notification.method === 'codes/modelCatalog/changed') {
+        void refreshModelPreferences()
+        return
+      }
       applyRealtimeUpdates(notification)
       queueEventDrivenSync(notification)
     })
@@ -6017,6 +6078,7 @@ export function useDesktopState() {
     isModelSelectableForThread,
     setSelectedModelIdForThread,
     setSelectedModelId,
+    resetNewThreadRunConfig,
 
     setSelectedReasoningEffort,
     updateSelectedSpeedMode,

@@ -12,7 +12,7 @@ import { createInterface } from 'node:readline'
 import { writeFile } from 'node:fs/promises'
 import { handleAccountRoutes } from './accountRoutes.js'
 import { buildAppServerArgs } from './appServerRuntimeConfig.js'
-import { handleModelCatalogRoutes } from './modelCatalog.js'
+import { handleModelCatalogRoutes, watchModelCatalogConfigFile } from './modelCatalog.js'
 import { handleReviewRoutes } from './reviewGit.js'
 import { handleSkillsRoutes } from './skillsRoutes.js'
 import { TelegramThreadBridge } from './telegramThreadBridge.js'
@@ -4372,7 +4372,7 @@ class AppServerProcess {
 
     this.initializePromise = this.call('initialize', {
       clientInfo: {
-        name: 'codex-web-local',
+        name: 'CodeS',
         version: '0.1.0',
       },
       capabilities: {
@@ -4850,6 +4850,12 @@ type CodexBridgeMiddleware = ((req: IncomingMessage, res: ServerResponse, next: 
   subscribeNotifications: (listener: (value: { method: string; params: unknown; atIso: string }) => void) => () => void
 }
 
+type BridgeNotification = {
+  method: string
+  params: unknown
+  atIso: string
+}
+
 type SharedBridgeState = {
   version: string
   appServer: AppServerProcess
@@ -4972,6 +4978,22 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
   const { appServer, methodCatalog, telegramBridge, backendQueueProcessor } = getSharedBridgeState()
   let threadSearchIndex: ThreadSearchIndex | null = null
   let threadSearchIndexPromise: Promise<ThreadSearchIndex> | null = null
+  const bridgeNotificationListeners = new Set<(value: BridgeNotification) => void>()
+
+  function emitBridgeNotification(method: string, params: unknown): void {
+    const notification: BridgeNotification = {
+      method,
+      params,
+      atIso: new Date().toISOString(),
+    }
+    for (const listener of bridgeNotificationListeners) {
+      listener(notification)
+    }
+  }
+
+  const stopModelCatalogWatcher = watchModelCatalogConfigFile((configPath) => {
+    emitBridgeNotification('codes/modelCatalog/changed', { configPath })
+  })
 
   async function getThreadSearchIndex(): Promise<ThreadSearchIndex> {
     if (threadSearchIndex) return threadSearchIndex
@@ -6263,13 +6285,16 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
 
   middleware.dispose = () => {
     threadSearchIndex = null
+    stopModelCatalogWatcher()
+    bridgeNotificationListeners.clear()
     telegramBridge.stop()
     backendQueueProcessor.dispose()
     appServer.dispose()
   }
   middleware.subscribeNotifications = (
-    listener: (value: { method: string; params: unknown; atIso: string }) => void,
+    listener: (value: BridgeNotification) => void,
   ) => {
+    bridgeNotificationListeners.add(listener)
     const unsubscribeAppServer = appServer.onNotification((notification: { method: string; params: unknown }) => {
       listener({
         ...notification,
@@ -6277,6 +6302,7 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
       })
     })
     return () => {
+      bridgeNotificationListeners.delete(listener)
       unsubscribeAppServer()
     }
   }

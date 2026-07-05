@@ -1,3 +1,4 @@
+import { mkdirSync, watch, type FSWatcher } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { homedir } from 'node:os'
@@ -50,6 +51,43 @@ const DEFAULT_CONFIG: ModelCatalogConfig = {
 export function getModelCatalogConfigPath(): string {
   const codexHome = readTrimmedEnv(ENV_KEYS.codexHome[0])
   return join(codexHome || join(homedir(), '.codex'), MODEL_CATALOG_CONFIG_FILE)
+}
+
+export function watchModelCatalogConfigFile(onChange: (configPath: string) => void): () => void {
+  const configPath = getModelCatalogConfigPath()
+  const configDir = dirname(configPath)
+  let watcher: FSWatcher | null = null
+  let debounceTimer: NodeJS.Timeout | null = null
+
+  const clearDebounceTimer = () => {
+    if (!debounceTimer) return
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+
+  const scheduleChange = () => {
+    clearDebounceTimer()
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null
+      onChange(configPath)
+    }, 100)
+  }
+
+  try {
+    mkdirSync(configDir, { recursive: true })
+    watcher = watch(configDir, { persistent: false }, (_event, filename) => {
+      const changedFile = filename ? String(filename) : ''
+      if (changedFile && changedFile !== MODEL_CATALOG_CONFIG_FILE) return
+      scheduleChange()
+    })
+  } catch {
+    return () => {}
+  }
+
+  return () => {
+    clearDebounceTimer()
+    watcher?.close()
+  }
 }
 
 export function formatModelCatalogConfigText(config: ModelCatalogConfig = DEFAULT_CONFIG): string {

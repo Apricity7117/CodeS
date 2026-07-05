@@ -976,13 +976,11 @@ describe('model selection', () => {
     ])
     expect(state.selectedModelId.value).toBe('big-pickle')
     expect(state.readModelIdForThread('').trim()).toBe('big-pickle')
-    expect(JSON.parse(window.localStorage.getItem('codex-web-local.selected-model-by-context.v1') ?? '{}')).toEqual({
-      '__new-thread__': 'big-pickle',
-    })
+    expect(window.localStorage.getItem('codex-web-local.selected-model-by-context.v1')).toBe(null)
     expect(window.localStorage.getItem('codex-web-local.selected-model-id.v1')).toBe(null)
   })
 
-  it('restores a valid new-thread selected model from localStorage', async () => {
+  it('uses the Codex config model instead of a persisted new-thread model', async () => {
     installTestWindow({
       'codex-web-local.selected-model-by-context.v1': JSON.stringify({
         '__new-thread__': 'ring-2.6-1t-free',
@@ -1017,20 +1015,27 @@ describe('model selection', () => {
       'deepseek-v4-flash-free',
       'ring-2.6-1t-free',
     ])
-    expect(state.selectedModelId.value).toBe('ring-2.6-1t-free')
-    expect(state.readModelIdForThread('').trim()).toBe('ring-2.6-1t-free')
-    expect(JSON.parse(window.localStorage.getItem('codex-web-local.selected-model-by-context.v1') ?? '{}')).toEqual({
-      '__new-thread__': 'ring-2.6-1t-free',
-    })
+    expect(state.selectedModelId.value).toBe('big-pickle')
+    expect(state.readModelIdForThread('').trim()).toBe('big-pickle')
+    expect(window.localStorage.getItem('codex-web-local.selected-model-by-context.v1')).toBe(null)
   })
 
-  it('preserves a hidden selected model and blocks new sends until a selectable model is chosen', async () => {
+  it('preserves a hidden selected thread model and blocks sends until a selectable model is chosen', async () => {
     installTestWindow({
+      'codex-web-local.selected-thread-id.v1': 'thread-1',
       'codex-web-local.selected-model-by-context.v1': JSON.stringify({
-        '__new-thread__': 'retired-model',
+        'thread-1': 'retired-model',
       }),
     })
-    gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })
+    gatewayMocks.getThreadGroupsPage.mockResolvedValue({
+      groups: [
+        {
+          projectName: 'project',
+          threads: [thread('thread-1', '/tmp/project')],
+        },
+      ],
+      nextCursor: null,
+    })
     gatewayMocks.getAvailableCollaborationModes.mockResolvedValue([{ value: 'default', label: 'Default' }])
     gatewayMocks.getSkillsList.mockResolvedValue([])
     gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
@@ -1055,9 +1060,9 @@ describe('model selection', () => {
 
     expect(state.selectedModelId.value).toBe('retired-model')
     expect(state.availableModelIds.value).toEqual(['big-pickle'])
-    expect(state.isModelSelectableForThread('')).toBe(false)
-    await expect(state.sendMessageToNewThread('hello', '/tmp/project')).resolves.toBe('')
-    expect(gatewayMocks.startThread).not.toHaveBeenCalled()
+    expect(state.isModelSelectableForThread('thread-1')).toBe(false)
+    await expect(state.sendMessageToSelectedThread('hello')).resolves.toBeUndefined()
+    expect(gatewayMocks.startThreadTurn).not.toHaveBeenCalled()
     expect(state.error.value).toBe('Selected model is hidden. Choose an available model before sending.')
   })
 
@@ -1093,6 +1098,94 @@ describe('model selection', () => {
     await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
 
     expect(state.selectedReasoningEffort.value).toBe('minimal')
+  })
+
+  it('refreshes model options when a model catalog change notification arrives', async () => {
+    installTestWindow()
+    const notificationCallbacks: Array<(notification: { method: string; params: unknown; atIso: string }) => void> = []
+    gatewayMocks.subscribeCodexNotifications.mockImplementation((callback) => {
+      notificationCallbacks.push(callback)
+      return vi.fn()
+    })
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'big-pickle',
+      providerId: 'codex',
+      reasoningEffort: 'medium',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [modelOption('big-pickle')],
+      configText: '{\n  "models": [],\n  "order": []\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+    expect(state.availableModelIds.value).toEqual(['big-pickle'])
+
+    let refreshed = false
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'ring-2.6-1t-free',
+      providerId: 'codex',
+      reasoningEffort: 'medium',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockImplementation(async () => {
+      refreshed = true
+      return {
+        options: [modelOption('ring-2.6-1t-free')],
+        configText: '{\n  "models": [{ "id": "ring-2.6-1t-free" }],\n  "order": []\n}\n',
+        configPath: '/tmp/codes-model-catalog.json',
+        configError: '',
+      }
+    })
+
+    state.startPolling()
+    const emitNotification = notificationCallbacks[0]
+    if (!emitNotification) throw new Error('missing notification callback')
+    emitNotification({ method: 'codes/modelCatalog/changed', params: {}, atIso: '2026-07-05T00:00:00.000Z' })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(refreshed).toBe(true)
+    expect(state.availableModelIds.value).toEqual(['ring-2.6-1t-free'])
+  })
+
+  it('resets new-thread model and reasoning to the Codex config defaults', async () => {
+    installTestWindow()
+    gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })
+    gatewayMocks.getAvailableCollaborationModes.mockResolvedValue([{ value: 'default', label: 'Default' }])
+    gatewayMocks.getSkillsList.mockResolvedValue([])
+    gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'big-pickle',
+      providerId: 'codex',
+      reasoningEffort: 'low',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [
+        modelOption('big-pickle', { reasoningEfforts: ['low', 'medium'], defaultReasoningEffort: 'low' }),
+        modelOption('ring-2.6-1t-free', { reasoningEfforts: ['high'], defaultReasoningEffort: 'high' }),
+      ],
+      configText: '{\n  "models": [],\n  "order": []\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+    state.setSelectedModelIdForThread('__new-thread__', 'ring-2.6-1t-free')
+    state.setSelectedReasoningEffort('high')
+
+    expect(state.readModelIdForThread('__new-thread__')).toBe('ring-2.6-1t-free')
+
+    state.resetNewThreadRunConfig()
+
+    expect(state.readModelIdForThread('__new-thread__')).toBe('big-pickle')
+    expect(state.selectedReasoningEffort.value).toBe('low')
+    expect(window.localStorage.getItem('codex-web-local.selected-model-by-context.v1')).toBe(null)
   })
 })
 
