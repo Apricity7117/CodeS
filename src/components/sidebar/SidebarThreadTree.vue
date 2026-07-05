@@ -563,6 +563,9 @@
         <button class="thread-menu-item" type="button" @click="onCopyThreadPath(openThreadMenuThread.id)">
           {{ t('Copy path') }}
         </button>
+        <button class="thread-menu-item" type="button" @click="onCopyThreadId(openThreadMenuThread.id)">
+          {{ t('Copy ID') }}
+        </button>
         <button class="thread-menu-item" type="button" @click="onExportThread(openThreadMenuThread.id)">
           {{ t('Export chat') }}
         </button>
@@ -1241,15 +1244,25 @@ function onBrowseThreadFiles(threadId: string): void {
   closeThreadMenu()
 }
 
-async function onCopyThreadPath(threadId: string): Promise<void> {
-  const path = threadById.value.get(threadId)?.cwd?.trim() ?? ''
-  closeThreadMenu()
-  if (!path || typeof navigator === 'undefined' || !navigator.clipboard) return
+async function copyTextToClipboard(text: string): Promise<void> {
+  const value = text.trim()
+  if (!value || typeof navigator === 'undefined' || !navigator.clipboard) return
   try {
-    await navigator.clipboard.writeText(path)
+    await navigator.clipboard.writeText(value)
   } catch {
     // 剪贴板写入可能会被浏览器权限拦截；此菜单动作尽力执行即可。
   }
+}
+
+async function onCopyThreadPath(threadId: string): Promise<void> {
+  const path = threadById.value.get(threadId)?.cwd?.trim() ?? ''
+  closeThreadMenu()
+  await copyTextToClipboard(path)
+}
+
+async function onCopyThreadId(threadId: string): Promise<void> {
+  closeThreadMenu()
+  await copyTextToClipboard(threadId)
 }
 
 function isThreadMenuOpen(threadId: string): boolean {

@@ -232,6 +232,7 @@ const zhCN: Record<string, string> = {
   'Show more': '显示更多',
   'Thread title': '线程标题',
   'Copy path': '复制路径',
+  'Copy ID': '复制 ID',
   'Export chat': '导出聊天',
   'Create chat fork': '创建聊天分叉',
   'Unpin thread': '取消固定线程',
