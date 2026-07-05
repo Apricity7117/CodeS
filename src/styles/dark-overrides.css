@@ -61,6 +61,72 @@
   background-color: var(--codex-surface);
 }
 
+:root.dark .sidebar-settings-telegram-panel,
+:root.dark .sidebar-settings-model-catalog {
+  border-color: var(--codex-border);
+  background-color: var(--codex-surface);
+}
+
+:root.dark .sidebar-settings-field-label {
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-input,
+:root.dark .sidebar-settings-textarea {
+  color-scheme: dark;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-input:focus,
+:root.dark .sidebar-settings-textarea:focus {
+  border-color: var(--codex-border-heavy);
+  box-shadow: 0 0 0 2px var(--codex-focus-ring);
+}
+
+:root.dark .sidebar-settings-field-help,
+:root.dark .sidebar-settings-model-catalog-path {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .sidebar-settings-telegram-error {
+  @apply bg-rose-950/40 text-zinc-200;
+}
+
+:root.dark .sidebar-settings-telegram-save {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-telegram-save:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .sidebar-settings-model-catalog-toggle .sidebar-settings-account-collapse-icon {
+  color: var(--codex-muted-text);
+}
+
+:root.dark .sidebar-settings-model-catalog-item {
+  border-color: var(--codex-border);
+  background-color: var(--codex-panel-surface);
+}
+
+:root.dark .sidebar-settings-model-catalog-item.is-hidden {
+  border-color: var(--codex-border);
+  background-color: var(--codex-subtle-surface);
+}
+
+:root.dark .sidebar-settings-model-catalog-label {
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-model-catalog-meta,
+:root.dark .sidebar-settings-model-catalog-more {
+  color: var(--codex-muted-text);
+}
+
 :root.dark .sidebar-settings-account-title {
   @apply text-zinc-200;
 }
