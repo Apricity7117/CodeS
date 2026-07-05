@@ -43,7 +43,7 @@
                 :placeholder="t('No, and tell Codex what to do differently')"
                 @focus="onFocusApprovalOther"
                 @input="onApprovalOtherInput"
-                @keydown.enter.prevent="onSubmitApproval(request)"
+                @keydown="onApprovalOtherKeydown($event, request)"
               />
             </label>
 
@@ -250,6 +250,7 @@
 import { computed, ref, watch } from 'vue'
 import type { UiServerRequest, UiServerRequestReply } from '../../types/codex'
 import { useUiLanguage } from '../../composables/useUiLanguage'
+import { isImeComposingKeydown, shouldHandleEnterKeydown } from '../../utils/keyboard'
 
 type ApprovalDecision = 'accept' | 'acceptForSession' | 'decline' | 'cancel'
 
@@ -891,6 +892,16 @@ function onSubmitApproval(request: UiServerRequest): void {
     },
     followUpMessageText: note || undefined,
   })
+}
+
+function onApprovalOtherKeydown(event: KeyboardEvent, request: UiServerRequest): void {
+  if (isImeComposingKeydown(event)) {
+    event.stopPropagation()
+    return
+  }
+  if (!shouldHandleEnterKeydown(event)) return
+  event.preventDefault()
+  onSubmitApproval(request)
 }
 
 function onRespondMcpElicitation(request: UiServerRequest, action: 'accept' | 'decline' | 'cancel'): void {

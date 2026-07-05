@@ -506,7 +506,7 @@ import {
   IconCodexStop,
 } from '../icons/codex'
 import ComposerSearchDropdown from './ComposerSearchDropdown.vue'
-import { isImeComposingKeydown } from './threadComposerKeyboard'
+import { isImeComposingKeydown } from '../../utils/keyboard'
 
 type SkillSourceBadge = {
   badge: string
@@ -1732,7 +1732,10 @@ function onInputChange(): void {
 }
 
 function onInputKeydown(event: KeyboardEvent): void {
-  if (isImeComposingKeydown(event)) return
+  if (isImeComposingKeydown(event)) {
+    event.stopPropagation()
+    return
+  }
 
   if (isFileMentionOpen.value) {
     if (event.key === 'Escape') {

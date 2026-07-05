@@ -185,8 +185,7 @@
                           :title="existingFolderPathDraft || t('Unavailable')"
                           :disabled="isExistingFolderLoading || isOpeningExistingFolder"
                           @blur="onExistingFolderPathBlur"
-                          @keydown.enter.prevent="onSubmitExistingFolderPath"
-                          @keydown.esc.prevent="onCloseExistingFolderPanel"
+                          @keydown="onExistingFolderPathKeydown"
                         />
                         <button
                           class="new-thread-folder-action new-thread-folder-action-primary"
@@ -226,8 +225,7 @@
                             class="new-thread-open-folder-create-input"
                             type="text"
                             :placeholder="t('Folder name')"
-                            @keydown.enter.prevent="onCreateFolder"
-                            @keydown.esc.prevent="onCloseCreateFolderPanel"
+                            @keydown="onCreateFolderInputKeydown"
                           />
                           <button
                             class="new-thread-folder-action new-thread-folder-action-primary new-thread-open-folder-create-submit"
@@ -344,7 +342,7 @@
                           type="text"
                           :disabled="isProjectSetupSubmitting"
                           :placeholder="t('Project name')"
-                          @keydown.enter.prevent="onSubmitProjectSetup"
+                          @keydown="onProjectSetupInputKeydown"
                         />
                       </label>
                       <label v-else class="new-thread-project-field">
@@ -356,7 +354,7 @@
                           type="url"
                           :disabled="isProjectSetupSubmitting"
                           placeholder="https://github.com/owner/repo"
-                          @keydown.enter.prevent="onSubmitProjectSetup"
+                          @keydown="onProjectSetupInputKeydown"
                         />
                       </label>
                       <div v-if="projectSetupError" class="new-thread-open-folder-error">
@@ -650,6 +648,7 @@ import type {
   InspectorSourceItem,
 } from './app/appTypes'
 import { getPathLeafName, getPathParent, isProjectlessChatPath, normalizePathForUi } from './pathUtils.js'
+import { isImeComposingKeydown, shouldHandleEnterKeydown } from './utils/keyboard'
 import { hasDuplicateFolderLeaf, isWorktreePath, joinPath, normalizeAbsolutePath } from './utils/pathHelpers'
 
 const ThreadConversation = defineAsyncComponent(() => import('./components/content/ThreadConversation.vue'))
@@ -1924,6 +1923,16 @@ async function onSubmitProjectSetup(): Promise<void> {
   }
 }
 
+function onProjectSetupInputKeydown(event: KeyboardEvent): void {
+  if (isImeComposingKeydown(event)) {
+    event.stopPropagation()
+    return
+  }
+  if (!shouldHandleEnterKeydown(event)) return
+  event.preventDefault()
+  void onSubmitProjectSetup()
+}
+
 async function onOpenExistingFolder(): Promise<void> {
   const startPath = newThreadCwd.value.trim() || await resolveProjectBaseDirectory()
   if (!startPath) return
@@ -1981,6 +1990,23 @@ function onSubmitExistingFolderPath(): void {
     return
   }
   void onConfirmExistingFolder(draftedPath)
+}
+
+function onExistingFolderPathKeydown(event: KeyboardEvent): void {
+  if (isImeComposingKeydown(event)) {
+    event.stopPropagation()
+    return
+  }
+  if (shouldHandleEnterKeydown(event)) {
+    event.preventDefault()
+    onSubmitExistingFolderPath()
+    return
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    onCloseExistingFolderPanel()
+  }
 }
 
 async function onConfirmExistingFolder(path = resolvedExistingFolderPath.value): Promise<void> {
@@ -2078,6 +2104,23 @@ async function onCreateFolder(): Promise<void> {
     createFolderError.value = error instanceof Error ? error.message : 'Failed to create folder.'
   } finally {
     isCreatingFolder.value = false
+  }
+}
+
+function onCreateFolderInputKeydown(event: KeyboardEvent): void {
+  if (isImeComposingKeydown(event)) {
+    event.stopPropagation()
+    return
+  }
+  if (shouldHandleEnterKeydown(event)) {
+    event.preventDefault()
+    void onCreateFolder()
+    return
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    onCloseCreateFolderPanel()
   }
 }
 

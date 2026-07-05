@@ -595,8 +595,7 @@
             class="rename-thread-input"
             type="text"
             :placeholder="t('Add title...')"
-            @keydown.enter.prevent="submitRenameThread"
-            @keydown.esc.prevent="closeRenameThreadDialog"
+            @keydown="onRenameThreadInputKeydown"
           />
           <div class="rename-thread-actions">
             <button class="rename-thread-button" type="button" @click="closeRenameThreadDialog">{{ t('Cancel') }}</button>
@@ -681,6 +680,7 @@ import {
 } from '../icons/codex'
 import { useUiLanguage } from '../../composables/useUiLanguage'
 import { getPathLeafName, getPathParent, isProjectlessChatPath } from '../../pathUtils.js'
+import { isImeComposingKeydown, shouldHandleEnterKeydown } from '../../utils/keyboard'
 import SidebarMenuRow from './SidebarMenuRow.vue'
 import { reconcilePinnedThreadIds } from './pinnedThreadUtils'
 
@@ -1295,6 +1295,22 @@ function submitRenameThread(): void {
   if (!threadId || !title) return
   emit('rename-thread', { threadId, title })
   closeRenameThreadDialog()
+}
+
+function onRenameThreadInputKeydown(event: KeyboardEvent): void {
+  if (isImeComposingKeydown(event)) {
+    event.stopPropagation()
+    return
+  }
+  if (shouldHandleEnterKeydown(event)) {
+    event.preventDefault()
+    submitRenameThread()
+    return
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeRenameThreadDialog()
+  }
 }
 
 function openArchiveThreadDialog(threadId: string, currentTitle: string): void {

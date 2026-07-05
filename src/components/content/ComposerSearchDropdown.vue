@@ -107,7 +107,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useUiLanguage } from '../../composables/useUiLanguage'
 import { IconCodexChevron } from '../icons/codex'
-import { isImeComposingKeydown } from './threadComposerKeyboard'
+import { isImeComposingKeydown } from '../../utils/keyboard'
 
 export type SearchDropdownOption = {
   value: string
@@ -229,7 +229,10 @@ function moveHighlight(delta: number): void {
 }
 
 function onSearchKeydown(event: KeyboardEvent): void {
-  if (isImeComposingKeydown(event)) return
+  if (isImeComposingKeydown(event)) {
+    event.stopPropagation()
+    return
+  }
 
   if (event.key === 'Escape') {
     event.preventDefault()

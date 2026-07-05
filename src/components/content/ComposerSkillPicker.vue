@@ -7,10 +7,7 @@
         class="skill-picker-search"
         type="text"
         :placeholder="t('Search skills...')"
-        @keydown.escape.prevent="$emit('close')"
-        @keydown.enter.prevent="selectHighlighted"
-        @keydown.arrow-down.prevent="moveHighlight(1)"
-        @keydown.arrow-up.prevent="moveHighlight(-1)"
+        @keydown="onSearchKeydown"
       />
     </div>
     <ul v-if="filtered.length > 0" class="skill-picker-list" role="listbox">
@@ -34,6 +31,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useUiLanguage } from '../../composables/useUiLanguage'
+import { isImeComposingKeydown, shouldHandleEnterKeydown } from '../../utils/keyboard'
 
 export type SkillOption = {
   name: string
@@ -87,6 +85,33 @@ function selectHighlighted(): void {
   const skill = filtered.value[highlightIndex.value]
   if (!skill) return
   emit('select', skill)
+}
+
+function onSearchKeydown(event: KeyboardEvent): void {
+  if (isImeComposingKeydown(event)) {
+    event.stopPropagation()
+    return
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    emit('close')
+    return
+  }
+  if (shouldHandleEnterKeydown(event)) {
+    event.preventDefault()
+    selectHighlighted()
+    return
+  }
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    moveHighlight(1)
+    return
+  }
+  if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    moveHighlight(-1)
+  }
 }
 
 watch(() => props.visible, (v) => {

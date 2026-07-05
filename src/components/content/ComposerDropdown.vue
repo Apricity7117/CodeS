@@ -32,7 +32,7 @@
               class="composer-dropdown-search-input"
               type="text"
               :placeholder="searchPlaceholderText"
-              @keydown.esc.prevent="onEscapeSearch"
+              @keydown="onSearchInputKeydown"
             />
           </div>
 
@@ -61,6 +61,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { IconCodexChevron } from '../icons/codex'
+import { isImeComposingKeydown } from '../../utils/keyboard'
 
 type DropdownOption = {
   value: string
@@ -135,6 +136,16 @@ function onEscapeSearch(): void {
     return
   }
   isOpen.value = false
+}
+
+function onSearchInputKeydown(event: KeyboardEvent): void {
+  if (isImeComposingKeydown(event)) {
+    event.stopPropagation()
+    return
+  }
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  onEscapeSearch()
 }
 
 function onDocumentPointerDown(event: PointerEvent): void {
