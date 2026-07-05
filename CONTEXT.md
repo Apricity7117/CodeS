@@ -79,3 +79,7 @@ _Avoid_: 线程模型选择, 临时模型选择
 **默认思考强度**:
 Codex 在没有线程级思考强度选择时使用的全局推理强度偏好。它属于 Codex 配置边界，不随 CodeS 的线程运行配置选择而改变。
 _Avoid_: 思考强度选择, 模型目录默认思考强度
+
+**Codex 配置生效**:
+用户通过 CodeS 显式让 Codex 配置文件的变更影响后续操作的动作。它重启 CodeS 持有的后台 Codex app-server 连接边界，不表示重启 CodeS Web 应用。
+_Avoid_: 重启 CodeS, 保存模型目录配置, MCP 重载

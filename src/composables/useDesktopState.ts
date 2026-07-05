@@ -31,6 +31,7 @@ import {
   getThreadTitleCache,
   persistThreadTitle,
   generateThreadTitle,
+  restartCodexCli,
   resumeThread,
 
   startThread,
@@ -1728,6 +1729,10 @@ export function useDesktopState() {
   const isInterruptingTurn = ref(false)
   const isUpdatingSpeedMode = ref(false)
   const isModelCatalogSaving = ref(false)
+  const isCodexCliRestartConfirming = ref(false)
+  const isRestartingCodexCli = ref(false)
+  const codexCliRestartMessage = ref('')
+  const codexCliRestartError = ref('')
   const isRollingBack = ref(false)
 
   const error = ref('')
@@ -2312,6 +2317,39 @@ export function useDesktopState() {
       modelCatalogConfigError.value = unknownError instanceof Error ? unknownError.message : 'Failed to save model catalog config'
     } finally {
       isModelCatalogSaving.value = false
+    }
+  }
+
+  async function restartCodexCliFromSettings(): Promise<void> {
+    if (isRestartingCodexCli.value) return
+    codexCliRestartMessage.value = ''
+    codexCliRestartError.value = ''
+
+    if (!isCodexCliRestartConfirming.value) {
+      isCodexCliRestartConfirming.value = true
+      codexCliRestartMessage.value = 'Click again to restart Codex CLI. Running turns and pending requests will be interrupted.'
+      return
+    }
+
+    isCodexCliRestartConfirming.value = false
+    isRestartingCodexCli.value = true
+
+    try {
+      await restartCodexCli()
+      clearBridgeRuntimeState()
+      await refreshAll({
+        includeSelectedThreadMessages: true,
+        awaitAncillaryRefreshes: true,
+      })
+      if (error.value) {
+        codexCliRestartError.value = error.value
+      } else {
+        codexCliRestartMessage.value = 'Codex CLI restarted.'
+      }
+    } catch (unknownError) {
+      codexCliRestartError.value = unknownError instanceof Error ? unknownError.message : 'Failed to restart Codex CLI'
+    } finally {
+      isRestartingCodexCli.value = false
     }
   }
 
@@ -5875,6 +5913,16 @@ export function useDesktopState() {
         void recoverBridgeState()
         return
       }
+      if (notification.method === 'codes/appServer/restarted') {
+        if (!isRestartingCodexCli.value) {
+          clearBridgeRuntimeState()
+          void refreshAll({
+            includeSelectedThreadMessages: true,
+            awaitAncillaryRefreshes: true,
+          })
+        }
+        return
+      }
       if (notification.method === 'codes/modelCatalog/changed') {
         void refreshModelPreferences()
         return
@@ -5910,12 +5958,7 @@ export function useDesktopState() {
     }
   }
 
-  function stopPolling(): void {
-    if (stopNotificationStream) {
-      stopNotificationStream()
-      stopNotificationStream = null
-    }
-
+  function clearBridgeRuntimeState(options: { clearQueuedMessages?: boolean } = {}): void {
     pendingThreadsRefresh = false
     pendingThreadMessageRefresh.clear()
     pendingTurnStartsById.clear()
@@ -5939,6 +5982,11 @@ export function useDesktopState() {
     delayedTurnSyncTimerByThreadId.clear()
     activeReasoningItemId = ''
     shouldAutoScrollOnNextAgentEvent = false
+    loadedMessagesByThreadId.value = {}
+    loadedVersionByThreadId.value = {}
+    hasMoreOlderMessagesByThreadId.value = {}
+    loadingOlderMessagesByThreadId.value = {}
+    lastMessageLoadAtByThreadId.clear()
     persistedMessagesByThreadId.value = {}
     optimisticUserMessagesByThreadId.value = {}
     livePlanMessagesByThreadId.value = {}
@@ -5954,11 +6002,22 @@ export function useDesktopState() {
     interruptBlockedUntilPersistedByThreadId.value = {}
     threadListedByServerById.value = {}
     persistedUserMessageByThreadId.value = {}
-    queuedMessagesByThreadId.value = {}
     queueProcessingByThreadId.value = {}
-    persistQueueState()
+    if (options.clearQueuedMessages === true) {
+      queuedMessagesByThreadId.value = {}
+      persistQueueState()
+    }
     codexRateLimit.value = null
     threadTokenUsageByThreadId.value = {}
+  }
+
+  function stopPolling(): void {
+    if (stopNotificationStream) {
+      stopNotificationStream()
+      stopNotificationStream = null
+    }
+
+    clearBridgeRuntimeState({ clearQueuedMessages: true })
   }
 
   const selectedThreadQueuedMessages = computed<QueuedMessage[]>(() => {
@@ -6049,6 +6108,10 @@ export function useDesktopState() {
     isInterruptingTurn,
     isUpdatingSpeedMode,
     isModelCatalogSaving,
+    isCodexCliRestartConfirming,
+    isRestartingCodexCli,
+    codexCliRestartMessage,
+    codexCliRestartError,
     isRollingBack,
 
     error,
@@ -6084,6 +6147,7 @@ export function useDesktopState() {
     updateSelectedSpeedMode,
     setModelCatalogConfigText,
     saveModelCatalogConfigText,
+    restartCodexCliFromSettings,
     respondToPendingServerRequest,
     renameProject,
     removeProject,

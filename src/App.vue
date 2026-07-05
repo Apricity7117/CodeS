@@ -50,6 +50,10 @@
         :model-catalog-config-error="modelCatalogConfigError"
         :model-catalog-options="availableModelOptions"
         :is-model-catalog-saving="isModelCatalogSaving"
+        :is-codex-cli-restart-confirming="isCodexCliRestartConfirming"
+        :is-restarting-codex-cli="isRestartingCodexCli"
+        :codex-cli-restart-message="codexCliRestartMessage"
+        :codex-cli-restart-error="codexCliRestartError"
         :show-thread-context-badge="showThreadContextBadge"
         :thread-context-badge-state="threadContextBadgeState"
         :thread-context-tooltip="threadContextTooltip"
@@ -93,6 +97,7 @@
         @toggle-dictation-auto-send="toggleDictationAutoSend"
         @update:modelCatalogConfigText="setModelCatalogConfigText"
         @save-model-catalog-config="saveModelCatalogConfigText"
+        @restart-codex-cli="restartCodexCliFromSettings"
         @save-telegram-config="saveTelegramConfig"
       />
     </template>
@@ -680,6 +685,10 @@ const {
   modelCatalogConfigPath,
   modelCatalogConfigError,
   codexCliMissingError,
+  isCodexCliRestartConfirming,
+  isRestartingCodexCli,
+  codexCliRestartMessage,
+  codexCliRestartError,
   installedSkills,
   accountRateLimitSnapshots,
   messages,
@@ -721,6 +730,7 @@ const {
   updateSelectedSpeedMode,
   setModelCatalogConfigText,
   saveModelCatalogConfigText,
+  restartCodexCliFromSettings,
   respondToPendingServerRequest,
   renameProject,
   removeProject,

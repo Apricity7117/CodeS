@@ -62,7 +62,8 @@
 }
 
 :root.dark .sidebar-settings-telegram-panel,
-:root.dark .sidebar-settings-model-catalog {
+:root.dark .sidebar-settings-model-catalog,
+:root.dark .sidebar-settings-codex-cli {
   border-color: var(--codex-border);
   background-color: var(--codex-surface);
 }
@@ -102,6 +103,32 @@
 
 :root.dark .sidebar-settings-telegram-save:hover {
   background-color: var(--codex-control-hover);
+}
+
+:root.dark .sidebar-settings-codex-cli-restart {
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+:root.dark .sidebar-settings-codex-cli-restart:hover {
+  background-color: var(--codex-control-hover);
+}
+
+:root.dark .sidebar-settings-codex-cli-restart.is-confirming {
+  @apply border-amber-400/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15;
+}
+
+:root.dark .sidebar-settings-codex-cli-message[data-state='success'] {
+  @apply bg-emerald-500/10 text-emerald-200;
+}
+
+:root.dark .sidebar-settings-codex-cli-message[data-state='warning'] {
+  @apply bg-amber-500/10 text-amber-200;
+}
+
+:root.dark .sidebar-settings-codex-cli-message[data-state='error'] {
+  @apply bg-rose-950/40 text-zinc-200;
 }
 
 :root.dark .sidebar-settings-model-catalog-toggle .sidebar-settings-account-collapse-icon {

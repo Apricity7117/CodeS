@@ -4396,6 +4396,12 @@ class AppServerProcess {
     return this.call(method, params)
   }
 
+  async restart(): Promise<void> {
+    this.dispose()
+    this.clearRuntimeCaches()
+    await this.ensureInitialized()
+  }
+
   onNotification(listener: (value: { method: string; params: unknown }) => void): () => void {
     this.notificationListeners.add(listener)
     return () => {
@@ -4437,6 +4443,15 @@ class AppServerProcess {
 
   listPendingServerRequests(): PendingServerRequest[] {
     return Array.from(this.pendingServerRequests.values())
+  }
+
+  private clearRuntimeCaches(): void {
+    this.streamEventsByThreadId.clear()
+    this.lastThreadReadSnapshotByThreadId.clear()
+    this.threadTurnPageReadCacheByThreadId.clear()
+    this.threadTurnPageReadPromiseByThreadId.clear()
+    this.capturedItemsByThreadId.clear()
+    this.liveStateCache.clear()
   }
 
   dispose(): void {
@@ -4735,6 +4750,11 @@ export class BackendQueueProcessor {
 class MethodCatalog {
   private methodCache: string[] | null = null
   private notificationCache: string[] | null = null
+
+  clear(): void {
+    this.methodCache = null
+    this.notificationCache = null
+  }
 
   private async runGenerateSchemaCommand(outDir: string): Promise<void> {
     await new Promise<void>((resolve, reject) => {
@@ -5095,6 +5115,16 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
         readCodexModelIds: () => readCodexBackedModelIds(appServer),
         readProviderModelIds: async () => (await readProviderBackedModelIds(appServer)).data,
       })) {
+        return
+      }
+
+      if (req.method === 'POST' && url.pathname === '/codex-api/app-server/restart') {
+        await appServer.restart()
+        methodCatalog.clear()
+        void backendQueueProcessor.scheduleAllQueuedThreads(1000)
+        const restartedAtIso = new Date().toISOString()
+        emitBridgeNotification('codes/appServer/restarted', { restartedAtIso })
+        setJson(res, 200, { ok: true, restartedAtIso })
         return
       }
 

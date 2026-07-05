@@ -1563,6 +1563,16 @@ export async function saveModelCatalogConfig(configText: string): Promise<ModelC
   return normalizeModelCatalogResult(payload)
 }
 
+export async function restartCodexCli(): Promise<void> {
+  const response = await fetch('/codex-api/app-server/restart', {
+    method: 'POST',
+  })
+  const payload = await readJsonResponse(response)
+  if (!response.ok) {
+    throw new Error(getErrorMessageFromPayload(payload, 'Failed to restart Codex CLI'))
+  }
+}
+
 export async function getAvailableModelIds(options: { includeProviderModels?: boolean; requireProviderModels?: boolean } = {}): Promise<string[]> {
   if (options.includeProviderModels === undefined && options.requireProviderModels !== true) {
     try {

@@ -261,6 +261,27 @@
               </div>
             </div>
           </div>
+          <div class="sidebar-settings-codex-cli">
+            <div class="sidebar-settings-account-header">
+              <span class="sidebar-settings-account-title">{{ t('Codex CLI') }}</span>
+              <button
+                class="sidebar-settings-codex-cli-restart"
+                :class="{ 'is-confirming': isCodexCliRestartConfirming }"
+                type="button"
+                :disabled="isRestartingCodexCli"
+                @click="$emit('restart-codex-cli')"
+              >
+                {{ isRestartingCodexCli ? t('Restarting…') : isCodexCliRestartConfirming ? t('Confirm restart') : t('Restart Codex CLI') }}
+              </button>
+            </div>
+            <div
+              v-if="codexCliRestartError || codexCliRestartMessage"
+              class="sidebar-settings-codex-cli-message"
+              :data-state="codexCliRestartError ? 'error' : isCodexCliRestartConfirming ? 'warning' : 'success'"
+            >
+              {{ t(codexCliRestartError || codexCliRestartMessage) }}
+            </div>
+          </div>
           <div class="sidebar-settings-row sidebar-settings-row--switch" :title="settingsHelp.sendWithEnter">
             <span class="sidebar-settings-label">{{ t('Require ⌘ + enter to send') }}</span>
             <CodexSwitch
@@ -490,6 +511,10 @@ const props = defineProps<{
   modelCatalogConfigError: string
   modelCatalogOptions: UiModelOption[]
   isModelCatalogSaving: boolean
+  isCodexCliRestartConfirming: boolean
+  isRestartingCodexCli: boolean
+  codexCliRestartMessage: string
+  codexCliRestartError: string
   showThreadContextBadge: boolean
   threadContextBadgeState: string
   threadContextTooltip: string
@@ -543,6 +568,7 @@ const emit = defineEmits<{
   'update:telegramAllowedUserIdsDraft': [value: string]
   'update:modelCatalogConfigText': [value: string]
   'save-model-catalog-config': []
+  'restart-codex-cli': []
   'save-telegram-config': []
 }>()
 
@@ -839,6 +865,34 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 
 .sidebar-settings-model-catalog-item.is-hidden {
   @apply border-zinc-200 bg-zinc-100 opacity-75;
+}
+
+.sidebar-settings-codex-cli {
+  @apply border-t border-zinc-100 bg-zinc-50/60 px-3 py-3;
+}
+
+.sidebar-settings-codex-cli-restart {
+  @apply shrink-0 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
+}
+
+.sidebar-settings-codex-cli-restart.is-confirming {
+  @apply border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100;
+}
+
+.sidebar-settings-codex-cli-message {
+  @apply rounded-md px-2.5 py-2 text-xs leading-5 text-zinc-700;
+}
+
+.sidebar-settings-codex-cli-message[data-state='success'] {
+  @apply bg-emerald-50 text-emerald-800;
+}
+
+.sidebar-settings-codex-cli-message[data-state='warning'] {
+  @apply bg-amber-50 text-amber-800;
+}
+
+.sidebar-settings-codex-cli-message[data-state='error'] {
+  @apply bg-rose-50 text-zinc-700;
 }
 
 .sidebar-settings-model-catalog-label {

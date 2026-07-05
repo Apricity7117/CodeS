@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { deleteProjectSessions, deleteThreadSession, getEffectiveModelCatalog, saveModelCatalogConfig, startThreadTurn } from './codexGateway'
+import { deleteProjectSessions, deleteThreadSession, getEffectiveModelCatalog, restartCodexCli, saveModelCatalogConfig, startThreadTurn } from './codexGateway'
 
 function mockRpcFetch(): { requests: Array<{ method: string, params: Record<string, unknown> }> } {
   const requests: Array<{ method: string, params: Record<string, unknown> }> = []
@@ -152,5 +152,38 @@ describe('model catalog endpoints', () => {
     })))
 
     await expect(saveModelCatalogConfig('{ "models": [{}] }')).rejects.toThrow('models[0].id is required')
+  })
+})
+
+describe('Codex CLI restart endpoint', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('restarts Codex CLI through the local bridge', async () => {
+    const requests: Array<{ url: string; method: string }> = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), method: init?.method ?? 'GET' })
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }))
+
+    await expect(restartCodexCli()).resolves.toBeUndefined()
+    expect(requests).toEqual([
+      { url: '/codex-api/app-server/restart', method: 'POST' },
+    ])
+  })
+
+  it('surfaces restart errors from the local bridge', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      error: 'Codex CLI is not available',
+    }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json' },
+    })))
+
+    await expect(restartCodexCli()).rejects.toThrow('Codex CLI is not available')
   })
 })

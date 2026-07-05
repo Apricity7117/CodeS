@@ -34,6 +34,7 @@ const gatewayMocks = vi.hoisted(() => ({
   persistThreadTitle: vi.fn(),
   renameThread: vi.fn(),
   replyToServerRequest: vi.fn(),
+  restartCodexCli: vi.fn(),
   resumeThread: vi.fn(),
   revertThreadFileChanges: vi.fn(),
   rollbackThread: vi.fn(),
@@ -144,6 +145,7 @@ beforeEach(() => {
     configPath: '/tmp/codes-model-catalog.json',
     configError: '',
   })
+  gatewayMocks.restartCodexCli.mockResolvedValue(undefined)
   gatewayMocks.setThreadQueueState.mockResolvedValue(undefined)
 })
 
@@ -904,6 +906,91 @@ describe('optimistic submitted user messages', () => {
       historyUserMessage,
       persistedRepeatedUserMessage,
     ])
+  })
+})
+
+describe('Codex CLI restart state', () => {
+  it('requires inline confirmation before restarting and refreshing app-server backed state', async () => {
+    installTestWindow()
+    setupRefreshMocks([])
+
+    const state = useDesktopState()
+
+    await state.restartCodexCliFromSettings()
+
+    expect(state.isCodexCliRestartConfirming.value).toBe(true)
+    expect(state.codexCliRestartMessage.value).toBe('Click again to restart Codex CLI. Running turns and pending requests will be interrupted.')
+    expect(gatewayMocks.restartCodexCli).not.toHaveBeenCalled()
+
+    await state.restartCodexCliFromSettings()
+
+    expect(gatewayMocks.restartCodexCli).toHaveBeenCalledTimes(1)
+    expect(gatewayMocks.getThreadGroupsPage).toHaveBeenCalled()
+    expect(gatewayMocks.getCurrentModelConfig).toHaveBeenCalled()
+    expect(gatewayMocks.getEffectiveModelCatalog).toHaveBeenCalled()
+    expect(gatewayMocks.getAvailableCollaborationModes).toHaveBeenCalled()
+    expect(gatewayMocks.getSkillsList).toHaveBeenCalled()
+    expect(gatewayMocks.getAccountRateLimits).toHaveBeenCalled()
+    expect(state.isCodexCliRestartConfirming.value).toBe(false)
+    expect(state.isRestartingCodexCli.value).toBe(false)
+    expect(state.codexCliRestartMessage.value).toBe('Codex CLI restarted.')
+    expect(state.codexCliRestartError.value).toBe('')
+  })
+
+  it('keeps confirmation available and surfaces restart failures', async () => {
+    installTestWindow()
+    gatewayMocks.restartCodexCli.mockRejectedValue(new Error('restart failed'))
+
+    const state = useDesktopState()
+
+    await state.restartCodexCliFromSettings()
+    await state.restartCodexCliFromSettings()
+
+    expect(gatewayMocks.restartCodexCli).toHaveBeenCalledTimes(1)
+    expect(state.isCodexCliRestartConfirming.value).toBe(false)
+    expect(state.isRestartingCodexCli.value).toBe(false)
+    expect(state.codexCliRestartError.value).toBe('restart failed')
+    expect(state.codexCliRestartMessage.value).toBe('')
+  })
+
+  it('reloads the selected thread messages after clearing restart runtime state', async () => {
+    installTestWindow({
+      'codex-web-local.selected-thread-id.v1': 'thread-a',
+    })
+    const groups: UiProjectGroup[] = [
+      {
+        projectName: 'alpha',
+        threads: [thread('thread-a', '/tmp/alpha')],
+      },
+    ]
+    setupRefreshMocks(groups)
+    gatewayMocks.resumeThread.mockResolvedValue(null)
+    gatewayMocks.getThreadDetail.mockResolvedValue({
+      messages: [
+        uiMessage({
+          id: 'message-a',
+          role: 'assistant',
+          text: 'loaded',
+          turnId: 'turn-1',
+        }),
+      ],
+      inProgress: false,
+      activeTurnId: '',
+      hasMoreOlder: false,
+      turnIndexByTurnId: { 'turn-1': 0 },
+    })
+
+    const state = useDesktopState()
+    state.primeSelectedThread('thread-a')
+    await state.refreshAll({ includeSelectedThreadMessages: true, awaitAncillaryRefreshes: true })
+    expect(gatewayMocks.getThreadDetail).toHaveBeenCalledTimes(1)
+
+    await state.restartCodexCliFromSettings()
+    await state.restartCodexCliFromSettings()
+
+    expect(gatewayMocks.getThreadDetail).toHaveBeenCalledTimes(2)
+    expect(state.messages.value).toHaveLength(1)
+    expect(state.messages.value[0]?.text).toBe('loaded')
   })
 })
 
