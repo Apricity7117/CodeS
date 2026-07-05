@@ -508,7 +508,7 @@ async function withTemporaryCodexAppServer<T>(
 
     initializePromise = call('initialize', {
       clientInfo: {
-        name: 'codes-account-refresh',
+        name: 'codexui-account-refresh',
         version: '0.1.0',
       },
       capabilities: {

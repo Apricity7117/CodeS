@@ -12,6 +12,7 @@ import { createInterface } from 'node:readline'
 import { writeFile } from 'node:fs/promises'
 import { handleAccountRoutes } from './accountRoutes.js'
 import { buildAppServerArgs } from './appServerRuntimeConfig.js'
+import { handleModelCatalogRoutes } from './modelCatalog.js'
 import { handleReviewRoutes } from './reviewGit.js'
 import { handleSkillsRoutes } from './skillsRoutes.js'
 import { TelegramThreadBridge } from './telegramThreadBridge.js'
@@ -977,6 +978,19 @@ function normalizeProviderModelsData(payload: unknown): string[] {
   for (const row of rows) {
     const entry = asRecord(row)
     const candidate = readNonEmptyString(entry?.id)
+    if (!candidate || ids.includes(candidate)) continue
+    ids.push(candidate)
+  }
+  return ids
+}
+
+async function readCodexBackedModelIds(appServer: AppServerProcess): Promise<string[]> {
+  const payload = asRecord(await appServer.rpc('model/list', {}))
+  const rows = Array.isArray(payload?.data) ? payload.data : []
+  const ids: string[] = []
+  for (const row of rows) {
+    const record = asRecord(row)
+    const candidate = readNonEmptyString(record?.id) || readNonEmptyString(record?.model)
     if (!candidate || ids.includes(candidate)) continue
     ids.push(candidate)
   }
@@ -4358,7 +4372,7 @@ class AppServerProcess {
 
     this.initializePromise = this.call('initialize', {
       clientInfo: {
-        name: 'CodeS',
+        name: 'codex-web-local',
         version: '0.1.0',
       },
       capabilities: {
@@ -5051,6 +5065,14 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
       }
 
       if (await handleReviewRoutes(req, res, url, { readJsonBody })) {
+        return
+      }
+
+      if (await handleModelCatalogRoutes(req, res, url, {
+        readJsonBody,
+        readCodexModelIds: () => readCodexBackedModelIds(appServer),
+        readProviderModelIds: async () => (await readProviderBackedModelIds(appServer)).data,
+      })) {
         return
       }
 

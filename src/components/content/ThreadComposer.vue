@@ -356,7 +356,7 @@
                 <button
                   class="thread-composer-model-menu-option thread-composer-model-row"
                   type="button"
-                  :disabled="models.length === 0"
+                  :disabled="selectableModelOptions.length === 0"
                   @click="openModelSubmenu"
                 >
                   <span class="thread-composer-model-row-copy">
@@ -476,6 +476,7 @@ import type {
   CollaborationModeOption,
   ReasoningEffort,
   SpeedMode,
+  UiModelOption,
   UiRateLimitSnapshot,
   UiRateLimitWindow,
   UiThreadTokenUsage,
@@ -526,8 +527,9 @@ const props = defineProps<{
   cwd?: string
   collaborationModes?: CollaborationModeOption[]
   selectedCollaborationMode: CollaborationModeKind
-  models: string[]
+  models: UiModelOption[]
   selectedModel: string
+  isSelectedModelSelectable?: boolean
   selectedReasoningEffort: ReasoningEffort | ''
   selectedSpeedMode: SpeedMode
   skills?: SkillItem[]
@@ -687,7 +689,7 @@ const reasoningEffortLabels: Record<ReasoningEffort, string> = {
   xhigh: 'Extra High',
 }
 
-const reasoningMenuOptions: Array<{ value: ReasoningEffort; label: string }> = [
+const defaultReasoningMenuOptions: Array<{ value: ReasoningEffort; label: string }> = [
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
@@ -701,24 +703,36 @@ function formatModelLabel(modelId: string): string {
     .replace(/-codex\b/gi, '-Codex')
 }
 
-function formatCompactModelLabel(modelId: string): string {
-  return formatModelLabel(modelId).replace(/^GPT-/i, '')
-}
-
 function readReasoningEffortLabel(effort: ReasoningEffort | ''): string {
   return effort ? reasoningEffortLabels[effort] : reasoningEffortLabels.medium
 }
 
+const selectedModelOption = computed(() =>
+  props.models.find((option) => option.id === props.selectedModel.trim()) ?? null,
+)
+const selectableModelOptions = computed(() => props.models.filter((option) => option.isSelectable))
+function formatModelOptionLabel(option: UiModelOption): string {
+  const label = option.label.trim()
+  return label && label !== option.id ? label : formatModelLabel(option.id)
+}
+
+const reasoningMenuOptions = computed(() => {
+  const efforts = selectedModelOption.value?.reasoningEfforts ?? defaultReasoningMenuOptions.map((option) => option.value)
+  return efforts.map((value) => ({ value, label: reasoningEffortLabels[value] }))
+})
 const modelOptions = computed(() =>
-  props.models.map((modelId) => ({ value: modelId, label: formatModelLabel(modelId) })),
+  selectableModelOptions.value.map((option) => ({ value: option.id, label: formatModelOptionLabel(option) })),
 )
 const selectedFullModelLabel = computed(() => {
   const selected = props.selectedModel.trim()
-  return selected ? formatModelLabel(selected) : t('Model')
+  if (!selected) return t('Model')
+  return selectedModelOption.value ? formatModelOptionLabel(selectedModelOption.value) : formatModelLabel(selected)
 })
 const selectedCompactModelLabel = computed(() => {
   const selected = props.selectedModel.trim()
-  return selected ? formatCompactModelLabel(selected) : t('Model')
+  if (!selected) return t('Model')
+  const label = selectedModelOption.value ? formatModelOptionLabel(selectedModelOption.value) : formatModelLabel(selected)
+  return label.replace(/^GPT-/i, '')
 })
 const selectedReasoningLabel = computed(() => t(readReasoningEffortLabel(props.selectedReasoningEffort)))
 const composerModelSummaryLabel = computed(() =>
@@ -729,6 +743,7 @@ const isPlanModeSelected = computed(() => props.selectedCollaborationMode === 'p
 const isPlanModeWaitingForModel = computed(() =>
   props.selectedCollaborationMode === 'plan' && props.selectedModel.trim().length === 0,
 )
+const isSelectedModelUnavailable = computed(() => props.isSelectedModelSelectable === false)
 
 const selectedSkillPaths = computed(() => selectedSkills.value.map((s) => s.path))
 const skillDropdownOptions = computed(() =>
@@ -762,6 +777,7 @@ const canSubmit = computed(() => {
   if (props.isUpdatingSpeedMode) return false
   if (!props.activeThreadId) return false
   if (isPlanModeWaitingForModel.value) return false
+  if (isSelectedModelUnavailable.value) return false
   if (pendingAttachmentCount.value > 0) return false
   return draft.value.trim().length > 0 || selectedImages.value.length > 0 || fileAttachments.value.length > 0
 })
@@ -841,6 +857,8 @@ const placeholderText = computed(() =>
     ? t('Select a thread to send a message')
     : isPlanModeWaitingForModel.value
       ? t('Loading models for plan mode...')
+      : isSelectedModelUnavailable.value
+        ? t('Choose an available model before sending')
       : t('Type a message... (@ for files)'),
 )
 const hasSubmitContent = computed(() =>
@@ -1283,7 +1301,7 @@ function closeModelReasoningMenu(): void {
 }
 
 function openModelSubmenu(): void {
-  if (props.models.length === 0) return
+  if (selectableModelOptions.value.length === 0) return
   isModelSubmenuOpen.value = true
 }
 

@@ -52,6 +52,7 @@ import type {
   UiReviewWorkspaceView,
   UiRateLimitSnapshot,
   UiRateLimitWindow,
+  UiModelOption,
 } from '../types/codex'
 import { normalizePathForUi } from '../pathUtils.js'
 
@@ -85,7 +86,15 @@ type ProviderModelsResponse = {
   data?: unknown
 }
 
+export type ModelCatalogResult = {
+  options: UiModelOption[]
+  configText: string
+  configPath: string
+  configError: string
+}
+
 const PROVIDER_MODELS_FETCH_TIMEOUT_MS = 5_000
+const DEFAULT_MODEL_REASONING_EFFORTS: ReasoningEffort[] = ['low', 'medium', 'high', 'xhigh']
 
 type ResolvedCollaborationModeSettings = {
   model: string
@@ -501,6 +510,54 @@ function normalizeSpeedMode(value: unknown): SpeedMode {
   return typeof value === 'string' && value.trim().toLowerCase() === 'fast'
     ? 'fast'
     : 'standard'
+}
+
+function normalizeModelSource(value: unknown): UiModelOption['source'] {
+  return value === 'provider' || value === 'custom' ? value : 'codex'
+}
+
+function normalizeReasoningEffortList(value: unknown): ReasoningEffort[] {
+  if (!Array.isArray(value)) return DEFAULT_MODEL_REASONING_EFFORTS
+  const efforts: ReasoningEffort[] = []
+  for (const item of value) {
+    const effort = normalizeReasoningEffort(item)
+    if (effort && !efforts.includes(effort)) {
+      efforts.push(effort)
+    }
+  }
+  return efforts.length > 0 ? efforts : DEFAULT_MODEL_REASONING_EFFORTS
+}
+
+function normalizeModelOption(value: unknown): UiModelOption | null {
+  const record = asRecord(value)
+  const id = readString(record?.id)?.trim() ?? ''
+  if (!id) return null
+
+  const reasoningEfforts = normalizeReasoningEffortList(record?.reasoningEfforts)
+  const defaultReasoningEffort = normalizeReasoningEffort(record?.defaultReasoningEffort)
+  return {
+    id,
+    label: readString(record?.label)?.trim() || id,
+    source: normalizeModelSource(record?.source),
+    isHidden: readBoolean(record?.isHidden) ?? false,
+    isSelectable: readBoolean(record?.isSelectable) ?? true,
+    reasoningEfforts,
+    defaultReasoningEffort: defaultReasoningEffort && reasoningEfforts.includes(defaultReasoningEffort)
+      ? defaultReasoningEffort
+      : reasoningEfforts.includes('medium') ? 'medium' : reasoningEfforts[0],
+  }
+}
+
+function normalizeModelCatalogResult(payload: unknown): ModelCatalogResult {
+  const record = asRecord(payload)
+  return {
+    options: Array.isArray(record?.data)
+      ? record.data.map((row) => normalizeModelOption(row)).filter((row): row is UiModelOption => row !== null)
+      : [],
+    configText: typeof record?.configText === 'string' ? record.configText : '',
+    configPath: typeof record?.configPath === 'string' ? record.configPath : '',
+    configError: typeof record?.configError === 'string' ? record.configError : '',
+  }
 }
 
 const INITIAL_THREAD_LIST_LIMIT = 50
@@ -1436,7 +1493,7 @@ export async function setCodexSpeedMode(mode: SpeedMode): Promise<void> {
   })
 }
 
-export async function getAvailableModelIds(options: { includeProviderModels?: boolean; requireProviderModels?: boolean } = {}): Promise<string[]> {
+async function getDiscoveredModelIds(options: { includeProviderModels?: boolean; requireProviderModels?: boolean } = {}): Promise<string[]> {
   const payload = await callRpc<ModelListResponse>('model/list', {})
   const ids: string[] = []
   for (const row of payload.data) {
@@ -1482,6 +1539,41 @@ export async function getAvailableModelIds(options: { includeProviderModels?: bo
   }
 
   return ids
+}
+
+export async function getEffectiveModelCatalog(): Promise<ModelCatalogResult> {
+  const response = await fetch('/codex-api/model-catalog')
+  const payload = await readJsonResponse(response)
+  if (!response.ok) {
+    throw new Error(getErrorMessageFromPayload(payload, 'Failed to load model catalog'))
+  }
+  return normalizeModelCatalogResult(payload)
+}
+
+export async function saveModelCatalogConfig(configText: string): Promise<ModelCatalogResult> {
+  const response = await fetch('/codex-api/model-catalog', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ configText }),
+  })
+  const payload = await readJsonResponse(response)
+  if (!response.ok) {
+    throw new Error(getErrorMessageFromPayload(payload, 'Failed to save model catalog config'))
+  }
+  return normalizeModelCatalogResult(payload)
+}
+
+export async function getAvailableModelIds(options: { includeProviderModels?: boolean; requireProviderModels?: boolean } = {}): Promise<string[]> {
+  if (options.includeProviderModels === undefined && options.requireProviderModels !== true) {
+    try {
+      const catalog = await getEffectiveModelCatalog()
+      const ids = catalog.options.filter((option) => option.isSelectable).map((option) => option.id)
+      if (ids.length > 0) return ids
+    } catch {
+      // 本地模型目录接口不可用时回退到旧发现路径。
+    }
+  }
+  return getDiscoveredModelIds(options)
 }
 
 export async function getCurrentModelConfig(): Promise<CurrentModelConfig> {

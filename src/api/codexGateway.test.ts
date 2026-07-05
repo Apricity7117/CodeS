@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { deleteProjectSessions, deleteThreadSession, startThreadTurn } from './codexGateway'
+import { deleteProjectSessions, deleteThreadSession, getEffectiveModelCatalog, saveModelCatalogConfig, startThreadTurn } from './codexGateway'
 
 function mockRpcFetch(): { requests: Array<{ method: string, params: Record<string, unknown> }> } {
   const requests: Array<{ method: string, params: Record<string, unknown> }> = []
@@ -96,5 +96,61 @@ describe('destructive session deletion endpoints', () => {
     expect(requests).toEqual([
       { url: '/codex-api/project-sessions?cwd=%2Ftmp%2Fproject+one', method: 'DELETE' },
     ])
+  })
+})
+
+describe('model catalog endpoints', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('loads and normalizes the effective model catalog', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      data: [
+        {
+          id: 'gpt-5.4',
+          label: 'GPT 5.4',
+          source: 'provider',
+          isHidden: false,
+          isSelectable: true,
+          reasoningEfforts: ['minimal', 'low'],
+          defaultReasoningEffort: 'minimal',
+        },
+      ],
+      configText: '{}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: null,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })))
+
+    await expect(getEffectiveModelCatalog()).resolves.toEqual({
+      options: [
+        {
+          id: 'gpt-5.4',
+          label: 'GPT 5.4',
+          source: 'provider',
+          isHidden: false,
+          isSelectable: true,
+          reasoningEfforts: ['minimal', 'low'],
+          defaultReasoningEffort: 'minimal',
+        },
+      ],
+      configText: '{}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+  })
+
+  it('sends catalog config text and surfaces validation errors', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      error: 'models[0].id is required',
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })))
+
+    await expect(saveModelCatalogConfig('{ "models": [{}] }')).rejects.toThrow('models[0].id is required')
   })
 })

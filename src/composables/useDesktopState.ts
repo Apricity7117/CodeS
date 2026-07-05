@@ -9,6 +9,7 @@ import {
   getAccountRateLimits,
   renameThread,
   getAvailableModelIds,
+  getEffectiveModelCatalog,
   getCurrentModelConfig,
   getPendingServerRequests,
   getSkillsList,
@@ -26,6 +27,7 @@ import {
   setCodexSpeedMode,
   setThreadQueueState,
   setWorkspaceRootsState,
+  saveModelCatalogConfig,
   getThreadTitleCache,
   persistThreadTitle,
   generateThreadTitle,
@@ -35,6 +37,7 @@ import {
   subscribeCodexNotifications,
   startThreadTurn,
   type RpcNotification,
+  type ModelCatalogResult,
   type SkillInfo,
   type ThreadQueueState,
   type WorkspaceRootsState,
@@ -60,6 +63,7 @@ import type {
   UiThreadTokenUsage,
   UiTokenUsageBreakdown,
   UiThread,
+  UiModelOption,
 } from '../types/codex'
 import { getPathParent, isProjectlessChatPath, normalizePathForUi, toProjectName } from '../pathUtils.js'
 
@@ -91,9 +95,11 @@ const RATE_LIMIT_REFRESH_DEBOUNCE_MS = 500
 const TURN_START_FOLLOW_UP_SYNC_DELAY_MS = 3000
 const RECENT_THREAD_MESSAGE_LOAD_REUSE_MS = 2000
 const REASONING_EFFORT_OPTIONS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh']
+const DEFAULT_MODEL_REASONING_EFFORTS: ReasoningEffort[] = ['low', 'medium', 'high', 'xhigh']
 const GLOBAL_SERVER_REQUEST_SCOPE = '__global__'
 const MODEL_FALLBACK_ID = 'gpt-5.4-mini'
 const CODEX_CLI_MISSING_MESSAGE = 'Codex CLI not found. Install @openai/codex or set CODES_CODEX_COMMAND.'
+const MODEL_SELECTION_REQUIRED_MESSAGE = 'Selected model is hidden. Choose an available model before sending.'
 const OPTIMISTIC_USER_MESSAGE_TYPE = 'userMessage.optimistic'
 const OPTIMISTIC_USER_MESSAGE_META_PREFIX = 'optimistic-user:'
 
@@ -161,6 +167,36 @@ function normalizeCollaborationMode(value: unknown): CollaborationModeKind {
 
 function normalizeStoredModelId(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function createFallbackModelOption(modelId: string, source: UiModelOption['source'] = 'codex'): UiModelOption | null {
+  const id = modelId.trim()
+  if (!id) return null
+  return {
+    id,
+    label: id,
+    source,
+    isHidden: false,
+    isSelectable: true,
+    reasoningEfforts: DEFAULT_MODEL_REASONING_EFFORTS,
+    defaultReasoningEffort: 'medium',
+  }
+}
+
+function dedupeModelOptions(options: UiModelOption[]): UiModelOption[] {
+  const seen = new Set<string>()
+  const next: UiModelOption[] = []
+  for (const option of options) {
+    const id = option.id.trim()
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    next.push({ ...option, id })
+  }
+  return next
+}
+
+function selectableModelIds(options: UiModelOption[]): string[] {
+  return options.filter((option) => option.isSelectable).map((option) => option.id)
 }
 
 function createStringKeyedRecord<T>(): Record<string, T> {
@@ -1660,6 +1696,10 @@ export function useDesktopState() {
 
   const installedSkills = ref<SkillInfo[]>([])
   const accountRateLimitSnapshots = ref<UiRateLimitSnapshot[]>([])
+  const availableModelOptions = ref<UiModelOption[]>([])
+  const modelCatalogConfigText = ref('')
+  const modelCatalogConfigPath = ref('')
+  const modelCatalogConfigError = ref('')
 
   const isLoadingThreads = ref(false)
   const isLoadingMessages = ref(false)
@@ -1667,6 +1707,7 @@ export function useDesktopState() {
   const isSendingMessage = ref(false)
   const isInterruptingTurn = ref(false)
   const isUpdatingSpeedMode = ref(false)
+  const isModelCatalogSaving = ref(false)
   const isRollingBack = ref(false)
 
   const error = ref('')
@@ -1807,17 +1848,56 @@ export function useDesktopState() {
     return readSelectedModel(selectedModelIdByContext.value, threadId).trim()
   }
 
-  function ensureAvailableModelIds(...modelIds: string[]): void {
-    const nextModelIds = [...availableModelIds.value]
+  function findModelOption(modelId: string): UiModelOption | null {
+    const normalizedModelId = modelId.trim()
+    if (!normalizedModelId) return null
+    return availableModelOptions.value.find((option) => option.id === normalizedModelId) ?? null
+  }
+
+  function ensureAvailableModelOptions(...modelIds: string[]): void {
+    const nextOptions = [...availableModelOptions.value]
     for (const modelId of modelIds) {
-      const normalizedModelId = modelId.trim()
-      if (normalizedModelId && !nextModelIds.includes(normalizedModelId)) {
-        nextModelIds.push(normalizedModelId)
+      const fallbackOption = createFallbackModelOption(modelId)
+      if (fallbackOption && !nextOptions.some((option) => option.id === fallbackOption.id)) {
+        nextOptions.push(fallbackOption)
       }
     }
+    const dedupedOptions = dedupeModelOptions(nextOptions)
+    const nextModelIds = selectableModelIds(dedupedOptions)
     if (!areStringArraysEqual(availableModelIds.value, nextModelIds)) {
       availableModelIds.value = nextModelIds
     }
+    if (!areStringArraysEqual(availableModelOptions.value.map((option) => option.id), dedupedOptions.map((option) => option.id))) {
+      availableModelOptions.value = dedupedOptions
+    }
+  }
+
+  function applyReasoningEffortForModel(modelId: string): void {
+    const option = findModelOption(modelId)
+    if (!option) return
+    if (!option.reasoningEfforts.includes(selectedReasoningEffort.value as ReasoningEffort)) {
+      selectedReasoningEffort.value = option.defaultReasoningEffort
+    }
+  }
+
+  function isModelSelectableForThread(threadId: string): boolean {
+    const modelId = readModelIdForThread(threadId)
+    if (!modelId) return true
+    const option = findModelOption(modelId)
+    return option?.isSelectable !== false
+  }
+
+  function readModelLabel(modelId: string): string {
+    const normalizedModelId = modelId.trim()
+    if (!normalizedModelId) return ''
+    return findModelOption(normalizedModelId)?.label ?? normalizedModelId
+  }
+
+  function setAvailableModelOptions(options: UiModelOption[]): void {
+    const nextOptions = dedupeModelOptions(options)
+    const nextModelIds = selectableModelIds(nextOptions)
+    availableModelOptions.value = nextOptions
+    availableModelIds.value = nextModelIds
   }
 
   function setSelectedThreadId(nextThreadId: string): void {
@@ -1825,7 +1905,8 @@ export function useDesktopState() {
     selectedThreadId.value = nextThreadId
     saveSelectedThreadId(nextThreadId)
     selectedModelId.value = readModelIdForThread(nextThreadId)
-    ensureAvailableModelIds(selectedModelId.value)
+    ensureAvailableModelOptions(selectedModelId.value)
+    applyReasoningEffortForModel(selectedModelId.value)
     selectedCollaborationMode.value = readSelectedCollaborationMode(
       selectedCollaborationModeByContext.value,
       nextThreadId,
@@ -1846,10 +1927,11 @@ export function useDesktopState() {
     }
     if (threadId.trim() === selectedThreadId.value) {
       selectedModelId.value = readModelIdForThread(selectedThreadId.value)
-      ensureAvailableModelIds(selectedModelId.value)
+      ensureAvailableModelOptions(selectedModelId.value)
     } else {
-      ensureAvailableModelIds(normalizedModelId)
+      ensureAvailableModelOptions(normalizedModelId)
     }
+    applyReasoningEffortForModel(normalizedModelId)
     saveSelectedModelMap(selectedModelIdByContext.value)
   }
 
@@ -1869,9 +1951,10 @@ export function useDesktopState() {
     } else {
       selectedModelIdByContext.value = omitStringKeyedRecordKey(selectedModelIdByContext.value, normalizedThreadId)
     }
-    ensureAvailableModelIds(normalizedModelId)
+    ensureAvailableModelOptions(normalizedModelId)
     if (selectedThreadId.value === normalizedThreadId) {
       selectedModelId.value = readModelIdForThread(selectedThreadId.value)
+      applyReasoningEffortForModel(selectedModelId.value)
     }
     saveSelectedModelMap(selectedModelIdByContext.value)
   }
@@ -1934,7 +2017,7 @@ export function useDesktopState() {
     } else {
       setSelectedModelId(MODEL_FALLBACK_ID)
     }
-    ensureAvailableModelIds(MODEL_FALLBACK_ID)
+    ensureAvailableModelOptions(MODEL_FALLBACK_ID)
   }
 
   function setPendingTurnRequest(threadId: string, request: PendingTurnRequest): void {
@@ -2082,11 +2165,38 @@ export function useDesktopState() {
     effort: ReasoningEffort | '',
     collaborationMode: CollaborationModeKind = selectedCollaborationMode.value,
   ): string[] {
-    const modelLabel = modelId.trim() || 'default'
+    const modelLabel = readModelLabel(modelId).trim() || modelId.trim() || 'default'
     const effortLabel = effort || 'default'
     const modeLabel = collaborationMode === 'plan' ? 'Plan' : 'Default'
     const speedLabel = selectedSpeedMode.value === 'fast' ? 'Fast' : 'Standard'
     return [`Mode: ${modeLabel}`, `Model: ${modelLabel}`, `Thinking: ${effortLabel}`, `Speed: ${speedLabel}`]
+  }
+
+  function applyModelCatalogResult(result: ModelCatalogResult): void {
+    modelCatalogConfigText.value = result.configText
+    modelCatalogConfigPath.value = result.configPath
+    modelCatalogConfigError.value = result.configError
+    setAvailableModelOptions(result.options)
+  }
+
+  async function readModelOptionsWithFallback(): Promise<UiModelOption[]> {
+    try {
+      const catalog = await getEffectiveModelCatalog()
+      applyModelCatalogResult(catalog)
+      return catalog.options
+    } catch (unknownError) {
+      const ids = await getAvailableModelIds({ includeProviderModels: true })
+      return ids
+        .map((id) => createFallbackModelOption(id))
+        .filter((option): option is UiModelOption => option !== null)
+    }
+  }
+
+  function chooseFallbackModelId(configuredModelId: string, selectableIds: string[]): string {
+    if (configuredModelId && selectableIds.includes(configuredModelId)) {
+      return configuredModelId
+    }
+    return selectableIds[0] ?? ''
   }
 
   async function refreshModelPreferences(): Promise<void> {
@@ -2095,22 +2205,18 @@ export function useDesktopState() {
       const currentConfig = await getCurrentModelConfig()
       const normalizedConfiguredModelId = currentConfig.model.trim()
       const normalizedSelectedModelId = readModelIdForThread(selectedThreadId.value)
-      const modelIds = await getAvailableModelIds()
-      const nextModelIds = [...modelIds]
-      if (normalizedConfiguredModelId && !nextModelIds.includes(normalizedConfiguredModelId)) {
-        nextModelIds.push(normalizedConfiguredModelId)
+      const discoveredOptions = await readModelOptionsWithFallback()
+      const nextModelOptions = [...discoveredOptions]
+      if (normalizedConfiguredModelId && !nextModelOptions.some((option) => option.id === normalizedConfiguredModelId)) {
+        const fallbackOption = createFallbackModelOption(normalizedConfiguredModelId)
+        if (fallbackOption) nextModelOptions.push(fallbackOption)
       }
-      availableModelIds.value = nextModelIds
+      setAvailableModelOptions(nextModelOptions)
 
-      const currentModelInNewList = normalizedSelectedModelId && nextModelIds.includes(normalizedSelectedModelId)
-      if (!normalizedSelectedModelId || !currentModelInNewList) {
-        if (normalizedConfiguredModelId && nextModelIds.includes(normalizedConfiguredModelId)) {
-          setSelectedModelId(currentConfig.model)
-        } else if (nextModelIds.length > 0) {
-          setSelectedModelId(nextModelIds[0])
-        } else {
-          setSelectedModelId('')
-        }
+      const selectedOption = findModelOption(normalizedSelectedModelId)
+      const selectedModelStillKnown = normalizedSelectedModelId && selectedOption !== null
+      if (!normalizedSelectedModelId || !selectedModelStillKnown) {
+        setSelectedModelId(chooseFallbackModelId(normalizedConfiguredModelId, availableModelIds.value))
       } else if (selectedModelId.value.trim() !== normalizedSelectedModelId) {
         setSelectedModelId(normalizedSelectedModelId)
       }
@@ -2121,6 +2227,7 @@ export function useDesktopState() {
       ) {
         selectedReasoningEffort.value = currentConfig.reasoningEffort
       }
+      applyReasoningEffortForModel(readModelIdForThread(selectedThreadId.value))
       selectedSpeedMode.value = currentConfig.speedMode
     } catch (unknownError) {
       if (isCodexCliMissingError(unknownError)) {
@@ -2129,6 +2236,25 @@ export function useDesktopState() {
         codexCliMissingError.value = ''
       }
       // Keep chat UI usable even if model metadata is temporarily unavailable.
+    }
+  }
+
+  function setModelCatalogConfigText(nextText: string): void {
+    modelCatalogConfigText.value = nextText
+  }
+
+  async function saveModelCatalogConfigText(): Promise<void> {
+    if (isModelCatalogSaving.value) return
+    isModelCatalogSaving.value = true
+    modelCatalogConfigError.value = ''
+    try {
+      const result = await saveModelCatalogConfig(modelCatalogConfigText.value)
+      applyModelCatalogResult(result)
+      await refreshModelPreferences()
+    } catch (unknownError) {
+      modelCatalogConfigError.value = unknownError instanceof Error ? unknownError.message : 'Failed to save model catalog config'
+    } finally {
+      isModelCatalogSaving.value = false
     }
   }
 
@@ -2301,7 +2427,7 @@ export function useDesktopState() {
     if (nextSelectedModelMap !== selectedModelIdByContext.value) {
       selectedModelIdByContext.value = nextSelectedModelMap
       selectedModelId.value = readModelIdForThread(selectedThreadId.value)
-      ensureAvailableModelIds(selectedModelId.value)
+      ensureAvailableModelOptions(selectedModelId.value)
       saveSelectedModelMap(nextSelectedModelMap)
     }
     const nextSelectedCollaborationModeMap = pruneThreadContextStateMap(
@@ -4986,6 +5112,11 @@ export function useDesktopState() {
     const threadId = selectedThreadId.value
     const nextText = text.trim()
     if (!threadId || (!nextText && imageUrls.length === 0 && fileAttachments.length === 0)) return
+    if (!isModelSelectableForThread(threadId)) {
+      error.value = MODEL_SELECTION_REQUIRED_MESSAGE
+      setTurnErrorForThread(threadId, MODEL_SELECTION_REQUIRED_MESSAGE)
+      return
+    }
 
     if (await maybeReplyToPendingUserInputRequest(threadId, nextText, imageUrls, skills, fileAttachments)) {
       return
@@ -5091,6 +5222,10 @@ export function useDesktopState() {
     const selectedModel = readModelIdForThread(NEW_THREAD_COLLABORATION_MODE_CONTEXT).trim()
     const selectedMode = selectedCollaborationMode.value
     if (!nextText && imageUrls.length === 0 && fileAttachments.length === 0) return ''
+    if (!isModelSelectableForThread(NEW_THREAD_COLLABORATION_MODE_CONTEXT)) {
+      error.value = MODEL_SELECTION_REQUIRED_MESSAGE
+      return ''
+    }
 
     isSendingMessage.value = true
     error.value = ''
@@ -5179,6 +5314,9 @@ export function useDesktopState() {
     collaborationModeOverride?: CollaborationModeKind,
   ): Promise<void> {
     const reasoningEffort = selectedReasoningEffort.value
+    if (!isModelSelectableForThread(threadId)) {
+      throw new Error(MODEL_SELECTION_REQUIRED_MESSAGE)
+    }
     const collaborationMode = collaborationModeOverride === 'plan' ? 'plan' : collaborationModeOverride === 'default'
       ? 'default'
       : selectedCollaborationMode.value
@@ -5829,10 +5967,14 @@ export function useDesktopState() {
     selectedThreadId,
     availableCollaborationModes,
     availableModelIds,
+    availableModelOptions,
     selectedCollaborationMode,
     selectedModelId,
     selectedReasoningEffort,
     selectedSpeedMode,
+    modelCatalogConfigText,
+    modelCatalogConfigPath,
+    modelCatalogConfigError,
     codexCliMissingError,
     installedSkills,
     accountRateLimitSnapshots,
@@ -5845,6 +5987,7 @@ export function useDesktopState() {
     isSendingMessage,
     isInterruptingTurn,
     isUpdatingSpeedMode,
+    isModelCatalogSaving,
     isRollingBack,
 
     error,
@@ -5870,11 +6013,15 @@ export function useDesktopState() {
     steerQueuedMessage,
     setSelectedCollaborationMode,
     readModelIdForThread,
+    readModelLabel,
+    isModelSelectableForThread,
     setSelectedModelIdForThread,
     setSelectedModelId,
 
     setSelectedReasoningEffort,
     updateSelectedSpeedMode,
+    setModelCatalogConfigText,
+    saveModelCatalogConfigText,
     respondToPendingServerRequest,
     renameProject,
     removeProject,

@@ -6,6 +6,18 @@ export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | '
 export type SpeedMode = 'standard' | 'fast'
 export type CollaborationModeKind = 'default' | 'plan'
 
+export type UiModelSource = 'codex' | 'provider' | 'custom'
+
+export type UiModelOption = {
+  id: string
+  label: string
+  source: UiModelSource
+  isHidden: boolean
+  isSelectable: boolean
+  reasoningEfforts: ReasoningEffort[]
+  defaultReasoningEffort: ReasoningEffort
+}
+
 export type RpcMethodCatalog = {
   data: string[]
 }

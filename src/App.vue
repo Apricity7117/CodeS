@@ -45,6 +45,11 @@
         :telegram-config-error="telegramConfigError"
         :is-telegram-saving="isTelegramSaving"
         :telegram-status-text="telegramStatusText"
+        :model-catalog-config-text="modelCatalogConfigText"
+        :model-catalog-config-path="modelCatalogConfigPath"
+        :model-catalog-config-error="modelCatalogConfigError"
+        :model-catalog-options="availableModelOptions"
+        :is-model-catalog-saving="isModelCatalogSaving"
         :show-thread-context-badge="showThreadContextBadge"
         :thread-context-badge-state="threadContextBadgeState"
         :thread-context-tooltip="threadContextTooltip"
@@ -86,6 +91,8 @@
         @toggle-dictation-enabled="toggleDictationEnabled"
         @toggle-dictation-click-to-toggle="toggleDictationClickToToggle"
         @toggle-dictation-auto-send="toggleDictationAutoSend"
+        @update:modelCatalogConfigText="setModelCatalogConfigText"
+        @save-model-catalog-config="saveModelCatalogConfigText"
         @save-telegram-config="saveTelegramConfig"
       />
     </template>
@@ -422,7 +429,8 @@
                   :cwd="composerCwd"
                   :collaboration-modes="availableCollaborationModes"
                   :selected-collaboration-mode="selectedCollaborationMode"
-                  :models="availableModelIds" :selected-model="composerSelectedModelId"
+                  :models="availableModelOptions" :selected-model="composerSelectedModelId"
+                  :is-selected-model-selectable="composerSelectedModelIsSelectable"
                   :selected-reasoning-effort="selectedReasoningEffort"
                   :selected-speed-mode="selectedSpeedMode"
                   :is-updating-speed-mode="isUpdatingSpeedMode"
@@ -514,8 +522,9 @@
                       :cwd="composerCwd"
                       :collaboration-modes="availableCollaborationModes"
                       :selected-collaboration-mode="selectedCollaborationMode"
-                      :models="availableModelIds"
+                      :models="availableModelOptions"
                       :selected-model="composerSelectedModelId"
+                      :is-selected-model-selectable="composerSelectedModelIsSelectable"
                       :selected-reasoning-effort="selectedReasoningEffort"
                       :selected-speed-mode="selectedSpeedMode"
                       :is-updating-speed-mode="isUpdatingSpeedMode"
@@ -663,11 +672,14 @@ const {
   codexQuota,
   selectedThreadId,
   availableCollaborationModes,
-  availableModelIds,
+  availableModelOptions,
   selectedCollaborationMode,
   selectedModelId,
   selectedReasoningEffort,
   selectedSpeedMode,
+  modelCatalogConfigText,
+  modelCatalogConfigPath,
+  modelCatalogConfigError,
   codexCliMissingError,
   installedSkills,
   accountRateLimitSnapshots,
@@ -681,6 +693,7 @@ const {
   isInterruptingTurn,
   isSelectedThreadInterruptPending,
   isUpdatingSpeedMode,
+  isModelCatalogSaving,
   error: desktopError,
   refreshAll,
   refreshSkills,
@@ -701,10 +714,13 @@ const {
   steerQueuedMessage,
   setSelectedCollaborationMode,
   readModelIdForThread,
+  isModelSelectableForThread,
   setSelectedModelIdForThread,
 
   setSelectedReasoningEffort,
   updateSelectedSpeedMode,
+  setModelCatalogConfigText,
+  saveModelCatalogConfigText,
   respondToPendingServerRequest,
   renameProject,
   removeProject,
@@ -869,6 +885,7 @@ const isEditingHistoryMessage = computed(() => {
 const liveOverlay = computed(() => selectedLiveOverlay.value)
 const composerThreadContextId = computed(() => (isHomeRoute.value ? '__new-thread__' : selectedThreadId.value))
 const composerSelectedModelId = computed(() => readModelIdForThread(composerThreadContextId.value))
+const composerSelectedModelIsSelectable = computed(() => isModelSelectableForThread(composerThreadContextId.value))
 const selectedThreadPendingRequest = computed<UiServerRequest | null>(() => {
   const rows = selectedThreadServerRequests.value
   return rows.length > 0 ? rows[rows.length - 1] : null

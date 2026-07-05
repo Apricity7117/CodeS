@@ -203,6 +203,64 @@
               </div>
             </template>
           </div>
+          <div class="sidebar-settings-model-catalog">
+            <button
+              class="sidebar-settings-account-header sidebar-settings-model-catalog-toggle"
+              type="button"
+              :aria-expanded="isModelCatalogOpen"
+              @click="isModelCatalogOpen = !isModelCatalogOpen"
+            >
+              <span class="sidebar-settings-account-header-main">
+                <span class="sidebar-settings-account-collapse-icon">{{ isModelCatalogOpen ? '▾' : '▸' }}</span>
+                <span class="sidebar-settings-account-title">{{ t('Model catalog') }}</span>
+              </span>
+              <span class="sidebar-settings-value">{{ modelCatalogStatusText }}</span>
+            </button>
+            <div v-if="isModelCatalogOpen" class="sidebar-settings-model-catalog-panel">
+              <label class="sidebar-settings-field">
+                <span class="sidebar-settings-field-label">{{ t('Catalog JSON') }}</span>
+                <textarea
+                  class="sidebar-settings-textarea sidebar-settings-model-catalog-textarea"
+                  rows="8"
+                  :value="modelCatalogConfigText"
+                  spellcheck="false"
+                  @input="$emit('update:modelCatalogConfigText', ($event.target as HTMLTextAreaElement).value)"
+                />
+              </label>
+              <div v-if="modelCatalogConfigPath" class="sidebar-settings-model-catalog-path" :title="modelCatalogConfigPath">
+                {{ modelCatalogConfigPath }}
+              </div>
+              <div v-if="modelCatalogConfigError" class="sidebar-settings-telegram-error">
+                <span>{{ modelCatalogConfigError }}</span>
+              </div>
+              <div class="sidebar-settings-model-catalog-actions">
+                <button
+                  class="sidebar-settings-telegram-save"
+                  type="button"
+                  :disabled="isModelCatalogSaving"
+                  @click="$emit('save-model-catalog-config')"
+                >
+                  {{ isModelCatalogSaving ? t('Saving…') : t('Save catalog') }}
+                </button>
+              </div>
+              <div class="sidebar-settings-model-catalog-preview">
+                <div
+                  v-for="option in modelCatalogVisibleOptions"
+                  :key="option.id"
+                  class="sidebar-settings-model-catalog-item"
+                  :class="{ 'is-hidden': option.isHidden }"
+                >
+                  <span class="sidebar-settings-model-catalog-label">{{ option.label }}</span>
+                  <span class="sidebar-settings-model-catalog-meta">
+                    {{ option.id }} · {{ option.source }}{{ option.isHidden ? ` · ${t('hidden')}` : '' }}
+                  </span>
+                </div>
+                <div v-if="modelCatalogOptions.length > modelCatalogVisibleOptions.length" class="sidebar-settings-model-catalog-more">
+                  {{ t('{count} more', { count: modelCatalogOptions.length - modelCatalogVisibleOptions.length }) }}
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="sidebar-settings-row sidebar-settings-row--switch" :title="settingsHelp.sendWithEnter">
             <span class="sidebar-settings-label">{{ t('Require ⌘ + enter to send') }}</span>
             <CodexSwitch
@@ -362,7 +420,7 @@ import type { buildSettingsHelp } from '../../app/appConfig'
 import type { DarkModePreference, InProgressSendMode } from '../../app/appTypes'
 import type { UiLanguage } from '../../composables/useUiLanguage'
 import { useUiLanguage } from '../../composables/useUiLanguage'
-import type { UiAccountEntry, UiProjectGroup, UiRateLimitSnapshot } from '../../types/codex'
+import type { UiAccountEntry, UiModelOption, UiProjectGroup, UiRateLimitSnapshot } from '../../types/codex'
 import {
   buildAccountTitle,
   formatAccountMeta,
@@ -427,6 +485,11 @@ const props = defineProps<{
   telegramConfigError: string
   isTelegramSaving: boolean
   telegramStatusText: string
+  modelCatalogConfigText: string
+  modelCatalogConfigPath: string
+  modelCatalogConfigError: string
+  modelCatalogOptions: UiModelOption[]
+  isModelCatalogSaving: boolean
   showThreadContextBadge: boolean
   threadContextBadgeState: string
   threadContextTooltip: string
@@ -478,6 +541,8 @@ const emit = defineEmits<{
   'update:isTelegramConfigOpen': [value: boolean]
   'update:telegramBotTokenDraft': [value: string]
   'update:telegramAllowedUserIdsDraft': [value: string]
+  'update:modelCatalogConfigText': [value: string]
+  'save-model-catalog-config': []
   'save-telegram-config': []
 }>()
 
@@ -485,12 +550,18 @@ const { t } = useUiLanguage()
 const sidebarSearchInputRef = ref<HTMLInputElement | null>(null)
 const settingsPanelRef = ref<HTMLElement | null>(null)
 const settingsButtonRef = ref<HTMLElement | null>(null)
+const isModelCatalogOpen = ref(false)
 
 const isAccountOperationBusy = computed(() =>
   props.isRefreshingAccounts
     || props.isSwitchingAccounts
     || props.isStartingCodexLogin
     || props.isCompletingCodexLogin,
+)
+const modelCatalogVisibleOptions = computed(() => props.modelCatalogOptions.slice(0, 8))
+const modelCatalogHiddenCount = computed(() => props.modelCatalogOptions.filter((option) => option.isHidden).length)
+const modelCatalogStatusText = computed(() =>
+  `${props.modelCatalogOptions.length} ${t('models')}${modelCatalogHiddenCount.value > 0 ? `, ${modelCatalogHiddenCount.value} ${t('hidden')}` : ''}`,
 )
 
 onMounted(() => {
@@ -732,6 +803,51 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 
 .sidebar-settings-telegram-actions {
   @apply mt-3 flex items-center justify-end;
+}
+
+.sidebar-settings-model-catalog {
+  @apply border-t border-zinc-100 bg-zinc-50/60 px-3 py-3;
+}
+
+.sidebar-settings-model-catalog-toggle {
+  @apply mb-0 w-full border-0 bg-transparent p-0 text-left cursor-pointer;
+}
+
+.sidebar-settings-model-catalog-panel {
+  @apply mt-3;
+}
+
+.sidebar-settings-model-catalog-textarea {
+  @apply min-h-36;
+}
+
+.sidebar-settings-model-catalog-path {
+  @apply mt-2 truncate text-[11px] text-zinc-500;
+}
+
+.sidebar-settings-model-catalog-actions {
+  @apply mt-3 flex items-center justify-end;
+}
+
+.sidebar-settings-model-catalog-preview {
+  @apply mt-3 flex flex-col gap-1.5;
+}
+
+.sidebar-settings-model-catalog-item {
+  @apply min-w-0 rounded-md border border-zinc-200 bg-white px-2 py-1.5;
+}
+
+.sidebar-settings-model-catalog-item.is-hidden {
+  @apply border-zinc-200 bg-zinc-100 opacity-75;
+}
+
+.sidebar-settings-model-catalog-label {
+  @apply block truncate text-xs font-medium text-zinc-800;
+}
+
+.sidebar-settings-model-catalog-meta,
+.sidebar-settings-model-catalog-more {
+  @apply block truncate text-[11px] text-zinc-500;
 }
 
 .sidebar-settings-telegram-save {

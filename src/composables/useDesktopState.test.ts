@@ -9,7 +9,7 @@ import {
   isThreadUnreadByLastRead,
   useDesktopState,
 } from './useDesktopState'
-import type { UiMessage, UiProjectGroup } from '../types/codex'
+import type { ReasoningEffort, UiMessage, UiModelOption, UiProjectGroup } from '../types/codex'
 import type { WorkspaceRootsState } from '../api/codexGateway'
 
 const gatewayMocks = vi.hoisted(() => ({
@@ -20,6 +20,7 @@ const gatewayMocks = vi.hoisted(() => ({
   getAccountRateLimits: vi.fn(),
   getAvailableCollaborationModes: vi.fn(),
   getAvailableModelIds: vi.fn(),
+  getEffectiveModelCatalog: vi.fn(),
   getCurrentModelConfig: vi.fn(),
   getPendingServerRequests: vi.fn(),
   getSkillsList: vi.fn(),
@@ -37,6 +38,7 @@ const gatewayMocks = vi.hoisted(() => ({
   revertThreadFileChanges: vi.fn(),
   rollbackThread: vi.fn(),
   setCodexSpeedMode: vi.fn(),
+  saveModelCatalogConfig: vi.fn(),
   setThreadQueueState: vi.fn(),
   setWorkspaceRootsState: vi.fn(),
   startThread: vi.fn(),
@@ -62,6 +64,22 @@ function thread(id: string, cwd: string, options: { hasWorktree?: boolean } = {}
     preview: '',
     unread: false,
     inProgress: false,
+  }
+}
+
+function modelOption(
+  id: string,
+  options: Partial<Omit<UiModelOption, 'id'>> = {},
+): UiModelOption {
+  const reasoningEfforts = options.reasoningEfforts ?? ['low', 'medium', 'high', 'xhigh']
+  return {
+    id,
+    label: options.label ?? id,
+    source: options.source ?? 'codex',
+    isHidden: options.isHidden ?? false,
+    isSelectable: options.isSelectable ?? true,
+    reasoningEfforts,
+    defaultReasoningEffort: options.defaultReasoningEffort ?? (reasoningEfforts.includes('medium' as ReasoningEffort) ? 'medium' : reasoningEfforts[0]),
   }
 }
 
@@ -93,6 +111,12 @@ function setupRefreshMocks(groups: UiProjectGroup[]): void {
     reasoningEffort: 'medium',
     speedMode: 'standard',
   })
+  gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+    options: [modelOption('gpt-5.4')],
+    configText: '{\n  "models": [],\n  "order": []\n}\n',
+    configPath: '/tmp/codes-model-catalog.json',
+    configError: '',
+  })
   gatewayMocks.getAvailableModelIds.mockResolvedValue(['gpt-5.4'])
 }
 
@@ -108,6 +132,18 @@ beforeEach(() => {
   gatewayMocks.getThreadQueueState.mockResolvedValue({})
   gatewayMocks.getThreadTitleCache.mockResolvedValue({ titles: {} })
   gatewayMocks.getWorkspaceRootsState.mockRejectedValue(new Error('no workspace roots state'))
+  gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+    options: [modelOption('gpt-5.4')],
+    configText: '{\n  "models": [],\n  "order": []\n}\n',
+    configPath: '/tmp/codes-model-catalog.json',
+    configError: '',
+  })
+  gatewayMocks.saveModelCatalogConfig.mockResolvedValue({
+    options: [modelOption('gpt-5.4')],
+    configText: '{\n  "models": [],\n  "order": []\n}\n',
+    configPath: '/tmp/codes-model-catalog.json',
+    configError: '',
+  })
   gatewayMocks.setThreadQueueState.mockResolvedValue(undefined)
 })
 
@@ -918,16 +954,21 @@ describe('model selection', () => {
       reasoningEffort: 'medium',
       speedMode: 'standard',
     })
-    gatewayMocks.getAvailableModelIds.mockResolvedValue([
-      'big-pickle',
-      'deepseek-v4-flash-free',
-      'ring-2.6-1t-free',
-    ])
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [
+        modelOption('big-pickle'),
+        modelOption('deepseek-v4-flash-free'),
+        modelOption('ring-2.6-1t-free'),
+      ],
+      configText: '{\n  "models": [],\n  "order": []\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
 
     const state = useDesktopState()
     await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
 
-    expect(gatewayMocks.getAvailableModelIds).toHaveBeenCalledWith()
+    expect(gatewayMocks.getEffectiveModelCatalog).toHaveBeenCalled()
     expect(state.availableModelIds.value).toEqual([
       'big-pickle',
       'deepseek-v4-flash-free',
@@ -957,11 +998,16 @@ describe('model selection', () => {
       reasoningEffort: 'medium',
       speedMode: 'standard',
     })
-    gatewayMocks.getAvailableModelIds.mockResolvedValue([
-      'big-pickle',
-      'deepseek-v4-flash-free',
-      'ring-2.6-1t-free',
-    ])
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [
+        modelOption('big-pickle'),
+        modelOption('deepseek-v4-flash-free'),
+        modelOption('ring-2.6-1t-free'),
+      ],
+      configText: '{\n  "models": [],\n  "order": []\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
 
     const state = useDesktopState()
     await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
@@ -976,6 +1022,77 @@ describe('model selection', () => {
     expect(JSON.parse(window.localStorage.getItem('codex-web-local.selected-model-by-context.v1') ?? '{}')).toEqual({
       '__new-thread__': 'ring-2.6-1t-free',
     })
+  })
+
+  it('preserves a hidden selected model and blocks new sends until a selectable model is chosen', async () => {
+    installTestWindow({
+      'codex-web-local.selected-model-by-context.v1': JSON.stringify({
+        '__new-thread__': 'retired-model',
+      }),
+    })
+    gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })
+    gatewayMocks.getAvailableCollaborationModes.mockResolvedValue([{ value: 'default', label: 'Default' }])
+    gatewayMocks.getSkillsList.mockResolvedValue([])
+    gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'big-pickle',
+      providerId: 'codex',
+      reasoningEffort: 'medium',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [
+        modelOption('retired-model', { isHidden: true, isSelectable: false }),
+        modelOption('big-pickle'),
+      ],
+      configText: '{\n  "models": [],\n  "order": []\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    expect(state.selectedModelId.value).toBe('retired-model')
+    expect(state.availableModelIds.value).toEqual(['big-pickle'])
+    expect(state.isModelSelectableForThread('')).toBe(false)
+    await expect(state.sendMessageToNewThread('hello', '/tmp/project')).resolves.toBe('')
+    expect(gatewayMocks.startThread).not.toHaveBeenCalled()
+    expect(state.error.value).toBe('Selected model is hidden. Choose an available model before sending.')
+  })
+
+  it('uses a model default reasoning effort when the current effort is not allowed', async () => {
+    installTestWindow({
+      'codex-web-local.selected-model-by-context.v1': JSON.stringify({
+        '__new-thread__': 'fast-only',
+      }),
+    })
+    gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })
+    gatewayMocks.getAvailableCollaborationModes.mockResolvedValue([{ value: 'default', label: 'Default' }])
+    gatewayMocks.getSkillsList.mockResolvedValue([])
+    gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'fast-only',
+      providerId: 'codex',
+      reasoningEffort: 'high',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [
+        modelOption('fast-only', {
+          reasoningEfforts: ['minimal', 'low'],
+          defaultReasoningEffort: 'minimal',
+        }),
+      ],
+      configText: '{\n  "models": [],\n  "order": []\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    expect(state.selectedReasoningEffort.value).toBe('minimal')
   })
 })
 
