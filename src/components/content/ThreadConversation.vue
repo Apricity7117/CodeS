@@ -51,66 +51,29 @@
                   :key="`grouped-cmd-${cmd.id}`"
                   class="worked-cmd-item"
                 >
-                  <button
-                    type="button"
-                    class="cmd-row"
-                    :class="[
-                      commandStatusClass(cmd),
-                      {
-                        'cmd-expanded': isCommandExpanded(cmd),
-                        'cmd-compact': true,
-                      },
-                    ]"
-                    @click="toggleCommandExpand(cmd)"
-                  >
-                    <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isCommandExpanded(cmd) }">▶</span>
-                    <code class="cmd-label">{{ cmd.commandExecution?.command || '(command)' }}</code>
-                    <span class="cmd-status">{{ commandStatusLabel(cmd) }}</span>
-                  </button>
-                  <div
-                    class="cmd-output-wrap"
-                    :class="{ 'cmd-output-visible': isCommandExpanded(cmd) }"
-                  >
-                    <div class="cmd-output-inner">
-                      <pre
-                        class="cmd-output"
-                        :class="{ 'cmd-output-condensed': isCommandOutputCondensed(cmd) }"
-                        v-text="cmd.commandExecution?.aggregatedOutput || '(no output)'"
-                      ></pre>
-                    </div>
-                  </div>
+                  <ThreadCommandExecution
+                    :message="cmd"
+                    :expanded="isCommandExpanded(cmd)"
+                    :compact="true"
+                    :condensed-output="isCommandOutputCondensed(cmd)"
+                    :status-label="commandStatusLabel(cmd)"
+                    :status-class="commandStatusClass(cmd)"
+                    :grouped="true"
+                    @toggle="toggleCommandExpand(cmd)"
+                  />
                 </div>
               </div>
             </div>
             <template v-else>
-              <button
-                type="button"
-                class="cmd-row standalone-command-row"
-                :class="[
-                  commandStatusClass(message),
-                  {
-                    'cmd-expanded': isCommandExpanded(message),
-                    'cmd-compact': isCommandCompact(message),
-                  },
-                ]"
-                @click="toggleCommandExpand(message)"
-              >
-                <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isCommandExpanded(message) }">▶</span>
-                <code class="cmd-label">{{ message.commandExecution?.command || '(command)' }}</code>
-                <span class="cmd-status">{{ commandStatusLabel(message) }}</span>
-              </button>
-              <div
-                class="cmd-output-wrap"
-                :class="{ 'cmd-output-visible': isCommandExpanded(message) }"
-              >
-                <div class="cmd-output-inner">
-                  <pre
-                    class="cmd-output"
-                    :class="{ 'cmd-output-condensed': isCommandOutputCondensed(message) }"
-                    v-text="message.commandExecution?.aggregatedOutput || '(no output)'"
-                  ></pre>
-                </div>
-              </div>
+              <ThreadCommandExecution
+                :message="message"
+                :expanded="isCommandExpanded(message)"
+                :compact="isCommandCompact(message)"
+                :condensed-output="isCommandOutputCondensed(message)"
+                :status-label="commandStatusLabel(message)"
+                :status-class="commandStatusClass(message)"
+                @toggle="toggleCommandExpand(message)"
+              />
             </template>
           </div>
         </div>
@@ -123,78 +86,25 @@
         >
           <div class="message-stack" :data-role="message.role">
             <article class="message-body" :data-role="message.role">
-              <section v-if="readStandaloneFileChangeSummary(message)" class="file-change-summary-block">
-                <button
-                  type="button"
-                  class="cmd-row cmd-row-group cmd-compact file-change-summary-row"
-                  :class="{ 'cmd-expanded': isFileChangeSummaryExpanded(message) }"
-                  @click="toggleFileChangeSummary(message)"
-                >
-                  <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isFileChangeSummaryExpanded(message) }">▶</span>
-                  <span class="file-change-summary-label">
-                    {{ fileChangeSummaryLabel(readStandaloneFileChangeSummary(message)) }}
-                  </span>
-                  <span class="file-change-summary-status">
-                    <span
-                      v-for="part in fileChangeSummaryStatusParts(readStandaloneFileChangeSummary(message))"
-                      :key="`summary-status:${message.id}:${part.tone}:${part.label}`"
-                      class="file-change-signed-count"
-                      :data-tone="part.tone"
-                    >
-                      {{ part.label }}
-                    </span>
-                  </span>
-                </button>
-                <div class="cmd-group-wrap" :class="{ 'cmd-group-visible': isFileChangeSummaryExpanded(message) }">
-                  <div class="file-change-panel-inner">
-                    <ul class="file-change-list">
-                      <li
-                        v-for="change in readStandaloneFileChangeSummary(message)?.changes ?? []"
-                        :key="`file-change:${message.id}:${change.path}:${change.movedToPath || ''}`"
-                        class="file-change-item"
-                      >
-                        <span class="file-change-badge" :data-operation="fileChangeOperationTone(change)">
-                          {{ fileChangeOperationLabel(change) }}
-                        </span>
-                        <button
-                          type="button"
-                          class="file-change-path-button"
-                          :title="change.path"
-                          @click="openDiffViewer(readStandaloneFileChangeSummary(message), change)"
-                        >
-                          {{ displayFileChangePath(change.path) }}
-                        </button>
-                        <span v-if="change.movedToPath" class="file-change-arrow">→</span>
-                        <button
-                          v-if="change.movedToPath"
-                          type="button"
-                          class="file-change-path-button"
-                          :title="change.movedToPath"
-                          @click="openDiffViewer(readStandaloneFileChangeSummary(message), change)"
-                        >
-                          {{ displayFileChangePath(change.movedToPath) }}
-                        </button>
-                        <span v-if="change.addedLineCount > 0 || change.removedLineCount > 0" class="file-change-delta">
-                          <span
-                            v-for="part in fileChangeDeltaParts(change)"
-                            :key="`change-delta:${message.id}:${change.path}:${part.tone}:${part.label}`"
-                            class="file-change-signed-count"
-                            :data-tone="part.tone"
-                          >
-                            {{ part.label }}
-                          </span>
-                        </span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </section>
+              <ThreadFileChangeSummary
+                v-if="readStandaloneFileChangeSummary(message)"
+                :summary="readStandaloneFileChangeSummary(message)"
+                :message-id="message.id"
+                :cwd="props.cwd"
+                :expanded="isFileChangeSummaryExpanded(message)"
+                @toggle="toggleFileChangeSummary(message)"
+                @open-diff="(change) => openDiffViewer(readStandaloneFileChangeSummary(message), change)"
+              />
             </article>
           </div>
         </div>
 
         <div v-else class="message-row" :data-role="message.role" :data-message-type="message.messageType || ''">
-          <div class="message-stack" :data-role="message.role">
+          <div
+            class="message-stack"
+            :class="{ 'message-stack-has-file-change-summary': readAnchoredFileChangeSummary(message) }"
+            :data-role="message.role"
+          >
             <article class="message-body" :data-role="message.role">
               <ul
                 v-if="message.images && message.images.length > 0"
@@ -244,509 +154,64 @@
               </div>
 
               <article v-if="message.text.length > 0" class="message-card" :data-role="message.role">
-                <div v-if="message.messageType === 'worked'" class="worked-separator-wrap" aria-live="polite">
-                  <button type="button" class="worked-separator" @click="toggleWorkedExpand(message)">
-                    <span class="worked-separator-line" aria-hidden="true" />
-                    <span class="worked-chevron" :class="{ 'worked-chevron-open': isWorkedExpanded(message) }">▶</span>
-                    <p class="worked-separator-text">{{ message.text }}</p>
-                    <span class="worked-separator-line" aria-hidden="true" />
-                  </button>
-                  <div v-if="isWorkedExpanded(message)" class="worked-details">
-                    <div
-                      v-for="item in getProcessMessagesForWorked(message)"
-                      :key="`worked-process-${item.id}`"
-                      class="worked-cmd-item"
-                    >
-                      <button
-                        v-if="isCommandMessage(item)"
-                        type="button"
-                        class="cmd-row"
-                        :class="[
-                          commandStatusClass(item),
-                          {
-                            'cmd-expanded': isCommandExpanded(item),
-                            'cmd-compact': isCommandCompact(item),
-                          },
-                        ]"
-                        @click="toggleCommandExpand(item)"
-                      >
-                        <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isCommandExpanded(item) }">▶</span>
-                        <code class="cmd-label">{{ item.commandExecution?.command || '(command)' }}</code>
-                        <span class="cmd-status">{{ commandStatusLabel(item) }}</span>
-                      </button>
-                      <div
-                        v-if="isCommandMessage(item)"
-                        class="cmd-output-wrap"
-                        :class="{ 'cmd-output-visible': isCommandExpanded(item) }"
-                      >
-                        <div class="cmd-output-inner">
-                          <pre
-                            class="cmd-output"
-                            :class="{ 'cmd-output-condensed': isCommandOutputCondensed(item) }"
-                            v-text="item.commandExecution?.aggregatedOutput || '(no output)'"
-                          ></pre>
-                        </div>
-                      </div>
-                      <section v-else-if="isFileChangeMessage(item)" class="file-change-summary-block file-change-summary-block-inline">
-                        <button
-                          type="button"
-                          class="cmd-row cmd-row-group cmd-compact file-change-summary-row"
-                          :class="{ 'cmd-expanded': isFileChangeSummaryExpanded(item) }"
-                          @click="toggleFileChangeSummary(item)"
-                        >
-                          <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isFileChangeSummaryExpanded(item) }">▶</span>
-                          <span class="file-change-summary-label">
-                            {{ fileChangeSummaryLabel(readFileChangeMessageSummary(item)) }}
-                          </span>
-                          <span class="file-change-summary-status">
-                            <span
-                              v-for="part in fileChangeSummaryStatusParts(readFileChangeMessageSummary(item))"
-                              :key="`worked-summary-status:${item.id}:${part.tone}:${part.label}`"
-                              class="file-change-signed-count"
-                              :data-tone="part.tone"
-                            >
-                              {{ part.label }}
-                            </span>
-                          </span>
-                        </button>
-                        <div class="cmd-group-wrap" :class="{ 'cmd-group-visible': isFileChangeSummaryExpanded(item) }">
-                          <div class="file-change-panel-inner">
-                            <ul class="file-change-list">
-                              <li
-                                v-for="change in readFileChangeMessageSummary(item)?.changes ?? []"
-                                :key="`file-change:worked:${item.id}:${change.path}:${change.movedToPath || ''}`"
-                                class="file-change-item"
-                              >
-                                <span class="file-change-badge" :data-operation="fileChangeOperationTone(change)">
-                                  {{ fileChangeOperationLabel(change) }}
-                                </span>
-                                <button
-                                  type="button"
-                                  class="file-change-path-button"
-                                  :title="change.path"
-                                  @click="openDiffViewer(readFileChangeMessageSummary(item), change)"
-                                >
-                                  {{ displayFileChangePath(change.path) }}
-                                </button>
-                                <span v-if="change.movedToPath" class="file-change-arrow">→</span>
-                                <button
-                                  v-if="change.movedToPath"
-                                  type="button"
-                                  class="file-change-path-button"
-                                  :title="change.movedToPath"
-                                  @click="openDiffViewer(readFileChangeMessageSummary(item), change)"
-                                >
-                                  {{ displayFileChangePath(change.movedToPath) }}
-                                </button>
-                              </li>
-                            </ul>
-                          </div>
-                        </div>
-                      </section>
-                      <article v-else-if="item.text.trim().length > 0" class="worked-process-text" v-html="renderMarkdownBlocksAsHtml(item.text)" />
-                    </div>
-                  </div>
-                </div>
-                <div
+                <ThreadWorkedTurn
+                  v-if="message.messageType === 'worked'"
+                  :message="message"
+                  :process-messages="getProcessMessagesForWorked(message)"
+                  :cwd="props.cwd"
+                  :expanded="isWorkedExpanded(message)"
+                  :is-command-expanded="isCommandExpanded"
+                  :is-command-compact="isCommandCompact"
+                  :is-command-output-condensed="isCommandOutputCondensed"
+                  :command-status-label="commandStatusLabel"
+                  :command-status-class="commandStatusClass"
+                  :is-file-change-summary-expanded="isFileChangeSummaryExpanded"
+                  :render-markdown-as-html="renderMarkdownBlocksAsHtml"
+                  @toggle-worked="toggleWorkedExpand(message)"
+                  @toggle-command="toggleCommandExpand"
+                  @toggle-file-change-summary="toggleFileChangeSummary"
+                  @open-diff="openDiffViewer"
+                />
+                <ThreadPlanCard
                   v-else-if="showPlanCardInThread(message)"
-                  class="plan-card"
-                  :data-streaming="message.messageType === 'plan.live'"
-                  :data-collapsed="isPlanCollapsed(message)"
-                >
-                  <div class="plan-card-header">
-                    <p class="plan-card-title">
-                      <ThinkingShimmer
-                        :message="planCardTitle(message)"
-                        :active="isTextAnimationEnabled && message.messageType === 'plan.live'"
-                      />
-                    </p>
-                    <div class="plan-card-header-actions">
-                      <button
-                        v-if="readPlanMarkdown(message)"
-                        type="button"
-                        class="plan-card-icon-button"
-                        aria-label="Download plan"
-                        title="Download plan"
-                        @click="downloadPlan(message)"
-                      >
-                        <IconCodexDownload class="icon-svg plan-card-action-icon" />
-                      </button>
-                      <button
-                        v-if="readPlanMarkdown(message)"
-                        type="button"
-                        class="plan-card-icon-button"
-                        :aria-label="copiedResponseAnchorId === message.id ? 'Plan copied' : 'Copy plan'"
-                        :title="copiedResponseAnchorId === message.id ? 'Plan copied' : 'Copy plan'"
-                        @click="copyResponse(message.id)"
-                      >
-                        <IconCodexCheckMd v-if="copiedResponseAnchorId === message.id" class="icon-svg plan-card-action-icon" />
-                        <IconCodexCopy v-else class="icon-svg plan-card-action-icon" />
-                      </button>
-                      <button
-                        type="button"
-                        class="plan-card-icon-button"
-                        :aria-label="isPlanCollapsed(message) ? 'Expand plan summary' : 'Collapse plan summary'"
-                        :title="isPlanCollapsed(message) ? 'Expand plan summary' : 'Collapse plan summary'"
-                        @click="togglePlanCollapsed(message)"
-                      >
-                        <IconCodexChevron
-                          class="icon-svg plan-card-action-icon plan-card-collapse-icon"
-                          :class="{ 'is-collapsed': isPlanCollapsed(message) }"
-                        />
-                      </button>
-                    </div>
-                  </div>
-                  <div
-                    v-if="readPlanMarkdown(message)"
-                    class="plan-card-content"
-                    :data-collapsed="isPlanCollapsed(message)"
-                  >
-                    <div class="plan-card-markdown" v-html="renderMarkdownBlocksAsHtml(readPlanMarkdown(message))" />
-                    <div v-if="isPlanCollapsed(message)" class="plan-card-collapse-fade">
-                      <button type="button" class="plan-card-expand-button" @click="togglePlanCollapsed(message)">
-                        Expand plan
-                      </button>
-                    </div>
-                  </div>
-                  <div v-if="showImplementPlanButton(message)" class="plan-card-actions">
-                    <button
-                      type="button"
-                      class="plan-card-implement-button"
-                      @click="implementPlan(message)"
-                    >
-                      Implement plan
-                    </button>
-                  </div>
-                </div>
+                  :message="message"
+                  :collapsed="isPlanCollapsed(message)"
+                  :copied="copiedResponseAnchorId === message.id"
+                  :text-animations-enabled="isTextAnimationEnabled"
+                  :render-markdown-as-html="renderMarkdownBlocksAsHtml"
+                  @download="downloadPlan(message)"
+                  @copy="copyResponse(message.id)"
+                  @toggle-collapse="togglePlanCollapsed(message)"
+                  @implement="implementPlan(message)"
+                />
                 <p v-else-if="message.role === 'user'" class="message-text message-text-plain">{{ message.text }}</p>
-                <div
+                <ThreadMessageMarkdown
                   v-else
-                  class="message-text-flow"
-                  v-memo="[message.id, message.text, props.cwd, highlightCacheVersion, markdownImageFailureVersion]"
-                >
-                  <template v-for="(block, blockIndex) in getMessageBlocks(message)" :key="`block-${blockIndex}`">
-                    <p v-if="block.kind === 'paragraph'" class="message-text">
-                      <template v-for="(segment, segmentIndex) in getInlineSegments(block.value)" :key="`seg-${blockIndex}-${segmentIndex}`">
-                        <span v-if="segment.kind === 'text'">{{ segment.value }}</span>
-                        <strong v-else-if="segment.kind === 'bold'" class="message-bold-text">{{ segment.value }}</strong>
-                        <em v-else-if="segment.kind === 'italic'" class="message-italic-text">{{ segment.value }}</em>
-                        <s v-else-if="segment.kind === 'strikethrough'" class="message-strikethrough-text">{{ segment.value }}</s>
-                        <a
-                          v-else-if="segment.kind === 'file'"
-                          class="message-file-link"
-                          :href="toBrowseUrl(segment.path)"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          :title="segment.path"
-                        >
-                          {{ segment.displayPath }}
-                        </a>
-                        <a
-                          v-else-if="segment.kind === 'url'"
-                          class="message-file-link"
-                          :href="segment.href"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          :title="segment.href"
-                        >
-                          {{ segment.value }}
-                        </a>
-                        <code v-else class="message-inline-code">{{ segment.value }}</code>
-                      </template>
-                    </p>
-                    <component
-                      :is="headingTag(block.level)"
-                      v-else-if="block.kind === 'heading'"
-                      class="message-heading"
-                      :class="headingClass(block.level)"
-                    >
-                      <template v-for="(segment, segmentIndex) in getInlineSegments(block.value)" :key="`heading-seg-${blockIndex}-${segmentIndex}`">
-                        <span v-if="segment.kind === 'text'">{{ segment.value }}</span>
-                        <strong v-else-if="segment.kind === 'bold'" class="message-bold-text">{{ segment.value }}</strong>
-                        <em v-else-if="segment.kind === 'italic'" class="message-italic-text">{{ segment.value }}</em>
-                        <s v-else-if="segment.kind === 'strikethrough'" class="message-strikethrough-text">{{ segment.value }}</s>
-                        <a
-                          v-else-if="segment.kind === 'file'"
-                          class="message-file-link"
-                          :href="toBrowseUrl(segment.path)"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          :title="segment.path"
-                        >
-                          {{ segment.displayPath }}
-                        </a>
-                        <a
-                          v-else-if="segment.kind === 'url'"
-                          class="message-file-link"
-                          :href="segment.href"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          :title="segment.href"
-                        >
-                          {{ segment.value }}
-                        </a>
-                        <code v-else class="message-inline-code">{{ segment.value }}</code>
-                      </template>
-                    </component>
-                    <blockquote v-else-if="block.kind === 'blockquote'" class="message-blockquote">
-                      <template v-for="(segment, segmentIndex) in getInlineSegments(block.value)" :key="`quote-seg-${blockIndex}-${segmentIndex}`">
-                        <span v-if="segment.kind === 'text'">{{ segment.value }}</span>
-                        <strong v-else-if="segment.kind === 'bold'" class="message-bold-text">{{ segment.value }}</strong>
-                        <em v-else-if="segment.kind === 'italic'" class="message-italic-text">{{ segment.value }}</em>
-                        <s v-else-if="segment.kind === 'strikethrough'" class="message-strikethrough-text">{{ segment.value }}</s>
-                        <a
-                          v-else-if="segment.kind === 'file'"
-                          class="message-file-link"
-                          :href="toBrowseUrl(segment.path)"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          :title="segment.path"
-                        >
-                          {{ segment.displayPath }}
-                        </a>
-                        <a
-                          v-else-if="segment.kind === 'url'"
-                          class="message-file-link"
-                          :href="segment.href"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          :title="segment.href"
-                        >
-                          {{ segment.value }}
-                        </a>
-                        <code v-else class="message-inline-code">{{ segment.value }}</code>
-                      </template>
-                    </blockquote>
-                    <ul v-else-if="block.kind === 'unorderedList'" class="message-list message-list-unordered">
-                      <li v-for="(item, itemIndex) in block.items" :key="`ul-${blockIndex}-${itemIndex}`" class="message-list-item">
-                        <div class="message-list-item-content" v-html="renderListItemContentAsHtml(item)" />
-                      </li>
-                    </ul>
-                    <ul v-else-if="block.kind === 'taskList'" class="message-list message-task-list">
-                      <li v-for="(item, itemIndex) in block.items" :key="`task-${blockIndex}-${itemIndex}`" class="message-task-item">
-                        <span class="message-task-checkbox" :data-checked="item.checked">{{ item.checked ? '☑' : '☐' }}</span>
-                        <div class="message-list-item-text">
-                          <template v-for="(segment, segmentIndex) in getInlineSegments(item.text)" :key="`task-seg-${blockIndex}-${itemIndex}-${segmentIndex}`">
-                            <span v-if="segment.kind === 'text'">{{ segment.value }}</span>
-                            <strong v-else-if="segment.kind === 'bold'" class="message-bold-text">{{ segment.value }}</strong>
-                            <em v-else-if="segment.kind === 'italic'" class="message-italic-text">{{ segment.value }}</em>
-                            <s v-else-if="segment.kind === 'strikethrough'" class="message-strikethrough-text">{{ segment.value }}</s>
-                            <a
-                              v-else-if="segment.kind === 'file'"
-                              class="message-file-link"
-                              :href="toBrowseUrl(segment.path)"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              :title="segment.path"
-                            >
-                              {{ segment.displayPath }}
-                            </a>
-                            <a
-                              v-else-if="segment.kind === 'url'"
-                              class="message-file-link"
-                              :href="segment.href"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              :title="segment.href"
-                            >
-                              {{ segment.value }}
-                            </a>
-                            <code v-else class="message-inline-code">{{ segment.value }}</code>
-                          </template>
-                        </div>
-                      </li>
-                    </ul>
-                    <ol
-                      v-else-if="block.kind === 'orderedList'"
-                      class="message-list message-list-ordered"
-                      :start="block.start"
-                    >
-                      <li v-for="(item, itemIndex) in block.items" :key="`ol-${blockIndex}-${itemIndex}`" class="message-list-item">
-                        <div class="message-list-item-content" v-html="renderListItemContentAsHtml(item)" />
-                      </li>
-                    </ol>
-                    <div v-else-if="block.kind === 'table'" class="message-table-wrap">
-                      <table class="message-table">
-                        <thead>
-                          <tr>
-                            <th
-                              v-for="(cell, cellIndex) in block.headers"
-                              :key="`th-${blockIndex}-${cellIndex}`"
-                              class="message-table-head-cell"
-                              :style="{ textAlign: block.alignments[cellIndex] ?? 'left' }"
-                            >
-                              <template v-for="(segment, segmentIndex) in getInlineSegments(cell)" :key="`th-seg-${blockIndex}-${cellIndex}-${segmentIndex}`">
-                                <span v-if="segment.kind === 'text'">{{ segment.value }}</span>
-                                <strong v-else-if="segment.kind === 'bold'" class="message-bold-text">{{ segment.value }}</strong>
-                                <em v-else-if="segment.kind === 'italic'" class="message-italic-text">{{ segment.value }}</em>
-                                <s v-else-if="segment.kind === 'strikethrough'" class="message-strikethrough-text">{{ segment.value }}</s>
-                                <a
-                                  v-else-if="segment.kind === 'file'"
-                                  class="message-file-link"
-                                  :href="toBrowseUrl(segment.path)"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  :title="segment.path"
-                                >
-                                  {{ segment.displayPath }}
-                                </a>
-                                <a
-                                  v-else-if="segment.kind === 'url'"
-                                  class="message-file-link"
-                                  :href="segment.href"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  :title="segment.href"
-                                >
-                                  {{ segment.value }}
-                                </a>
-                                <code v-else class="message-inline-code">{{ segment.value }}</code>
-                              </template>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody v-if="block.rows.length > 0">
-                          <tr v-for="(row, rowIndex) in block.rows" :key="`tr-${blockIndex}-${rowIndex}`" class="message-table-body-row">
-                            <td
-                              v-for="(cell, cellIndex) in row"
-                              :key="`td-${blockIndex}-${rowIndex}-${cellIndex}`"
-                              class="message-table-cell"
-                              :style="{ textAlign: block.alignments[cellIndex] ?? 'left' }"
-                            >
-                              <template v-for="(segment, segmentIndex) in getInlineSegments(cell)" :key="`td-seg-${blockIndex}-${rowIndex}-${cellIndex}-${segmentIndex}`">
-                                <span v-if="segment.kind === 'text'">{{ segment.value }}</span>
-                                <strong v-else-if="segment.kind === 'bold'" class="message-bold-text">{{ segment.value }}</strong>
-                                <em v-else-if="segment.kind === 'italic'" class="message-italic-text">{{ segment.value }}</em>
-                                <s v-else-if="segment.kind === 'strikethrough'" class="message-strikethrough-text">{{ segment.value }}</s>
-                                <a
-                                  v-else-if="segment.kind === 'file'"
-                                  class="message-file-link"
-                                  :href="toBrowseUrl(segment.path)"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  :title="segment.path"
-                                >
-                                  {{ segment.displayPath }}
-                                </a>
-                                <a
-                                  v-else-if="segment.kind === 'url'"
-                                  class="message-file-link"
-                                  :href="segment.href"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  :title="segment.href"
-                                >
-                                  {{ segment.value }}
-                                </a>
-                                <code v-else class="message-inline-code">{{ segment.value }}</code>
-                              </template>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                    <div v-else-if="block.kind === 'codeBlock'" class="message-code-block">
-                      <div class="message-code-toolbar">
-                        <span class="message-code-language">{{ formatCodeLanguageLabel(block.language) }}</span>
-                        <button
-                          class="message-code-copy"
-                          type="button"
-                          data-code-copy="true"
-                          aria-label="Copy code"
-                          title="Copy code"
-                        >
-                          <IconCodexCopy class="message-code-copy-icon message-code-copy-icon--copy" aria-hidden="true" />
-                          <IconCodexCheckMd class="message-code-copy-icon message-code-copy-icon--check" aria-hidden="true" />
-                        </button>
-                      </div>
-                      <pre class="message-code-pre"><code class="hljs" v-html="renderCachedHighlightedCodeAsHtml(block.language, block.value)"></code></pre>
-                    </div>
-                    <hr v-else-if="block.kind === 'thematicBreak'" class="message-divider" />
-                    <p v-else-if="isMarkdownImageFailed(message.id, blockIndex)" class="message-text">{{ block.markdown }}</p>
-                    <button
-                      v-else
-                      class="message-image-button"
-                      type="button"
-                      @click="openImageModal(block.url)"
-                    >
-                      <img
-                        class="message-image-preview message-markdown-image"
-                        :src="block.url"
-                        :alt="block.alt || 'Embedded message image'"
-                        loading="lazy"
-                        @error="onMarkdownImageError(message.id, blockIndex)"
-                      />
-                    </button>
-                  </template>
-                </div>
+                  :message-id="message.id"
+                  :blocks="getMessageBlocks(message)"
+                  :cwd="props.cwd"
+                  :highlight-version="highlightCacheVersion"
+                  :image-failure-version="markdownImageFailureVersion"
+                  :get-inline-segments="getInlineSegments"
+                  :to-browse-url="toBrowseUrl"
+                  :render-list-item-content-as-html="renderListItemContentAsHtml"
+                  :render-highlighted-code-as-html="renderCachedHighlightedCodeAsHtml"
+                  :is-markdown-image-failed="isMarkdownImageFailed"
+                  @open-image="openImageModal"
+                  @image-error="onMarkdownImageError"
+                />
               </article>
 
-              <section v-if="readAnchoredFileChangeSummary(message)" class="file-change-summary-block file-change-summary-block-inline">
-                <button
-                  type="button"
-                  class="cmd-row cmd-row-group cmd-compact file-change-summary-row"
-                  :class="{ 'cmd-expanded': isFileChangeSummaryExpanded(message) }"
-                  @click="toggleFileChangeSummary(message)"
-                >
-                  <span class="cmd-chevron" :class="{ 'cmd-chevron-open': isFileChangeSummaryExpanded(message) }">▶</span>
-                  <span class="file-change-summary-label">
-                    {{ fileChangeSummaryLabel(readAnchoredFileChangeSummary(message)) }}
-                  </span>
-                  <span class="file-change-summary-status">
-                    <span
-                      v-for="part in fileChangeSummaryStatusParts(readAnchoredFileChangeSummary(message))"
-                      :key="`summary-status:${message.id}:${part.tone}:${part.label}`"
-                      class="file-change-signed-count"
-                      :data-tone="part.tone"
-                    >
-                      {{ part.label }}
-                    </span>
-                  </span>
-                </button>
-                <div class="cmd-group-wrap" :class="{ 'cmd-group-visible': isFileChangeSummaryExpanded(message) }">
-                  <div class="file-change-panel-inner">
-                    <ul class="file-change-list">
-                      <li
-                        v-for="change in readAnchoredFileChangeSummary(message)?.changes ?? []"
-                        :key="`file-change:inline:${message.id}:${change.path}:${change.movedToPath || ''}`"
-                        class="file-change-item"
-                      >
-                        <span class="file-change-badge" :data-operation="fileChangeOperationTone(change)">
-                          {{ fileChangeOperationLabel(change) }}
-                        </span>
-                        <button
-                          type="button"
-                          class="file-change-path-button"
-                          :title="change.path"
-                          @click="openDiffViewer(readAnchoredFileChangeSummary(message), change)"
-                        >
-                          {{ displayFileChangePath(change.path) }}
-                        </button>
-                        <span v-if="change.movedToPath" class="file-change-arrow">→</span>
-                        <button
-                          v-if="change.movedToPath"
-                          type="button"
-                          class="file-change-path-button"
-                          :title="change.movedToPath"
-                          @click="openDiffViewer(readAnchoredFileChangeSummary(message), change)"
-                        >
-                          {{ displayFileChangePath(change.movedToPath) }}
-                        </button>
-                        <span v-if="change.addedLineCount > 0 || change.removedLineCount > 0" class="file-change-delta">
-                          <span
-                            v-for="part in fileChangeDeltaParts(change)"
-                            :key="`change-delta:inline:${message.id}:${change.path}:${part.tone}:${part.label}`"
-                            class="file-change-signed-count"
-                            :data-tone="part.tone"
-                          >
-                            {{ part.label }}
-                          </span>
-                        </span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </section>
+              <ThreadFileChangeSummary
+                v-if="readAnchoredFileChangeSummary(message)"
+                :summary="readAnchoredFileChangeSummary(message)"
+                :message-id="message.id"
+                :cwd="props.cwd"
+                :expanded="isFileChangeSummaryExpanded(message)"
+                :inline="true"
+                @toggle="toggleFileChangeSummary(message)"
+                @open-diff="(change) => openDiffViewer(readAnchoredFileChangeSummary(message), change)"
+              />
 
               <div
                 v-if="showMessageToolbar(message)"
@@ -866,122 +331,18 @@
       </button>
     </div>
 
-    <div v-if="activeDiffViewerChange" class="diff-viewer-backdrop" @click="closeDiffViewer">
-      <div class="diff-viewer-shell" @click.stop>
-        <aside v-if="!isMobile" class="diff-viewer-sidebar">
-          <div class="diff-viewer-sidebar-header">
-            <p class="diff-viewer-sidebar-title">Changed files</p>
-            <p class="diff-viewer-sidebar-count">{{ formatFileChangeCountLabel(diffViewerChanges.length) }}</p>
-          </div>
-          <div class="diff-viewer-sidebar-list">
-            <button
-              v-for="change in diffViewerChanges"
-              :key="`diff-viewer:${fileChangeKey(change)}`"
-              type="button"
-              class="diff-viewer-file-button"
-              :data-active="fileChangeKey(change) === fileChangeKey(activeDiffViewerChange)"
-              @click="selectDiffViewerChange(change)"
-            >
-              <span class="file-change-badge" :data-operation="fileChangeOperationTone(change)">
-                {{ fileChangeOperationLabel(change) }}
-              </span>
-              <span class="diff-viewer-file-label">
-                {{ displayFileChangePath(change.path) }}
-                <template v-if="change.movedToPath"> → {{ displayFileChangePath(change.movedToPath) }}</template>
-              </span>
-              <span v-if="formatFileChangeDelta(change)" class="diff-viewer-file-delta">{{ formatFileChangeDelta(change) }}</span>
-            </button>
-          </div>
-        </aside>
-
-        <section class="diff-viewer-main">
-          <div class="diff-viewer-toolbar">
-            <div class="diff-viewer-title-wrap">
-              <p class="diff-viewer-title">
-                {{ displayFileChangePath(activeDiffViewerChange.path) }}
-                <template v-if="activeDiffViewerChange.movedToPath"> → {{ displayFileChangePath(activeDiffViewerChange.movedToPath) }}</template>
-              </p>
-              <p class="diff-viewer-subtitle">
-                {{ fileChangeOperationLabel(activeDiffViewerChange) }}
-                <span v-if="formatFileChangeDelta(activeDiffViewerChange)"> · {{ formatFileChangeDelta(activeDiffViewerChange) }}</span>
-              </p>
-            </div>
-            <div class="diff-viewer-toolbar-actions">
-              <button
-                v-if="isMobile"
-                type="button"
-                class="diff-viewer-mobile-files-button"
-                @click="toggleDiffViewerFileList"
-              >
-                {{ formatFileChangeCountLabel(diffViewerChanges.length) }}
-              </button>
-              <button class="image-modal-close diff-viewer-close" type="button" aria-label="Close diff viewer" @click="closeDiffViewer">
-                <IconCodexX class="icon-svg" />
-              </button>
-            </div>
-          </div>
-
-          <div v-if="!hasDiffViewerContent(activeDiffViewerChange)" class="diff-viewer-empty">
-            <p class="diff-viewer-empty-title">No diff available</p>
-            <p class="diff-viewer-empty-text">This summary was restored from the final answer text, but the thread history does not include patch diff content for this file.</p>
-          </div>
-
-          <div v-else class="diff-viewer-panel">
-            <div class="diff-viewer-meta">
-              <span class="diff-viewer-language">{{ inferDiffViewerLanguage(activeDiffViewerChange) || 'diff' }}</span>
-            </div>
-            <div class="diff-viewer-lines">
-              <div
-                v-for="line in activeDiffViewerLines"
-                :key="line.key"
-                class="diff-viewer-line"
-                :data-kind="line.kind"
-              >
-                <span class="diff-viewer-line-number">{{ line.oldLine ?? '' }}</span>
-                <span class="diff-viewer-line-number">{{ line.newLine ?? '' }}</span>
-                <span class="diff-viewer-line-marker">{{ diffViewerMarker(line) }}</span>
-                <code class="diff-viewer-line-code" v-html="escapeHtml(line.text) || '&nbsp;'"></code>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <Transition name="diff-viewer-sheet">
-          <div
-            v-if="isMobile && isDiffViewerFileListOpen"
-            class="diff-viewer-mobile-sheet-backdrop"
-            @click="closeDiffViewerFileList"
-          >
-            <div class="diff-viewer-mobile-sheet" @click.stop>
-              <div class="diff-viewer-mobile-sheet-handle" aria-hidden="true"></div>
-              <div class="diff-viewer-mobile-sheet-header">
-                <p class="diff-viewer-sidebar-title">Changed files</p>
-                <p class="diff-viewer-sidebar-count">{{ formatFileChangeCountLabel(diffViewerChanges.length) }}</p>
-              </div>
-              <div class="diff-viewer-mobile-sheet-list">
-                <button
-                  v-for="change in diffViewerChanges"
-                  :key="`diff-viewer-sheet:${fileChangeKey(change)}`"
-                  type="button"
-                  class="diff-viewer-file-button"
-                  :data-active="fileChangeKey(change) === fileChangeKey(activeDiffViewerChange)"
-                  @click="selectDiffViewerChange(change)"
-                >
-                  <span class="file-change-badge" :data-operation="fileChangeOperationTone(change)">
-                    {{ fileChangeOperationLabel(change) }}
-                  </span>
-                  <span class="diff-viewer-file-label">
-                    {{ displayFileChangePath(change.path) }}
-                    <template v-if="change.movedToPath"> → {{ displayFileChangePath(change.movedToPath) }}</template>
-                  </span>
-                  <span v-if="formatFileChangeDelta(change)" class="diff-viewer-file-delta">{{ formatFileChangeDelta(change) }}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </Transition>
-      </div>
-    </div>
+    <ThreadDiffViewer
+      v-if="activeDiffViewerChange"
+      :changes="diffViewerChanges"
+      :active-change="activeDiffViewerChange"
+      :cwd="props.cwd"
+      :is-mobile="isMobile"
+      :is-file-list-open="isDiffViewerFileListOpen"
+      @close="closeDiffViewer"
+      @toggle-file-list="toggleDiffViewerFileList"
+      @close-file-list="closeDiffViewerFileList"
+      @select-change="selectDiffViewerChange"
+    />
   </section>
 </template>
 
@@ -991,17 +352,21 @@ import type { UiFileChange, UiLiveOverlay, UiMessage, UiPlanStep, UiServerReques
 import { useMobile } from '../../composables/useMobile'
 import { useUiLanguage } from '../../composables/useUiLanguage'
 import ThinkingShimmer from './ThinkingShimmer.vue'
+import ThreadCommandExecution from './ThreadCommandExecution.vue'
+import ThreadDiffViewer from './ThreadDiffViewer.vue'
+import ThreadFileChangeSummary from './ThreadFileChangeSummary.vue'
+import ThreadMessageMarkdown from './ThreadMessageMarkdown.vue'
+import ThreadPlanCard from './ThreadPlanCard.vue'
+import ThreadWorkedTurn from './ThreadWorkedTurn.vue'
 import { buildWorkedTurnGroups } from './threadWorkedGrouping'
 import {
   buildPlanCopyText,
-  planCardTitle,
   planStepStatusIcon,
   readPlanExplanation,
   readPlanMarkdown,
   readPlanSteps,
   showMessageInThread,
   showPlanCardInThread,
-  showImplementPlanButton,
 } from './threadPlanUtils'
 import {
   normalizePathSeparators,
@@ -1013,9 +378,6 @@ import { parseInlineSegments } from './threadInlineSegments'
 import type { InlineSegment } from './threadInlineSegments'
 import {
   escapeHtml,
-  formatCodeLanguageLabel,
-  headingClass,
-  headingTag,
   parseMessageBlocks,
   renderListItemContentAsHtml as renderMarkdownListItemContentAsHtml,
   renderMarkdownBlocksAsHtml as renderMarkdownBlocksToHtml,
@@ -1023,26 +385,13 @@ import {
 import type { ListItem, MessageBlock } from './threadMarkdownBlocks'
 import {
   aggregateFileChanges,
-  buildDiffViewerLines,
   buildFileChangeCopyText as buildFileChangeCopyTextForCwd,
   CODE_LANGUAGE_ALIASES,
-  diffViewerMarker,
-  displayFileChangePath as displayFileChangePathForCwd,
-  fileChangeDeltaParts,
   fileChangeKey,
-  fileChangeOperationLabel,
-  fileChangeOperationTone,
-  fileChangeSummaryLabel as fileChangeSummaryLabelWithTranslator,
-  fileChangeSummaryStatusParts,
-  formatFileChangeCountLabel as formatFileChangeCountLabelWithTranslator,
-  formatFileChangeDelta,
-  hasDiffViewerContent,
-  inferDiffViewerLanguage,
   isFileChangeMessage,
   readActiveDiffViewerChange,
-  readFileChangeMessageSummary,
 } from './threadFileChanges'
-import type { DiffViewerLine, TurnFileChangeSummary } from './threadFileChanges'
+import type { TurnFileChangeSummary } from './threadFileChanges'
 import {
   buildCopyableMessageContentByAnchorId,
   buildCopyableResponseContentByAnchorId,
@@ -1051,10 +400,7 @@ import {
 
 import {
   IconCodexArrowUp,
-  IconCodexCheckMd,
-  IconCodexChevron,
   IconCodexCopy,
-  IconCodexDownload,
   IconCodexEdit,
   IconCodexWorktree,
   IconCodexX,
@@ -1686,18 +1032,6 @@ function readStandaloneFileChangeSummary(message: UiMessage): TurnFileChangeSumm
   return standaloneFileChangeSummaryByMessageId.value[message.id] ?? null
 }
 
-function formatFileChangeCountLabel(count: number): string {
-  return formatFileChangeCountLabelWithTranslator(count, t)
-}
-
-function fileChangeSummaryLabel(summary: TurnFileChangeSummary | null): string {
-  return fileChangeSummaryLabelWithTranslator(summary, t)
-}
-
-function displayFileChangePath(pathValue: string): string {
-  return displayFileChangePathForCwd(pathValue, props.cwd)
-}
-
 function buildFileChangeCopyText(summary: TurnFileChangeSummary | null): string {
   return buildFileChangeCopyTextForCwd(summary, props.cwd)
 }
@@ -1707,8 +1041,6 @@ const diffViewerChanges = computed<UiFileChange[]>(() => activeDiffViewerSummary
 const activeDiffViewerChange = computed<UiFileChange | null>(() => {
   return readActiveDiffViewerChange(diffViewerChanges.value, activeDiffViewerChangeKey.value)
 })
-
-const activeDiffViewerLines = computed<DiffViewerLine[]>(() => buildDiffViewerLines(activeDiffViewerChange.value))
 
 function copyTextWithSelectionFallback(text: string): boolean {
   if (typeof document === 'undefined') return false
@@ -3094,545 +2426,11 @@ onBeforeUnmount(() => {
   @apply max-w-[min(var(--chat-card-max,76ch),100%)] px-0 py-0 bg-transparent border-none rounded-none;
 }
 
-.message-text-flow {
-  @apply flex flex-col gap-2;
-}
-
-.plan-card {
-  --plan-card-bg: color-mix(in srgb, var(--codex-text) 5%, transparent);
-  --plan-card-hover-bg: color-mix(in srgb, var(--codex-text) 8%, transparent);
-  @apply relative flex max-w-[min(var(--chat-card-max,76ch),100%)] flex-col;
-  gap: 0;
-  overflow: clip;
-  border: 0;
-  border-radius: var(--codex-radius-lg);
-  background-color: var(--plan-card-bg);
-  color: var(--codex-text);
-}
-
-@supports not (overflow: clip) {
-  .plan-card {
-    overflow: hidden;
-  }
-}
-
-.plan-card-header {
-  @apply relative flex flex-wrap items-center justify-between gap-2 px-3 py-2;
-  min-height: 2.5rem;
-}
-
-.plan-card-title {
-  @apply m-0 min-w-0 flex-1 font-semibold;
-  color: var(--codex-text);
-  font-size: 1rem;
-  line-height: 1.25;
-  letter-spacing: 0;
-}
-
-.plan-card-title :deep(.thinking-shimmer) {
-  display: inline-block;
-  max-width: 100%;
-}
-
-.plan-card-header-actions {
-  @apply ml-auto flex shrink-0 items-center gap-1;
-}
-
-.plan-card-icon-button {
-  @apply inline-flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent p-0 transition;
-  color: var(--codex-muted-text);
-}
-
-.plan-card-icon-button:hover {
-  background-color: var(--plan-card-hover-bg);
-  color: var(--codex-text);
-}
-
-.plan-card-icon-button:focus-visible {
-  outline: 2px solid var(--codex-focus-ring);
-  outline-offset: 2px;
-}
-
-.plan-card-action-icon.icon-svg {
-  @apply h-3.5 w-3.5;
-}
-
-.plan-card-collapse-icon {
-  transition: transform 160ms ease;
-}
-
-.plan-card-collapse-icon.is-collapsed {
-  transform: rotate(180deg);
-}
-
-.plan-card-content {
-  @apply relative overflow-hidden px-3 pb-3;
-}
-
-.plan-card-content[data-collapsed='true'] {
-  max-height: 20rem;
-}
-
-.plan-card-collapse-fade {
-  @apply pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-3 pt-16;
-  background: linear-gradient(
-    to top,
-    var(--plan-card-bg) 0%,
-    color-mix(in srgb, var(--plan-card-bg) 92%, transparent) 48%,
-    transparent 100%
-  );
-}
-
-.plan-card-expand-button {
-  @apply pointer-events-auto inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition;
-  border-color: color-mix(in srgb, var(--codex-text) 14%, transparent);
-  background-color: color-mix(in srgb, var(--codex-bg) 88%, var(--codex-text) 12%);
-  color: var(--codex-text);
-}
-
-.plan-card-expand-button:hover {
-  background-color: color-mix(in srgb, var(--codex-bg) 80%, var(--codex-text) 20%);
-}
-
-.plan-card-expand-button:focus-visible {
-  outline: 2px solid var(--codex-focus-ring);
-  outline-offset: 2px;
-}
-
-.plan-card-markdown {
-  @apply flex flex-col gap-2;
-  color: var(--codex-text);
-}
-
-.plan-card-markdown :deep(.message-text),
-.plan-card-markdown :deep(.message-heading),
-.plan-card-markdown :deep(.message-blockquote),
-.plan-card-markdown :deep(.message-list),
-.plan-card-markdown :deep(.message-table-wrap),
-.plan-card-markdown :deep(.message-code-block),
-.plan-card-markdown :deep(.message-divider) {
-  @apply m-0;
-}
-
-.plan-card-markdown :deep(.message-text) {
-  @apply whitespace-pre-wrap;
-  color: var(--codex-text);
-  font-size: var(--codex-chat-font-size);
-  line-height: var(--codex-chat-line-height);
-}
-
-.plan-card-markdown :deep(.message-heading) {
-  color: var(--codex-text);
-  letter-spacing: 0;
-}
-
-.plan-card-markdown :deep(.message-heading-h1) {
-  @apply text-2xl font-semibold leading-tight;
-}
-
-.plan-card-markdown :deep(.message-heading-h2) {
-  @apply text-xl font-semibold leading-tight;
-}
-
-.plan-card-markdown :deep(.message-heading-h3) {
-  @apply text-lg font-semibold leading-snug;
-}
-
-.plan-card-markdown :deep(.message-heading-h4) {
-  @apply text-base font-semibold leading-snug;
-}
-
-.plan-card-markdown :deep(.message-heading-h5) {
-  @apply text-sm font-semibold leading-snug uppercase;
-  letter-spacing: 0;
-}
-
-.plan-card-markdown :deep(.message-heading-h6) {
-  @apply text-xs font-semibold leading-snug uppercase;
-  color: var(--codex-muted-text);
-  letter-spacing: 0;
-}
-
-.plan-card-markdown :deep(.message-blockquote) {
-  @apply pl-4 py-1 whitespace-pre-wrap rounded-r-lg;
-  border-left: 3px solid color-mix(in srgb, var(--codex-text) 20%, transparent);
-  background-color: color-mix(in srgb, var(--codex-text) 4%, transparent);
-  color: var(--codex-muted-text);
-  font-size: var(--codex-chat-font-size);
-  line-height: var(--codex-chat-line-height);
-}
-
-.plan-card-markdown :deep(.message-list) {
-  @apply flex flex-col gap-1.5 pl-5;
-  color: var(--codex-text);
-  font-size: var(--codex-chat-font-size);
-  line-height: var(--codex-chat-line-height);
-}
-
-.plan-card-markdown :deep(.message-list-unordered) {
-  @apply list-disc;
-}
-
-.plan-card-markdown :deep(.message-list-ordered) {
-  @apply list-decimal;
-}
-
-.plan-card-markdown :deep(.message-list-item) {
-  @apply pl-1;
-}
-
-.plan-card-markdown :deep(.message-list-item-text) {
-  @apply whitespace-pre-wrap;
-}
-
-.plan-card-markdown :deep(.message-list-item-paragraph + .message-list-item-paragraph) {
-  @apply mt-2;
-}
-
-.plan-card-markdown :deep(.message-task-list) {
-  @apply list-none pl-0;
-}
-
-.plan-card-markdown :deep(.message-task-item) {
-  @apply flex items-start gap-2;
-}
-
-.plan-card-markdown :deep(.message-task-checkbox) {
-  @apply mt-0.5 select-none text-sm leading-none;
-  color: var(--codex-muted-text);
-}
-
-.plan-card-markdown :deep(.message-code-block) {
-  @apply relative overflow-hidden rounded-lg border shadow-none;
-  background-color: var(--codex-code-block-bg);
-  border-color: var(--codex-code-block-border);
-  color: var(--codex-code-text);
-  box-shadow: none;
-}
-
-.plan-card-markdown :deep(.message-code-toolbar) {
-  @apply pointer-events-none absolute inset-x-0 top-0 z-10 flex h-10 items-center justify-between gap-3 px-3 pt-2;
-}
-
-.plan-card-markdown :deep(.message-code-language) {
-  @apply min-w-0 truncate font-mono text-xs font-medium normal-case text-zinc-500;
-}
-
-.plan-card-markdown :deep(.message-code-copy) {
-  @apply pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent p-0 transition focus:outline-none focus-visible:ring-2;
-  --tw-ring-color: var(--codex-focus-ring);
-  color: var(--codex-muted-text);
-}
-
-.plan-card-markdown :deep(.message-code-copy:hover) {
-  background-color: var(--codex-control-hover);
-  color: var(--codex-text);
-}
-
-.plan-card-markdown :deep(.message-code-copy[data-copied='true']) {
-  @apply bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-700;
-}
-
-.plan-card-markdown :deep(.message-code-copy-icon) {
-  @apply h-4 w-4 shrink-0;
-}
-
-.plan-card-markdown :deep(.message-code-copy-icon--check) {
-  @apply hidden;
-}
-
-.plan-card-markdown :deep(.message-code-copy[data-copied='true'] .message-code-copy-icon--copy) {
-  @apply hidden;
-}
-
-.plan-card-markdown :deep(.message-code-copy[data-copied='true'] .message-code-copy-icon--check) {
-  @apply block;
-}
-
-.plan-card-markdown :deep(.message-code-pre) {
-  @apply m-0 overflow-x-auto px-4 pb-3 pt-10 leading-6;
-  font-size: var(--codex-code-font-size);
-}
-
-.plan-card-markdown :deep(.message-inline-code) {
-  @apply rounded-md px-1.5 py-0.5 font-mono text-[0.9em];
-  background-color: var(--codex-inline-code-bg);
-  color: var(--codex-text);
-  font-size: var(--codex-code-font-size);
-  box-shadow: none;
-}
-
-.plan-card-markdown :deep(.message-file-link) {
-  @apply underline underline-offset-2;
-  color: var(--codex-link);
-  text-decoration-color: var(--codex-accent);
-}
-
-.plan-card-markdown :deep(.message-table) {
-  background-color: var(--codex-surface);
-}
-
-.plan-card-actions {
-  @apply flex justify-end px-3 pb-3;
-}
-
-.plan-card-implement-button {
-  @apply inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition;
-  border-color: color-mix(in srgb, var(--codex-text) 14%, transparent);
-  background-color: color-mix(in srgb, var(--codex-bg) 88%, var(--codex-text) 12%);
-  color: var(--codex-text);
-}
-
-.plan-card-implement-button:hover {
-  border-color: color-mix(in srgb, var(--codex-text) 22%, transparent);
-  background-color: color-mix(in srgb, var(--codex-bg) 80%, var(--codex-text) 20%);
-}
-
-.plan-card-implement-button:focus-visible {
-  outline: 2px solid var(--codex-focus-ring);
-  outline-offset: 2px;
-}
-
 .message-text {
   @apply m-0 whitespace-pre-wrap break-words text-slate-800;
   font-size: var(--codex-chat-font-size);
   line-height: var(--codex-chat-line-height);
   overflow-wrap: anywhere;
-}
-
-.message-heading {
-  @apply m-0 text-slate-900 tracking-tight;
-}
-
-.message-heading-h1 {
-  @apply text-2xl font-semibold leading-tight;
-}
-
-.message-heading-h2 {
-  @apply text-xl font-semibold leading-tight;
-}
-
-.message-heading-h3 {
-  @apply text-lg font-semibold leading-snug;
-}
-
-.message-heading-h4 {
-  @apply text-base font-semibold leading-snug;
-}
-
-.message-heading-h5 {
-  @apply text-sm font-semibold leading-snug uppercase tracking-[0.02em];
-}
-
-.message-heading-h6 {
-  @apply text-xs font-semibold leading-snug uppercase tracking-[0.04em] text-slate-600;
-}
-
-.message-blockquote {
-  @apply m-0 border-l-4 border-slate-300 pl-4 py-1 whitespace-pre-wrap break-words text-slate-700 bg-slate-50/70 rounded-r-lg;
-  font-size: var(--codex-chat-font-size);
-  line-height: var(--codex-chat-line-height);
-  overflow-wrap: anywhere;
-}
-
-.message-list {
-  @apply m-0 pl-5 text-slate-800 flex flex-col gap-1.5;
-  font-size: var(--codex-chat-font-size);
-  line-height: var(--codex-chat-line-height);
-}
-
-.message-list-unordered {
-  @apply list-disc;
-}
-
-.message-list-ordered {
-  @apply list-decimal;
-}
-
-.message-list-item {
-  @apply pl-1;
-}
-
-.message-list-item-content {
-  @apply flex flex-col gap-1.5;
-}
-
-.message-list-item-text {
-  @apply whitespace-pre-wrap break-words;
-  overflow-wrap: anywhere;
-}
-
-.message-list-item-paragraph + .message-list-item-paragraph {
-  @apply mt-2;
-}
-
-.message-task-list {
-  @apply list-none pl-0;
-}
-
-.message-task-item {
-  @apply flex items-start gap-2;
-}
-
-.message-task-checkbox {
-  @apply mt-0.5 text-sm leading-none text-slate-500 select-none;
-}
-
-.message-table-wrap {
-  @apply w-full overflow-x-auto;
-}
-
-.message-table {
-  @apply min-w-full border-separate border-spacing-0 overflow-hidden rounded-xl border border-slate-200 bg-white text-sm text-slate-800;
-}
-
-.message-table-head-cell,
-.message-table-cell {
-  @apply border-b border-l border-slate-200 px-3 py-2 align-top whitespace-pre-wrap break-words;
-  overflow-wrap: anywhere;
-}
-
-.message-table-head-cell:first-child,
-.message-table-cell:first-child {
-  @apply border-l-0;
-}
-
-.message-table-head-cell {
-  @apply bg-slate-100 font-semibold text-slate-900;
-}
-
-.message-table-body-row:last-child .message-table-cell {
-  @apply border-b-0;
-}
-
-.message-bold-text {
-  @apply font-semibold text-slate-900;
-}
-
-.message-italic-text {
-  @apply italic;
-}
-
-.message-strikethrough-text {
-  @apply line-through text-slate-500;
-}
-
-.message-markdown-image {
-  @apply w-auto h-auto max-w-[min(560px,85vw)] max-h-[min(460px,62vh)] object-contain bg-white;
-}
-
-.message-inline-code {
-  @apply rounded-md px-1.5 py-0.5 leading-[1.4] text-zinc-950 font-mono;
-  background-color: var(--codex-inline-code-bg);
-  font-size: var(--codex-code-font-size);
-  box-shadow: none;
-}
-
-.message-code-block {
-  @apply relative max-w-full overflow-hidden rounded-lg border text-zinc-950 shadow-none;
-  background-color: var(--codex-code-block-bg);
-  border-color: var(--codex-code-block-border);
-  box-shadow: none;
-}
-
-.message-code-toolbar {
-  @apply pointer-events-none absolute inset-x-0 top-0 z-10 flex h-10 items-center justify-between gap-3 px-3 pt-2;
-}
-
-.message-code-language {
-  @apply min-w-0 truncate font-mono text-xs font-medium normal-case text-zinc-500;
-}
-
-.message-code-copy {
-  @apply pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent p-0 transition focus:outline-none focus-visible:ring-2;
-  --tw-ring-color: var(--codex-focus-ring);
-  color: var(--codex-muted-text);
-}
-
-.message-code-copy:hover {
-  background-color: var(--codex-control-hover);
-  color: var(--codex-text);
-}
-
-.message-code-copy[data-copied='true'] {
-  @apply bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-700;
-}
-
-.message-code-copy-icon {
-  @apply h-4 w-4 shrink-0;
-}
-
-.message-code-copy-icon--check {
-  @apply hidden;
-}
-
-.message-code-copy[data-copied='true'] .message-code-copy-icon--copy {
-  @apply hidden;
-}
-
-.message-code-copy[data-copied='true'] .message-code-copy-icon--check {
-  @apply block;
-}
-
-.message-code-pre {
-  @apply m-0 overflow-x-auto px-4 pb-3 pt-10 leading-relaxed whitespace-pre;
-  font-family: var(--codex-code-font-family);
-  font-size: var(--codex-code-font-size);
-}
-
-.message-code-pre :deep(.hljs) {
-  @apply block bg-transparent p-0 text-inherit;
-}
-
-.message-code-pre :deep(.hljs),
-.message-code-pre :deep(.hljs-subst) {
-  color: var(--codex-code-text);
-}
-
-.message-code-pre :deep(.hljs-comment),
-.message-code-pre :deep(.hljs-quote) {
-  color: var(--codex-code-comment);
-}
-
-.message-code-pre :deep(.hljs-keyword),
-.message-code-pre :deep(.hljs-selector-tag),
-.message-code-pre :deep(.hljs-meta .hljs-keyword),
-.message-code-pre :deep(.hljs-doctag),
-.message-code-pre :deep(.hljs-built_in),
-.message-code-pre :deep(.hljs-type) {
-  color: var(--codex-code-keyword);
-}
-
-.message-code-pre :deep(.hljs-string),
-.message-code-pre :deep(.hljs-attr),
-.message-code-pre :deep(.hljs-symbol),
-.message-code-pre :deep(.hljs-bullet) {
-  color: var(--codex-code-string);
-}
-
-.message-code-pre :deep(.hljs-title),
-.message-code-pre :deep(.hljs-section),
-.message-code-pre :deep(.hljs-name),
-.message-code-pre :deep(.hljs-selector-id),
-.message-code-pre :deep(.hljs-selector-class),
-.message-code-pre :deep(.hljs-function .hljs-title),
-.message-code-pre :deep(.hljs-class .hljs-title) {
-  color: var(--codex-code-title);
-}
-
-.message-code-pre :deep(.hljs-number),
-.message-code-pre :deep(.hljs-literal),
-.message-code-pre :deep(.hljs-variable),
-.message-code-pre :deep(.hljs-template-variable) {
-  color: var(--codex-code-number);
-}
-
-.message-code-pre :deep(.hljs-addition) {
-  color: var(--codex-diff-added);
-}
-
-.message-code-pre :deep(.hljs-deletion) {
-  color: var(--codex-diff-removed);
 }
 
 .message-file-link {
@@ -3650,10 +2448,6 @@ onBeforeUnmount(() => {
 
 .file-link-context-menu-item {
   @apply block w-full rounded-md px-2 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100;
-}
-
-.message-divider {
-  @apply m-0 border-0 h-px bg-slate-300/80;
 }
 
 .message-stack[data-role='user'] {
@@ -3701,51 +2495,12 @@ onBeforeUnmount(() => {
 .conversation-item[data-message-type='fileChange'] .message-stack,
 .conversation-item[data-message-type='fileChange'] .message-body,
 .conversation-item[data-message-type='fileChange'] .message-card,
-.message-stack:has(.file-change-summary-block),
-.message-card:has(.file-change-summary-block) {
+.message-stack-has-file-change-summary {
   @apply w-full max-w-full;
-}
-
-.worked-separator-wrap {
-  @apply w-full flex flex-col gap-0;
-}
-
-.worked-separator {
-  @apply w-full flex items-center gap-3 bg-transparent border-none cursor-pointer p-0;
-}
-
-.worked-chevron {
-  @apply text-[9px] text-zinc-400 transition-transform duration-200 flex-shrink-0;
-}
-
-.worked-chevron-open {
-  transform: rotate(90deg);
-}
-
-.worked-separator-line {
-  @apply h-px bg-zinc-300/80 flex-1;
-}
-
-.worked-separator-text {
-  @apply m-0 font-normal text-slate-800;
-  font-size: var(--codex-chat-font-size);
-  line-height: var(--codex-chat-line-height);
-}
-
-.worked-details {
-  @apply flex flex-col gap-1.5 pt-2;
 }
 
 .worked-cmd-item {
   @apply flex flex-col;
-}
-
-.worked-process-text {
-  @apply m-0 max-w-full text-sm leading-6 text-zinc-700;
-}
-
-.worked-process-text :deep(p) {
-  @apply my-0;
 }
 
 .image-modal-backdrop {
@@ -3801,15 +2556,6 @@ onBeforeUnmount(() => {
   font-size: 9px;
 }
 
-.cmd-row.cmd-compact .cmd-label {
-  font-size: 0.75rem;
-}
-
-.cmd-row.cmd-compact .cmd-status {
-  max-width: 4.5rem;
-  font-size: 0.75rem;
-}
-
 .cmd-row.cmd-expanded {
   @apply rounded-b-none;
 }
@@ -3820,10 +2566,6 @@ onBeforeUnmount(() => {
 
 .cmd-chevron-open {
   transform: rotate(90deg);
-}
-
-.cmd-label {
-  @apply flex-1 min-w-0 truncate text-xs font-mono text-zinc-700;
 }
 
 .cmd-group-label {
@@ -3844,23 +2586,6 @@ onBeforeUnmount(() => {
 
 .cmd-status-error .cmd-status {
   color: var(--codex-muted-text);
-}
-
-.cmd-output-wrap {
-  @apply rounded-b-lg;
-  background-color: transparent;
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 300ms ease-out, border-color 300ms ease-out;
-  border: 0 solid transparent;
-  border-top: none;
-}
-
-.cmd-output-wrap.cmd-output-visible {
-  grid-template-rows: 1fr;
-  background-color: var(--color-zinc-900);
-  border-width: 0 1px 1px;
-  border-color: #e4e4e7;
 }
 
 .cmd-group-wrap {
@@ -3894,60 +2619,7 @@ onBeforeUnmount(() => {
   border-top: 1px solid var(--codex-file-row-border);
 }
 
-.cmd-group-inner .cmd-row {
-  @apply min-h-10 rounded-none border-0 px-3 py-2 shadow-none;
-  background-color: transparent;
-}
-
-.cmd-group-inner .cmd-row:hover {
-  background-color: var(--codex-file-summary-hover);
-}
-
-.cmd-group-inner .cmd-row.cmd-expanded {
-  border-bottom-right-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-.cmd-group-inner .cmd-label {
-  @apply text-[13px];
-}
-
-.cmd-group-inner .cmd-status {
-  @apply ml-auto max-w-28 text-xs font-medium;
-}
-
-.cmd-group-inner .cmd-output-wrap.cmd-output-visible {
-  border-width: 1px 0 0;
-  border-color: var(--codex-file-row-border);
-}
-
-.cmd-output-inner {
-  overflow: hidden;
-  min-height: 0;
-}
-
-.cmd-output {
-  @apply m-0 px-3 py-2 text-zinc-200 whitespace-pre-wrap break-words max-h-60 overflow-y-auto;
-  font-family: var(--codex-code-font-family);
-  font-size: var(--codex-code-font-size);
-}
-
-.cmd-output.cmd-output-condensed {
-  max-height: 9rem;
-}
-
-.file-change-summary-block {
-  @apply mt-3 flex flex-col gap-0;
-  width: 100%;
-  max-width: 100%;
-}
-
-.file-change-summary-block-inline {
-  @apply mt-4;
-}
-
-.cmd-row.command-group-summary-row,
-.cmd-row.file-change-summary-row {
+.cmd-row.command-group-summary-row {
   @apply min-h-11 rounded-xl px-3 py-2 shadow-none;
   background-color: var(--codex-file-summary-bg);
   border: 1px solid var(--codex-file-summary-border);
@@ -3955,13 +2627,11 @@ onBeforeUnmount(() => {
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.02);
 }
 
-.cmd-row.command-group-summary-row:hover,
-.cmd-row.file-change-summary-row:hover {
+.cmd-row.command-group-summary-row:hover {
   background-color: var(--codex-file-summary-hover);
 }
 
-.cmd-row.command-group-summary-row.cmd-expanded,
-.cmd-row.file-change-summary-row.cmd-expanded {
+.cmd-row.command-group-summary-row.cmd-expanded {
   border-bottom-right-radius: 0;
   border-bottom-left-radius: 0;
 }
@@ -3976,352 +2646,6 @@ onBeforeUnmount(() => {
   @apply inline-flex max-w-28 items-center justify-end text-xs font-medium;
 }
 
-.file-change-summary-label {
-  @apply flex-1 min-w-0 truncate text-[13px] font-medium;
-  color: var(--codex-text);
-}
-
-.file-change-summary-status {
-  @apply inline-flex max-w-28 items-center justify-end gap-1.5 text-right text-xs font-medium flex-shrink-0;
-  color: var(--codex-muted-text);
-}
-
-.file-change-panel-inner {
-  @apply mb-1 min-h-0 overflow-hidden pl-0;
-}
-
-.file-change-list {
-  @apply m-0 flex list-none flex-col gap-0 rounded-b-xl border p-0 overflow-hidden;
-  background-color: var(--codex-file-summary-bg);
-  border-color: var(--codex-file-summary-border);
-  border-top: 0;
-}
-
-.file-change-item {
-  @apply flex flex-wrap items-center gap-2 px-3 py-2 text-sm;
-  color: var(--codex-text);
-  border-top: 1px solid var(--codex-file-row-border);
-}
-
-.file-change-item:hover {
-  background-color: var(--codex-file-summary-hover);
-}
-
-.file-change-badge {
-  @apply inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-normal;
-}
-
-.file-change-badge[data-operation='add'] {
-  background-color: var(--codex-diff-added-bg);
-  color: var(--codex-diff-added);
-}
-
-.file-change-badge[data-operation='update'] {
-  @apply bg-sky-50 text-sky-700;
-}
-
-.file-change-badge[data-operation='delete'] {
-  background-color: var(--codex-diff-removed-bg);
-  color: var(--codex-diff-removed);
-}
-
-.file-change-badge[data-operation='move'] {
-  @apply bg-amber-50 text-amber-700;
-}
-
-.file-change-path {
-  @apply min-w-0 break-all font-mono text-[13px];
-}
-
-.file-change-path-button {
-  @apply min-w-0 border-0 bg-transparent p-0 text-left font-mono text-[13px] hover:underline underline-offset-2;
-  color: var(--codex-link);
-}
-
-.file-change-path-button:hover {
-  color: var(--codex-link-hover);
-}
-
-.file-change-arrow {
-  @apply text-zinc-400;
-}
-
-.file-change-delta {
-  @apply ml-auto inline-flex items-center gap-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium;
-  background-color: var(--codex-control-bg);
-  color: var(--codex-muted-text);
-}
-
-.file-change-signed-count {
-  @apply inline-flex items-center whitespace-nowrap;
-}
-
-.file-change-signed-count[data-tone='add'] {
-  color: var(--codex-diff-added);
-}
-
-.file-change-signed-count[data-tone='remove'] {
-  color: var(--codex-diff-removed);
-}
-
-.diff-viewer-backdrop {
-  @apply fixed inset-0 z-50 bg-black/45 p-3 sm:p-6 flex items-center justify-center;
-}
-
-.diff-viewer-shell {
-  @apply relative grid h-[min(88vh,920px)] w-[min(96vw,1320px)] grid-cols-1 overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl lg:grid-cols-[320px_minmax(0,1fr)];
-}
-
-.diff-viewer-sidebar {
-  @apply flex min-h-0 flex-col border-b border-zinc-200 bg-zinc-50 lg:border-b-0 lg:border-r;
-}
-
-.diff-viewer-sidebar-header {
-  @apply flex items-center justify-between gap-3 border-b border-zinc-200 px-4 py-4;
-}
-
-.diff-viewer-sidebar-title {
-  @apply m-0 text-sm font-semibold text-zinc-900;
-}
-
-.diff-viewer-sidebar-count {
-  @apply m-0 text-xs font-medium text-zinc-500;
-}
-
-.diff-viewer-sidebar-list {
-  @apply flex min-h-0 flex-col gap-2 overflow-y-auto p-3;
-}
-
-.diff-viewer-file-button {
-  @apply flex w-full flex-col items-start gap-2 rounded-2xl border border-transparent bg-transparent px-3 py-3 text-left transition hover:border-zinc-200 hover:bg-white;
-}
-
-.diff-viewer-file-button[data-active='true'] {
-  @apply border-sky-200 bg-white shadow-sm;
-}
-
-.diff-viewer-file-label {
-  @apply break-all font-mono text-[13px] text-zinc-700;
-}
-
-.diff-viewer-file-delta {
-  @apply inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-600;
-}
-
-.diff-viewer-main {
-  @apply flex min-h-0 flex-col bg-white;
-}
-
-.diff-viewer-toolbar {
-  @apply flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4;
-}
-
-.diff-viewer-toolbar-actions {
-  @apply flex items-center gap-2 shrink-0;
-}
-
-.diff-viewer-title-wrap {
-  @apply min-w-0;
-}
-
-.diff-viewer-title {
-  @apply m-0 break-all text-base font-semibold text-zinc-900;
-}
-
-.diff-viewer-subtitle {
-  @apply mt-1 mb-0 text-sm text-zinc-500;
-}
-
-.diff-viewer-close {
-  @apply static shrink-0 border-zinc-200 bg-zinc-100 text-zinc-700;
-}
-
-.diff-viewer-mobile-files-button {
-  @apply inline-flex items-center rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700;
-}
-
-.diff-viewer-empty {
-  @apply flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center;
-}
-
-.diff-viewer-empty-title {
-  @apply m-0 text-base font-semibold text-zinc-900;
-}
-
-.diff-viewer-empty-text {
-  @apply mt-2 max-w-2xl text-sm leading-relaxed text-zinc-500;
-}
-
-.diff-viewer-panel {
-  @apply flex min-h-0 flex-1 flex-col;
-}
-
-.diff-viewer-meta {
-  @apply border-b border-zinc-200 bg-zinc-50 px-5 py-2;
-}
-
-.diff-viewer-language {
-  @apply inline-flex items-center rounded-full bg-zinc-200 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700;
-}
-
-.diff-viewer-lines {
-  @apply min-h-0 flex-1 overflow-auto bg-zinc-950;
-}
-
-.diff-viewer-line {
-  display: grid;
-  grid-template-columns: 4rem 4rem 2rem minmax(0, 1fr);
-  align-items: stretch;
-  min-width: fit-content;
-}
-
-.diff-viewer-line-number {
-  @apply border-r border-zinc-800 px-3 py-1.5 text-right font-mono text-xs text-zinc-500 select-none;
-}
-
-.diff-viewer-line-marker {
-  @apply border-r border-zinc-800 px-2 py-1.5 text-center font-mono text-xs text-zinc-500 select-none;
-}
-
-.diff-viewer-line-code {
-  @apply block whitespace-pre px-3 py-1.5 leading-5 text-zinc-100;
-  font-family: var(--codex-code-font-family);
-  font-size: var(--codex-code-font-size);
-}
-
-.diff-viewer-line[data-kind='meta'] {
-  @apply bg-zinc-900;
-}
-
-.diff-viewer-line[data-kind='meta'] .diff-viewer-line-code,
-.diff-viewer-line[data-kind='meta'] .diff-viewer-line-marker {
-  @apply text-sky-300;
-}
-
-.diff-viewer-line[data-kind='hunk'] {
-  @apply bg-sky-950/40;
-}
-
-.diff-viewer-line[data-kind='hunk'] .diff-viewer-line-code,
-.diff-viewer-line[data-kind='hunk'] .diff-viewer-line-marker {
-  @apply text-sky-300;
-}
-
-.diff-viewer-line[data-kind='add'] {
-  background: var(--codex-diff-added-bg);
-}
-
-.diff-viewer-line[data-kind='add'] .diff-viewer-line-marker,
-.diff-viewer-line[data-kind='add'] .diff-viewer-line-code {
-  color: var(--codex-diff-added);
-}
-
-.diff-viewer-line[data-kind='remove'] {
-  background: var(--codex-diff-removed-bg);
-}
-
-.diff-viewer-line[data-kind='remove'] .diff-viewer-line-marker,
-.diff-viewer-line[data-kind='remove'] .diff-viewer-line-code {
-  color: var(--codex-diff-removed);
-}
-
-.diff-viewer-line[data-kind='context'] {
-  @apply bg-zinc-950;
-}
-
-.diff-viewer-line[data-kind='context'] .diff-viewer-line-code {
-  @apply text-zinc-100;
-}
-
-.diff-viewer-mobile-sheet-backdrop {
-  @apply absolute inset-0 z-20 bg-black/35 flex items-end;
-}
-
-.diff-viewer-mobile-sheet {
-  @apply w-full max-h-[70vh] rounded-t-3xl bg-white shadow-2xl border-t border-zinc-200 flex flex-col overflow-hidden;
-}
-
-.diff-viewer-mobile-sheet-handle {
-  @apply mx-auto mt-3 h-1.5 w-12 rounded-full bg-zinc-300;
-}
-
-.diff-viewer-mobile-sheet-header {
-  @apply flex items-center justify-between gap-3 px-4 pt-3 pb-2 border-b border-zinc-200;
-}
-
-.diff-viewer-mobile-sheet-list {
-  @apply flex min-h-0 flex-col gap-2 overflow-y-auto px-3 py-3;
-}
-
-.diff-viewer-sheet-enter-active,
-.diff-viewer-sheet-leave-active {
-  @apply transition-opacity duration-200;
-}
-
-.diff-viewer-sheet-enter-active .diff-viewer-mobile-sheet,
-.diff-viewer-sheet-leave-active .diff-viewer-mobile-sheet {
-  transition: transform 200ms ease;
-}
-
-.diff-viewer-sheet-enter-from,
-.diff-viewer-sheet-leave-to {
-  @apply opacity-0;
-}
-
-.diff-viewer-sheet-enter-from .diff-viewer-mobile-sheet,
-.diff-viewer-sheet-leave-to .diff-viewer-mobile-sheet {
-  transform: translateY(100%);
-}
-
-@media (max-width: 767px) {
-  .diff-viewer-backdrop {
-    @apply p-0 items-stretch;
-  }
-
-  .diff-viewer-shell {
-    @apply h-[100dvh] w-screen rounded-none border-0 shadow-none;
-  }
-
-  .diff-viewer-main {
-    @apply min-w-0;
-  }
-
-  .diff-viewer-toolbar {
-    @apply sticky top-0 z-10 bg-white px-3 py-3;
-  }
-
-  .diff-viewer-title {
-    @apply text-sm leading-5;
-  }
-
-  .diff-viewer-subtitle {
-    @apply text-xs;
-  }
-
-  .diff-viewer-meta {
-    @apply px-3 py-2;
-  }
-
-  .diff-viewer-language {
-    @apply text-[10px];
-  }
-
-  .diff-viewer-line {
-    grid-template-columns: 2.75rem 2.75rem 1.5rem minmax(0, 1fr);
-  }
-
-  .diff-viewer-line-number {
-    @apply px-1.5 py-1 text-[10px];
-  }
-
-  .diff-viewer-line-marker {
-    @apply px-1 py-1 text-[10px];
-  }
-
-  .diff-viewer-line-code {
-    @apply px-2 py-1 text-[11px] leading-5;
-  }
-}
 </style>
 
 <!--
