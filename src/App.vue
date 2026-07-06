@@ -557,6 +557,7 @@
           </template>
         </section>
         <ContentInspectorPanel
+          v-if="hasLoadedInspectorPanel"
           :visible="showInspectorPanel"
           :git-status-text="inspectorGitStatusText"
           :commit-text="inspectorCommitText"
@@ -596,8 +597,6 @@ import ContentHeader from './components/content/ContentHeader.vue'
 import ThreadComposer from './components/content/ThreadComposer.vue'
 import ThreadPendingRequestPanel from './components/content/ThreadPendingRequestPanel.vue'
 import QueuedMessages from './components/content/QueuedMessages.vue'
-import ContentInspectorPanel from './components/content/ContentInspectorPanel.vue'
-import CodexLoginModal from './components/content/CodexLoginModal.vue'
 import ComposerDropdown from './components/content/ComposerDropdown.vue'
 import ComposerRuntimeDropdown from './components/content/ComposerRuntimeDropdown.vue'
 import SidebarThreadControls from './components/sidebar/SidebarThreadControls.vue'
@@ -662,6 +661,8 @@ import { hasDuplicateFolderLeaf, isWorktreePath, joinPath, normalizeAbsolutePath
 const ThreadConversation = defineAsyncComponent(() => import('./components/content/ThreadConversation.vue'))
 const ReviewPane = defineAsyncComponent(() => import('./components/content/ReviewPane.vue'))
 const SkillsHub = defineAsyncComponent(() => import('./components/content/SkillsHub.vue'))
+const ContentInspectorPanel = defineAsyncComponent(() => import('./components/content/ContentInspectorPanel.vue'))
+const CodexLoginModal = defineAsyncComponent(() => import('./components/content/CodexLoginModal.vue'))
 const { t, uiLanguage, uiLanguageOptions, setUiLanguage } = useUiLanguage()
 
 const worktreeName = import.meta.env.VITE_WORKTREE_NAME ?? 'unknown'
@@ -861,6 +862,7 @@ const visualViewportOffsetTop = ref(typeof window !== 'undefined' ? window.visua
 const layoutViewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 0)
 let existingFolderBrowseRequestId = 0
 const isInspectorPanelOpen = ref(loadInspectorPanelOpen())
+const hasLoadedInspectorPanel = ref(isInspectorPanelOpen.value)
 
 const routeThreadId = computed(() => {
   const rawThreadId = route.params.threadId
@@ -969,6 +971,9 @@ const {
 } = useTelegramConfig()
 const { homeDirectory, loadHomeDirectory } = useHomeDirectory()
 const showInspectorPanel = computed(() => isInspectorPanelOpen.value)
+watch(showInspectorPanel, (visible) => {
+  if (visible) hasLoadedInspectorPanel.value = true
+}, { immediate: true })
 const inspectorPlanProgress = computed(() => buildInspectorPlanProgress(filteredMessages.value))
 const showInspectorProgressSection = computed(() => inspectorPlanProgress.value !== null)
 const inspectorProgressItems = computed(() => inspectorPlanProgress.value?.items ?? [])
