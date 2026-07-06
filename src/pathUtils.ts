@@ -54,6 +54,11 @@ export function toProjectName(value: string): string {
   return leaf || normalizePathForUi(value) || 'Projectless'
 }
 
+export function toHistoryProjectName(value: string): string {
+  const normalized = normalizePathForUi(value).trim()
+  return normalized || 'Projectless'
+}
+
 export function isProjectlessChatPath(value: string): boolean {
   const normalized = normalizePathForUi(value).replace(/[\\/]+/gu, '/')
   if (!normalized) return false

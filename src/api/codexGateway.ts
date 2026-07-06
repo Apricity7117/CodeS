@@ -25,6 +25,7 @@ import {
   readActiveTurnIdFromResponse,
   normalizeThreadGroupsV2,
   normalizeThreadMessagesV2,
+  normalizeThreadSummariesV2,
   normalizeThreadSummaryV2,
   readThreadInProgressFromResponse,
 } from './normalizers/v2'
@@ -185,6 +186,7 @@ export type GitRepositoryStatus = {
 
 export type ThreadSearchResult = {
   threadIds: string[]
+  threads: UiThread[]
   indexedThreadCount: number
 }
 
@@ -2415,11 +2417,29 @@ export async function searchThreads(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, limit }),
   })
-  const payload = (await response.json()) as { data?: ThreadSearchResult; error?: string }
+  const payload = (await response.json()) as {
+    data?: {
+      threadIds?: unknown
+      threads?: unknown
+      indexedThreadCount?: unknown
+    }
+    error?: string
+  }
   if (!response.ok) {
     throw new Error(payload.error || 'Failed to search threads')
   }
-  return payload.data ?? { threadIds: [], indexedThreadCount: 0 }
+  const data = payload.data
+  if (!data) return { threadIds: [], threads: [], indexedThreadCount: 0 }
+  const rawThreads = Array.isArray(data.threads)
+    ? (data.threads as ThreadListResponse['data'])
+    : []
+  return {
+    threadIds: Array.isArray(data.threadIds) ? data.threadIds.filter((item): item is string => typeof item === 'string') : [],
+    threads: normalizeThreadSummariesV2({ data: rawThreads, nextCursor: null }),
+    indexedThreadCount: typeof data.indexedThreadCount === 'number' && Number.isFinite(data.indexedThreadCount)
+      ? data.indexedThreadCount
+      : 0,
+  }
 }
 
 export async function configureTelegramBot(

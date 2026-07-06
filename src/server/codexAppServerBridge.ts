@@ -102,6 +102,7 @@ type ThreadSearchDocument = {
   id: string
   title: string
   preview: string
+  thread: Record<string, unknown>
   messageText: string
   searchableText: string
 }
@@ -4919,7 +4920,7 @@ function getSharedBridgeState(): SharedBridgeState {
 }
 
 async function loadAllThreadsForSearch(appServer: AppServerProcess): Promise<ThreadSearchDocument[]> {
-  const threads: Array<{ id: string; title: string; preview: string }> = []
+  const threads: Array<{ id: string; title: string; preview: string; thread: Record<string, unknown> }> = []
   let cursor: string | null = null
 
   do {
@@ -4933,13 +4934,14 @@ async function loadAllThreadsForSearch(appServer: AppServerProcess): Promise<Thr
     const data = Array.isArray(response?.data) ? response.data : []
     for (const row of data) {
       const record = asRecord(row)
+      if (!record) continue
       const id = typeof record?.id === 'string' ? record.id : ''
       if (!id) continue
       const title = typeof record?.name === 'string' && record.name.trim().length > 0
         ? record.name.trim()
         : (typeof record?.preview === 'string' && record.preview.trim().length > 0 ? record.preview.trim() : 'Untitled thread')
       const preview = typeof record?.preview === 'string' ? record.preview : ''
-      threads.push({ id, title, preview })
+      threads.push({ id, title, preview, thread: record })
     }
     cursor = typeof response?.nextCursor === 'string' && response.nextCursor.length > 0 ? response.nextCursor : null
   } while (cursor)
@@ -4950,6 +4952,7 @@ async function loadAllThreadsForSearch(appServer: AppServerProcess): Promise<Thr
       id: thread.id,
       title: thread.title,
       preview: thread.preview,
+      thread: thread.thread,
       messageText: '',
       searchableText,
     } satisfies ThreadSearchDocument
@@ -4972,6 +4975,7 @@ async function loadAllThreadsForSearch(appServer: AppServerProcess): Promise<Thr
           id: thread.id,
           title: thread.title,
           preview: thread.preview,
+          thread: docsById.get(thread.id)?.thread ?? thread.thread,
           messageText,
           searchableText,
         } satisfies ThreadSearchDocument] as const
@@ -6274,12 +6278,18 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
         }
 
         const index = await getThreadSearchIndex()
-        const matchedIds = Array.from(index.docsById.entries())
+        const matchedDocs = Array.from(index.docsById.entries())
           .filter(([, doc]) => isExactPhraseMatch(query, doc))
           .slice(0, limit)
-          .map(([id]) => id)
+        const matchedIds = matchedDocs.map(([id]) => id)
 
-        setJson(res, 200, { data: { threadIds: matchedIds, indexedThreadCount: index.docsById.size } })
+        setJson(res, 200, {
+          data: {
+            threadIds: matchedIds,
+            threads: matchedDocs.map(([, doc]) => doc.thread),
+            indexedThreadCount: index.docsById.size,
+          },
+        })
         return
       }
 

@@ -17,7 +17,7 @@ import type {
   UiProjectGroup,
   UiThread,
 } from '../../types/codex'
-import { normalizePathForComparison, normalizePathForUi, toProjectName } from '../../pathUtils.js'
+import { normalizePathForComparison, normalizePathForUi, toHistoryProjectName } from '../../pathUtils.js'
 import { formatTurnDuration } from '../../utils/turnDuration'
 
 function toIso(seconds: number): string {
@@ -670,7 +670,7 @@ function toUiThread(summary: Thread): UiThread {
   return {
     id: summary.id,
     title: toThreadTitle(summary),
-    projectName: toProjectName(cwd),
+    projectName: toHistoryProjectName(cwd),
     cwd,
     hasWorktree,
     createdAtIso: toIso(summary.createdAt),
@@ -685,17 +685,27 @@ export function normalizeThreadSummaryV2(payload: ThreadReadResponse): UiThread 
   return toUiThread(payload.thread)
 }
 
+export function normalizeThreadSummariesV2(payload: ThreadListResponse): UiThread[] {
+  return payload.data.map(toUiThread)
+}
+
 function groupThreadsByProject(threads: UiThread[]): UiProjectGroup[] {
+  const projectNameByKey = new Map<string, string>()
   const grouped = new Map<string, UiThread[]>()
   for (const thread of threads) {
-    const rows = grouped.get(thread.projectName)
-    if (rows) rows.push(thread)
-    else grouped.set(thread.projectName, [thread])
+    const projectName = toHistoryProjectName(thread.cwd || thread.projectName)
+    const key = normalizePathForComparison(projectName)
+    const stableProjectName = projectNameByKey.get(key) ?? projectName
+    projectNameByKey.set(key, stableProjectName)
+    const nextThread = thread.projectName === stableProjectName ? thread : { ...thread, projectName: stableProjectName }
+    const rows = grouped.get(key)
+    if (rows) rows.push(nextThread)
+    else grouped.set(key, [nextThread])
   }
 
   return Array.from(grouped.entries())
-    .map(([projectName, projectThreads]) => ({
-      projectName,
+    .map(([key, projectThreads]) => ({
+      projectName: projectNameByKey.get(key) ?? projectThreads[0]?.projectName ?? 'Projectless',
       threads: projectThreads.sort(
         (a, b) => new Date(b.updatedAtIso).getTime() - new Date(a.updatedAtIso).getTime(),
       ),

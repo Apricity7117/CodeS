@@ -386,6 +386,17 @@
           </SidebarMenuRow>
       </article>
     </div>
+      <div v-if="hasMoreThreadHistory" class="thread-history-more">
+        <span class="thread-history-more-text">{{ t('More history is available.') }}</span>
+        <button
+          class="thread-history-more-button"
+          type="button"
+          :disabled="isLoadingMoreThreadHistory"
+          @click="$emit('load-more-thread-history')"
+        >
+          {{ isLoadingMoreThreadHistory ? t('Loading...') : t('Load more') }}
+        </button>
+      </div>
       </template>
     </section>
 
@@ -682,7 +693,7 @@ import {
   IconCodexWorktree,
 } from '../icons/codex'
 import { useUiLanguage } from '../../composables/useUiLanguage'
-import { getPathLeafName, getPathParent, isProjectlessChatPath } from '../../pathUtils.js'
+import { getPathLeafName, isProjectlessChatPath } from '../../pathUtils.js'
 import { isImeComposingKeydown, shouldHandleEnterKeydown } from '../../utils/keyboard'
 import SidebarMenuRow from './SidebarMenuRow.vue'
 import { reconcilePinnedThreadIds } from './pinnedThreadUtils'
@@ -695,6 +706,8 @@ const props = defineProps<{
   selectedThreadId: string
   isLoading: boolean
   isThreadListFullyLoaded: boolean
+  hasMoreThreadHistory: boolean
+  isLoadingMoreThreadHistory: boolean
   searchQuery: string
   searchMatchedThreadIds: string[] | null
 }>()
@@ -715,6 +728,7 @@ const emit = defineEmits<{
   'hide-project': [projectName: string]
   'delete-project': [projectName: string]
   'reorder-project': [payload: { projectName: string; toIndex: number }]
+  'load-more-thread-history': []
   'export-thread': [threadId: string]
   'fork-thread': [threadId: string]
   'start-new-chat': []
@@ -1414,39 +1428,46 @@ function getProjectTooltipTitle(projectName: string): string {
   return isPathLikeProjectName(projectName) ? projectName : getProjectDisplayName(projectName)
 }
 
-function isDuplicatePathLeafName(value: string): boolean {
-  const leafName = getPathLeafName(value)
-  if (!leafName) return false
-  let matchingCount = 0
-  for (const group of props.groups) {
-    if (!isPathLikeProjectName(group.projectName)) continue
-    if (getPathLeafName(group.projectName) !== leafName) continue
-    matchingCount += 1
-    if (matchingCount > 1) return true
+function getComparablePathParts(value: string): string[] {
+  return value
+    .replace(/[\\/]+/gu, '/')
+    .replace(/\/+$/u, '')
+    .split('/')
+    .filter((part) => part.length > 0)
+}
+
+function getPathSuffix(value: string, depth: number): string {
+  const parts = getComparablePathParts(value)
+  if (parts.length === 0) return value
+  return parts.slice(Math.max(0, parts.length - depth)).join('/')
+}
+
+function getShortestDistinctProjectPath(projectName: string): string {
+  if (!isPathLikeProjectName(projectName)) return projectName
+  const parts = getComparablePathParts(projectName)
+  if (parts.length === 0) return projectName
+
+  const pathLikeProjectNames = props.groups
+    .map((group) => group.projectName)
+    .filter((candidate) => isPathLikeProjectName(candidate))
+
+  for (let depth = 1; depth <= parts.length; depth += 1) {
+    const suffix = getPathSuffix(projectName, depth)
+    const isDistinct = pathLikeProjectNames.every((candidate) => {
+      return candidate === projectName || getPathSuffix(candidate, depth) !== suffix
+    })
+    if (isDistinct) return suffix
   }
-  return false
+
+  return parts.join('/')
 }
 
 function getProjectVisibleName(group: UiProjectGroup): string {
   const customDisplayName = props.projectDisplayNameById[group.projectName]
   const displayName = getProjectDisplayName(group.projectName)
-  const projectName = group.projectName
-  if (customDisplayName && !isPathLikeProjectName(projectName) && projectName !== displayName) {
-    if (displayName.includes(projectName) || /^[0-9a-f]{8}-[0-9a-f-]{27,}$/iu.test(projectName)) return displayName
-    return `${displayName} ${projectName}`
-  }
-  if (customDisplayName && isPathLikeProjectName(projectName)) {
-    const leafName = getPathLeafName(projectName)
-    const parentLeafName = getPathLeafName(getPathParent(projectName))
-    const contextName = isDuplicatePathLeafName(projectName) ? parentLeafName : leafName
-    return contextName && contextName !== displayName ? `${displayName} ${contextName}` : displayName
-  }
+  if (customDisplayName) return displayName
   if (!displayName.includes('/') && !displayName.includes('\\')) return displayName
-  const leafName = getPathLeafName(displayName) || displayName
-  const parentLeafName = getPathLeafName(getPathParent(displayName))
-  if (parentLeafName.startsWith('.') && parentLeafName !== leafName) return `${leafName} ${parentLeafName}`
-  if (group.threads.length > 0 || !isDuplicatePathLeafName(projectName)) return leafName
-  return parentLeafName ? `${leafName} ${parentLeafName}` : leafName
+  return getShortestDistinctProjectPath(displayName)
 }
 
 function isProjectMenuOpen(projectName: string): boolean {
@@ -2264,6 +2285,32 @@ onBeforeUnmount(() => {
 
 .thread-tree-no-results {
   @apply px-3 py-2 text-sm text-zinc-400;
+}
+
+.thread-history-more {
+  @apply mx-2 my-2 flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-xs text-zinc-500;
+}
+
+.thread-history-more-text {
+  @apply min-w-0 truncate;
+}
+
+.thread-history-more-button {
+  @apply shrink-0 rounded-md px-2 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-200 disabled:cursor-default disabled:opacity-60;
+}
+
+:global(:root.dark) .thread-history-more {
+  border-color: var(--codex-border);
+  background: var(--codex-control-bg);
+  color: var(--codex-muted-text);
+}
+
+:global(:root.dark) .thread-history-more-button {
+  color: var(--codex-text);
+}
+
+:global(:root.dark) .thread-history-more-button:hover {
+  background: var(--codex-control-hover);
 }
 
 .thread-tree-action-error {

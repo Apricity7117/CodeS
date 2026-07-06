@@ -154,7 +154,7 @@ afterEach(() => {
 })
 
 describe('filterGroupsByWorkspaceRoots', () => {
-  it('keeps projectless chats visible when workspace roots are configured', () => {
+  it('keeps all historical projects visible when workspace roots are configured', () => {
     const groups: UiProjectGroup[] = [
       {
         projectName: 'Projectless',
@@ -178,7 +178,8 @@ describe('filterGroupsByWorkspaceRoots', () => {
 
     expect(filterGroupsByWorkspaceRoots(groups, rootsState).map((group) => group.projectName)).toEqual([
       'Projectless',
-      'allowed-project',
+      '/tmp/allowed-project',
+      '/tmp/other-project',
     ])
   })
 
@@ -205,7 +206,7 @@ describe('filterGroupsByWorkspaceRoots', () => {
     ])
   })
 
-  it('uses Codex project-order when workspace roots are hydrated', () => {
+  it('uses Codex project-order without changing cwd project identity', () => {
     const groups: UiProjectGroup[] = [
       {
         projectName: 'alpha',
@@ -224,12 +225,12 @@ describe('filterGroupsByWorkspaceRoots', () => {
     }
 
     expect(filterGroupsByWorkspaceRoots(groups, rootsState).map((group) => group.projectName)).toEqual([
-      'beta',
-      'alpha',
+      '/tmp/beta',
+      '/tmp/alpha',
     ])
   })
 
-  it('keeps empty duplicate workspace roots visible in Codex project order', () => {
+  it('does not create empty workspace-root placeholder projects', () => {
     const groups: UiProjectGroup[] = [
       {
         projectName: 'TestChat',
@@ -244,12 +245,11 @@ describe('filterGroupsByWorkspaceRoots', () => {
     }
 
     expect(filterGroupsByWorkspaceRoots(groups, rootsState).map((group) => [group.projectName, group.threads.length])).toEqual([
-      ['/Users/igor/Documents/New project 2/TestChat', 0],
       ['/Users/igor/temp/TestChat', 1],
     ])
   })
 
-  it('keeps remote projects from Codex project order visible as empty project rows', () => {
+  it('does not show remote projects without historical threads', () => {
     const groups: UiProjectGroup[] = []
     const rootsState: WorkspaceRootsState = {
       order: ['/tmp/local-project'],
@@ -264,13 +264,10 @@ describe('filterGroupsByWorkspaceRoots', () => {
       }],
     }
 
-    expect(filterGroupsByWorkspaceRoots(groups, rootsState).map((group) => [group.projectName, group.threads.length])).toEqual([
-      ['remote-project-id', 0],
-      ['local-project', 0],
-    ])
+    expect(filterGroupsByWorkspaceRoots(groups, rootsState)).toEqual([])
   })
 
-  it('keeps managed worktree threads under the matching workspace root project', () => {
+  it('keeps managed worktree threads as separate cwd projects', () => {
     const groups: UiProjectGroup[] = [
       {
         projectName: 'codex-web-local',
@@ -288,11 +285,12 @@ describe('filterGroupsByWorkspaceRoots', () => {
     }
 
     expect(filterGroupsByWorkspaceRoots(groups, rootsState).map((group) => [group.projectName, group.threads.map((row) => row.id)])).toEqual([
-      ['codex-web-local', ['main-chat', 'worktree-chat']],
+      ['/Users/igor/Git-projects/codex-web-local', ['main-chat']],
+      ['/Users/igor/.codex/worktrees/53e7/codex-web-local', ['worktree-chat']],
     ])
   })
 
-  it('keeps unregistered managed worktrees under the main root when another managed worktree root is registered', () => {
+  it('keeps unregistered managed worktrees as their own cwd projects', () => {
     const groups: UiProjectGroup[] = [
       {
         projectName: 'codex-web-local',
@@ -316,12 +314,13 @@ describe('filterGroupsByWorkspaceRoots', () => {
     }
 
     expect(filterGroupsByWorkspaceRoots(groups, rootsState).map((group) => [group.projectName, group.threads.map((row) => row.id)])).toEqual([
-      ['/Users/igor/Git-projects/codex-web-local', ['main-chat', 'unregistered-worktree-chat']],
+      ['/Users/igor/Git-projects/codex-web-local', ['main-chat']],
       ['/Users/igor/.codex/worktrees/a77f/codex-web-local', ['registered-worktree-chat']],
+      ['/Users/igor/.codex/worktrees/53e7/codex-web-local', ['unregistered-worktree-chat']],
     ])
   })
 
-  it('does not group unrelated git worktrees under a same-leaf workspace root project', () => {
+  it('keeps unrelated git worktrees visible as separate cwd projects', () => {
     const groups: UiProjectGroup[] = [
       {
         projectName: 'codex-web-local',
@@ -340,6 +339,7 @@ describe('filterGroupsByWorkspaceRoots', () => {
 
     expect(filterGroupsByWorkspaceRoots(groups, rootsState).map((group) => [group.projectName, group.threads.map((row) => row.id)])).toEqual([
       ['/Users/igor/Git-projects/codex-web-local', ['main-chat']],
+      ['/tmp/other/.git/worktrees/codex-web-local', ['other-git-worktree-chat']],
     ])
   })
 })
@@ -418,7 +418,7 @@ describe('destructive session deletion state', () => {
 
     expect(gatewayMocks.deleteThreadSession).toHaveBeenCalledWith('delete-alpha')
     expect(state.projectGroups.value.map((group) => [group.projectName, group.threads.map((row) => row.id)])).toEqual([
-      ['alpha', ['keep-alpha']],
+      ['/tmp/alpha', ['keep-alpha']],
     ])
   })
 
@@ -453,8 +453,126 @@ describe('destructive session deletion state', () => {
 
     expect(gatewayMocks.deleteProjectSessions).toHaveBeenCalledWith('/tmp/alpha')
     expect(state.projectGroups.value.map((group) => [group.projectName, group.threads.map((row) => row.id)])).toEqual([
-      ['beta', ['keep-beta']],
+      ['/tmp/beta', ['keep-beta']],
     ])
+  })
+})
+
+describe('thread history hydration', () => {
+  it('loads existing thread messages without resuming the thread', async () => {
+    installTestWindow()
+    gatewayMocks.getThreadDetail.mockResolvedValue({
+      messages: [
+        uiMessage({
+          id: 'message-a',
+          role: 'assistant',
+          text: 'loaded',
+          turnId: 'turn-1',
+        }),
+      ],
+      inProgress: false,
+      activeTurnId: '',
+      hasMoreOlder: false,
+      turnIndexByTurnId: { 'turn-1': 0 },
+    })
+
+    const state = useDesktopState()
+    state.primeSelectedThread('thread-a')
+    await state.loadMessages('thread-a')
+
+    expect(gatewayMocks.getThreadDetail).toHaveBeenCalledWith('thread-a')
+    expect(gatewayMocks.resumeThread).not.toHaveBeenCalled()
+    expect(state.messages.value.map((message) => message.text)).toEqual(['loaded'])
+  })
+
+  it('inserts searched thread summaries as separate cwd projects', () => {
+    installTestWindow()
+    const state = useDesktopState()
+
+    state.insertThreadSummaries([
+      thread('main-chat', '/Users/igor/Git-projects/codex-web-local'),
+      thread('worktree-chat', '/Users/igor/.codex/worktrees/53e7/codex-web-local', { hasWorktree: true }),
+    ])
+
+    expect(state.projectGroups.value.map((group) => [group.projectName, group.threads.map((row) => row.id)])).toEqual([
+      ['/Users/igor/Git-projects/codex-web-local', ['main-chat']],
+      ['/Users/igor/.codex/worktrees/53e7/codex-web-local', ['worktree-chat']],
+    ])
+  })
+
+  it('loads remaining thread history pages on demand', async () => {
+    installTestWindow()
+    setupRefreshMocks([])
+    gatewayMocks.getThreadGroupsPage.mockReset()
+    gatewayMocks.getThreadGroupsPage
+      .mockResolvedValueOnce({
+        groups: [
+          {
+            projectName: '/tmp/alpha',
+            threads: [thread('alpha-chat', '/tmp/alpha')],
+          },
+        ],
+        nextCursor: 'cursor-1',
+      })
+      .mockResolvedValueOnce({
+        groups: [
+          {
+            projectName: '/tmp/beta',
+            threads: [thread('beta-chat', '/tmp/beta')],
+          },
+        ],
+        nextCursor: null,
+      })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    expect(state.hasMoreThreadHistory.value).toBe(true)
+    await state.loadMoreThreadHistory()
+
+    expect(gatewayMocks.getThreadGroupsPage).toHaveBeenLastCalledWith('cursor-1', 100)
+    expect(state.hasMoreThreadHistory.value).toBe(false)
+    expect(state.projectGroups.value.map((group) => [group.projectName, group.threads.map((row) => row.id)])).toEqual([
+      ['/tmp/alpha', ['alpha-chat']],
+      ['/tmp/beta', ['beta-chat']],
+    ])
+  })
+
+  it('keeps manual history loading available after the source configured auto-load threshold', async () => {
+    installTestWindow()
+    setupRefreshMocks([])
+    gatewayMocks.getThreadGroupsPage.mockReset()
+    gatewayMocks.getThreadGroupsPage
+      .mockResolvedValueOnce({
+        groups: [
+          {
+            projectName: '/tmp/alpha',
+            threads: Array.from({ length: 1000 }, (_value, index) => thread(`alpha-chat-${index}`, '/tmp/alpha')),
+          },
+        ],
+        nextCursor: 'cursor-1',
+      })
+      .mockResolvedValueOnce({
+        groups: [
+          {
+            projectName: '/tmp/beta',
+            threads: [thread('beta-chat', '/tmp/beta')],
+          },
+        ],
+        nextCursor: null,
+      })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    expect(window.setTimeout).not.toHaveBeenCalled()
+    expect(state.hasMoreThreadHistory.value).toBe(true)
+
+    await state.loadMoreThreadHistory()
+
+    expect(gatewayMocks.getThreadGroupsPage).toHaveBeenLastCalledWith('cursor-1', 100)
+    expect(state.hasMoreThreadHistory.value).toBe(false)
+    expect(state.projectGroups.value.some((group) => group.projectName === '/tmp/beta')).toBe(true)
   })
 })
 
@@ -648,6 +766,13 @@ describe('optimistic submitted user messages', () => {
     })
     gatewayMocks.resumeThread.mockResolvedValue({
       model: 'gpt-5.4',
+      messages: previousMessages,
+      inProgress: false,
+      activeTurnId: '',
+      hasMoreOlder: false,
+      turnIndexByTurnId: { 'turn-1': 0 },
+    })
+    gatewayMocks.getThreadDetail.mockResolvedValue({
       messages: previousMessages,
       inProgress: false,
       activeTurnId: '',
@@ -869,13 +994,21 @@ describe('optimistic submitted user messages', () => {
     gatewayMocks.startThreadTurn.mockImplementation(() => new Promise<string>((resolve) => {
       resolveTurnStart = resolve
     }))
-    gatewayMocks.getThreadDetail.mockResolvedValue({
-      messages: [historyUserMessage, persistedRepeatedUserMessage],
-      inProgress: true,
-      activeTurnId: 'turn-1',
-      hasMoreOlder: false,
-      turnIndexByTurnId: { 'turn-0': 0, 'turn-1': 1 },
-    })
+    gatewayMocks.getThreadDetail
+      .mockResolvedValueOnce({
+        messages: [historyUserMessage],
+        inProgress: false,
+        activeTurnId: '',
+        hasMoreOlder: false,
+        turnIndexByTurnId: { 'turn-0': 0 },
+      })
+      .mockResolvedValue({
+        messages: [historyUserMessage, persistedRepeatedUserMessage],
+        inProgress: true,
+        activeTurnId: 'turn-1',
+        hasMoreOlder: false,
+        turnIndexByTurnId: { 'turn-0': 0, 'turn-1': 1 },
+      })
 
     const state = useDesktopState()
     state.primeSelectedThread('thread-a')

@@ -66,7 +66,7 @@ import type {
   UiThread,
   UiModelOption,
 } from '../types/codex'
-import { getPathParent, isProjectlessChatPath, normalizePathForUi, toProjectName } from '../pathUtils.js'
+import { getPathParent, isProjectlessChatPath, normalizePathForUi, toHistoryProjectName, toProjectName } from '../pathUtils.js'
 
 function flattenThreads(groups: UiProjectGroup[]): UiThread[] {
   return groups.flatMap((group) => group.threads)
@@ -91,7 +91,8 @@ const LEGACY_COLLABORATION_MODE_STORAGE_KEY = 'codex-web-local.collaboration-mod
 const LIVE_PLAN_MESSAGES_STORAGE_KEY = 'codex-web-local.live-plan-messages.v1'
 const NEW_THREAD_COLLABORATION_MODE_CONTEXT = '__new-thread__'
 const EVENT_SYNC_DEBOUNCE_MS = 220
-const BACKGROUND_THREAD_PAGINATION_DELAY_MS = 10_000
+const BACKGROUND_THREAD_PAGINATION_DELAY_MS = 250
+const AUTO_THREAD_HISTORY_LOAD_LIMIT = 1000
 const RATE_LIMIT_REFRESH_DEBOUNCE_MS = 500
 const TURN_START_FOLLOW_UP_SYNC_DELAY_MS = 3000
 const RECENT_THREAD_MESSAGE_LOAD_REUSE_MS = 2000
@@ -607,7 +608,7 @@ function loadProjectOrder(): string[] {
     const order: string[] = []
     for (const item of parsed) {
       if (typeof item !== 'string' || item.length === 0) continue
-      const normalizedItem = toProjectName(item)
+      const normalizedItem = normalizePathForUi(item).trim()
       if (normalizedItem.length > 0 && !order.includes(normalizedItem)) {
         order.push(normalizedItem)
       }
@@ -635,7 +636,7 @@ function loadProjectDisplayNames(): Record<string, string> {
 
     const displayNames: Record<string, string> = {}
     for (const [projectName, displayName] of Object.entries(parsed as Record<string, unknown>)) {
-      const normalizedProjectName = typeof projectName === 'string' ? toProjectName(projectName) : ''
+      const normalizedProjectName = typeof projectName === 'string' ? normalizePathForUi(projectName).trim() : ''
       if (normalizedProjectName.length > 0 && typeof displayName === 'string') {
         displayNames[normalizedProjectName] = displayName
       }
@@ -651,12 +652,58 @@ function saveProjectDisplayNames(displayNames: Record<string, string>): void {
   window.localStorage.setItem(PROJECT_DISPLAY_NAME_STORAGE_KEY, JSON.stringify(displayNames))
 }
 
+function buildUniqueLeafProjectNameLookup(groups: UiProjectGroup[]): Map<string, string> {
+  const projectNamesByLeaf = new Map<string, string[]>()
+  for (const group of groups) {
+    const leafName = toProjectName(group.projectName)
+    if (!leafName) continue
+    const rows = projectNamesByLeaf.get(leafName) ?? []
+    rows.push(group.projectName)
+    projectNamesByLeaf.set(leafName, rows)
+  }
+
+  const lookup = new Map<string, string>()
+  for (const [leafName, projectNames] of projectNamesByLeaf.entries()) {
+    const uniqueProjectNames = [...new Set(projectNames)]
+    if (uniqueProjectNames.length === 1) {
+      lookup.set(leafName, uniqueProjectNames[0])
+    }
+  }
+  return lookup
+}
+
+function resolveProjectOrderName(orderName: string, incomingGroups: UiProjectGroup[], uniqueLeafLookup: Map<string, string>): string {
+  if (incomingGroups.some((group) => group.projectName === orderName)) return orderName
+  return uniqueLeafLookup.get(orderName) ?? orderName
+}
+
+function migrateProjectDisplayNamesForGroups(
+  displayNames: Record<string, string>,
+  groups: UiProjectGroup[],
+): Record<string, string> {
+  const uniqueLeafLookup = buildUniqueLeafProjectNameLookup(groups)
+  let changed = false
+  const next = { ...displayNames }
+
+  for (const [name, displayName] of Object.entries(displayNames)) {
+    if (groups.some((group) => group.projectName === name)) continue
+    const resolvedName = uniqueLeafLookup.get(name)
+    if (!resolvedName || next[resolvedName] !== undefined) continue
+    next[resolvedName] = displayName
+    changed = true
+  }
+
+  return changed ? next : displayNames
+}
+
 function mergeProjectOrder(previousOrder: string[], incomingGroups: UiProjectGroup[]): string[] {
   const nextOrder: string[] = []
+  const uniqueLeafLookup = buildUniqueLeafProjectNameLookup(incomingGroups)
 
   for (const projectName of previousOrder) {
-    if (!nextOrder.includes(projectName)) {
-      nextOrder.push(projectName)
+    const resolvedProjectName = resolveProjectOrderName(projectName, incomingGroups, uniqueLeafLookup)
+    if (!nextOrder.includes(resolvedProjectName)) {
+      nextOrder.push(resolvedProjectName)
     }
   }
 
@@ -1356,14 +1403,12 @@ function getWorkspaceProjectOrderPaths(rootsState: WorkspaceRootsState | null): 
 
 function getWorkspaceProjectOrderNames(
   rootsState: WorkspaceRootsState | null,
-  duplicateLeafNames: Set<string>,
+  _duplicateLeafNames: Set<string>,
 ): string[] {
   const remoteProjectsById = getRemoteProjectById(rootsState)
   return getWorkspaceProjectOrderPaths(rootsState).map((rootPath) => {
     if (remoteProjectsById.has(rootPath)) return rootPath
-    const normalizedRootPath = normalizePathForUi(rootPath).trim()
-    const leafName = toProjectNameFromWorkspaceRoot(normalizedRootPath)
-    return duplicateLeafNames.has(leafName) ? normalizedRootPath : leafName
+    return toHistoryProjectName(rootPath)
   })
 }
 
@@ -1473,7 +1518,6 @@ function orderGroupsByWorkspaceProjectOrder(
 
 function collectDuplicateProjectLeafNames(groups: UiProjectGroup[], rootsState: WorkspaceRootsState | null): Set<string> {
   const rootByLeafName = new Map<string, Set<string>>()
-  const canonicalWorkspaceRootCountsByLeafName = new Map<string, number>()
   const addPath = (value: string): void => {
     const normalizedPath = normalizePathForUi(value).trim()
     if (!normalizedPath) return
@@ -1486,19 +1530,12 @@ function collectDuplicateProjectLeafNames(groups: UiProjectGroup[], rootsState: 
   for (const rootPath of rootsState?.order ?? []) {
     const normalizedRootPath = normalizePathForUi(rootPath).trim()
     if (!normalizedRootPath) continue
-    const leafName = toProjectName(normalizedRootPath)
-    if (!isManagedCodexWorktreePath(normalizedRootPath)) {
-      canonicalWorkspaceRootCountsByLeafName.set(leafName, (canonicalWorkspaceRootCountsByLeafName.get(leafName) ?? 0) + 1)
-    }
     addPath(rootPath)
   }
   for (const group of groups) {
     for (const thread of group.threads) {
       const normalizedCwd = normalizePathForUi(thread.cwd).trim()
-      const leafName = toProjectName(normalizedCwd)
-      const isRegisteredRoot = rootsState?.order.some((rootPath) => normalizePathForUi(rootPath).trim() === normalizedCwd) === true
-      if (isManagedCodexWorktreePath(normalizedCwd) && !isRegisteredRoot && canonicalWorkspaceRootCountsByLeafName.get(leafName) === 1) continue
-      addPath(thread.cwd)
+      addPath(normalizedCwd || group.projectName)
     }
   }
 
@@ -1509,36 +1546,11 @@ function collectDuplicateProjectLeafNames(groups: UiProjectGroup[], rootsState: 
   return duplicateLeafNames
 }
 
-function isManagedCodexWorktreePath(value: string): boolean {
-  return value.includes('/.codex/worktrees/')
-}
-
 function disambiguateProjectGroupsByCwd(
   groups: UiProjectGroup[],
   rootsState: WorkspaceRootsState | null,
 ): UiProjectGroup[] {
   const duplicateLeafNames = collectDuplicateProjectLeafNames(groups, rootsState)
-  if (duplicateLeafNames.size === 0) return groups
-
-  const uniqueCanonicalWorkspaceRootLeafNames = new Set<string>()
-  const duplicateCanonicalWorkspaceRootLeafNames = new Set<string>()
-  const canonicalWorkspaceRootByLeafName = new Map<string, string>()
-  const registeredWorkspaceRoots = new Set<string>()
-  for (const rootPath of rootsState?.order ?? []) {
-    const normalizedRootPath = normalizePathForUi(rootPath).trim()
-    if (!normalizedRootPath) continue
-    registeredWorkspaceRoots.add(normalizedRootPath)
-    if (isManagedCodexWorktreePath(normalizedRootPath)) continue
-    const leafName = toProjectName(normalizedRootPath)
-    if (uniqueCanonicalWorkspaceRootLeafNames.has(leafName)) {
-      uniqueCanonicalWorkspaceRootLeafNames.delete(leafName)
-      duplicateCanonicalWorkspaceRootLeafNames.add(leafName)
-      canonicalWorkspaceRootByLeafName.delete(leafName)
-    } else if (!duplicateCanonicalWorkspaceRootLeafNames.has(leafName)) {
-      uniqueCanonicalWorkspaceRootLeafNames.add(leafName)
-      canonicalWorkspaceRootByLeafName.set(leafName, normalizedRootPath)
-    }
-  }
 
   const disambiguatedGroups: UiProjectGroup[] = []
   const groupsByProjectName = new Map<string, UiProjectGroup>()
@@ -1546,16 +1558,9 @@ function disambiguateProjectGroupsByCwd(
     for (const thread of group.threads) {
       const normalizedCwd = normalizePathForUi(thread.cwd).trim()
       const leafName = toProjectName(normalizedCwd)
-      const isRegisteredRoot = registeredWorkspaceRoots.has(normalizedCwd)
-      const isCanonicalWorktreeThread = isManagedCodexWorktreePath(normalizedCwd)
-        && !isRegisteredRoot
-        && uniqueCanonicalWorkspaceRootLeafNames.has(leafName)
-      let projectName = group.projectName
-      if (isCanonicalWorktreeThread && duplicateLeafNames.has(leafName)) {
-        projectName = canonicalWorkspaceRootByLeafName.get(leafName) ?? group.projectName
-      } else if (normalizedCwd && duplicateLeafNames.has(leafName)) {
-        projectName = normalizedCwd
-      }
+      const projectName = normalizedCwd && duplicateLeafNames.has(leafName)
+        ? toHistoryProjectName(normalizedCwd)
+        : toHistoryProjectName(normalizedCwd || group.projectName)
       const nextThread = thread.projectName === projectName ? thread : { ...thread, projectName }
       const existingGroup = groupsByProjectName.get(projectName)
       if (existingGroup) {
@@ -1569,35 +1574,6 @@ function disambiguateProjectGroupsByCwd(
   }
 
   return disambiguatedGroups
-}
-
-function addWorkspaceRootPlaceholderGroups(
-  groups: UiProjectGroup[],
-  rootsState: WorkspaceRootsState | null,
-  duplicateLeafNames: Set<string>,
-): UiProjectGroup[] {
-  if (!rootsState || (rootsState.order.length === 0 && (rootsState.remoteProjects ?? []).length === 0)) return groups
-  const existingProjectNames = new Set(groups.map((group) => group.projectName))
-  const nextGroups = [...groups]
-  const remoteProjectsById = getRemoteProjectById(rootsState)
-
-  for (const rootPath of getWorkspaceProjectOrderPaths(rootsState)) {
-    if (remoteProjectsById.has(rootPath)) {
-      if (existingProjectNames.has(rootPath)) continue
-      nextGroups.push({ projectName: rootPath, threads: [] })
-      existingProjectNames.add(rootPath)
-      continue
-    }
-    const normalizedRootPath = normalizePathForUi(rootPath).trim()
-    if (!normalizedRootPath) continue
-    const leafName = toProjectNameFromWorkspaceRoot(normalizedRootPath)
-    const projectName = duplicateLeafNames.has(leafName) ? normalizedRootPath : leafName
-    if (existingProjectNames.has(projectName)) continue
-    nextGroups.push({ projectName, threads: [] })
-    existingProjectNames.add(projectName)
-  }
-
-  return nextGroups
 }
 
 function toOptimisticThreadTitle(message: string): string {
@@ -1625,14 +1601,8 @@ export function filterGroupsByWorkspaceRoots(
 ): UiProjectGroup[] {
   const duplicateLeafNames = collectDuplicateProjectLeafNames(groups, rootsState)
   const disambiguatedGroups = disambiguateProjectGroupsByCwd(groups, rootsState)
-  const groupsWithWorkspaceRoots = addWorkspaceRootPlaceholderGroups(disambiguatedGroups, rootsState, duplicateLeafNames)
-  if (!rootsState || (rootsState.order.length === 0 && (rootsState.remoteProjects ?? []).length === 0)) return groupsWithWorkspaceRoots
-  const allowedProjectNames = new Set<string>()
-  for (const projectName of getWorkspaceProjectOrderNames(rootsState, duplicateLeafNames)) {
-    allowedProjectNames.add(projectName)
-  }
-  const filteredGroups = groupsWithWorkspaceRoots.filter((group) => allowedProjectNames.has(group.projectName) || isProjectlessGroup(group))
-  return orderGroupsByWorkspaceProjectOrder(filteredGroups, rootsState, duplicateLeafNames)
+  if (!rootsState || (rootsState.order.length === 0 && rootsState.projectOrder.length === 0)) return disambiguatedGroups
+  return orderGroupsByWorkspaceProjectOrder(disambiguatedGroups, rootsState, duplicateLeafNames)
 }
 
 export function useDesktopState() {
@@ -1725,6 +1695,8 @@ export function useDesktopState() {
   const isLoadingThreads = ref(false)
   const isLoadingMessages = ref(false)
   const isThreadListFullyLoaded = ref(false)
+  const hasMoreThreadHistory = ref(false)
+  const isLoadingMoreThreadHistory = ref(false)
   const isSendingMessage = ref(false)
   const isInterruptingTurn = ref(false)
   const isUpdatingSpeedMode = ref(false)
@@ -2475,7 +2447,7 @@ export function useDesktopState() {
   function insertOptimisticThread(threadId: string, cwd: string, firstMessageText: string): void {
     const nowIso = new Date().toISOString()
     const normalizedCwd = normalizePathForUi(cwd)
-    const projectName = toProjectName(normalizedCwd)
+    const projectName = toHistoryProjectName(normalizedCwd)
     const nextThread: UiThread = {
       id: threadId,
       title: toOptimisticThreadTitle(firstMessageText),
@@ -4407,7 +4379,7 @@ export function useDesktopState() {
       if (!rootsState) return
       const hydratedOrder: string[] = []
       for (const rootPath of getWorkspaceProjectOrderPaths(rootsState)) {
-        const projectName = toProjectNameFromWorkspaceRoot(rootPath)
+        const projectName = toHistoryProjectName(rootPath)
         if (hydratedOrder.includes(projectName)) continue
         hydratedOrder.push(projectName)
       }
@@ -4426,7 +4398,7 @@ export function useDesktopState() {
         let changed = false
         for (const [rootPath, label] of Object.entries(rootsState.labels)) {
           const normalizedRootPath = normalizePathForUi(rootPath).trim()
-          const projectNames = [toProjectNameFromWorkspaceRoot(rootPath)]
+          const projectNames = [toHistoryProjectName(rootPath)]
           if (normalizedRootPath) projectNames.push(normalizedRootPath)
           for (const projectName of projectNames) {
             if (nextLabels[projectName] === label) continue
@@ -4435,12 +4407,13 @@ export function useDesktopState() {
           }
         }
         for (const rootPath of rootsState.order) {
+          const projectName = toHistoryProjectName(rootPath)
           const leafName = toProjectNameFromWorkspaceRoot(rootPath)
           const parentLeafName = toProjectName(getPathParent(rootPath))
           if (!parentLeafName.startsWith('.') || parentLeafName === leafName) continue
           const displayName = `${leafName} ${parentLeafName}`
-          if (nextLabels[leafName] !== undefined || nextLabels[leafName] === displayName) continue
-          nextLabels[leafName] = displayName
+          if (nextLabels[projectName] !== undefined || nextLabels[projectName] === displayName) continue
+          nextLabels[projectName] = displayName
           changed = true
         }
         for (const remoteProject of rootsState.remoteProjects ?? []) {
@@ -4500,21 +4473,17 @@ export function useDesktopState() {
   ): UiProjectGroup[] {
     const duplicateLeafNames = collectDuplicateProjectLeafNames(groups, rootsState)
     const disambiguatedGroups = disambiguateProjectGroupsByCwd(groups, rootsState)
-    const groupsWithWorkspaceRoots = addWorkspaceRootPlaceholderGroups(disambiguatedGroups, rootsState, duplicateLeafNames)
-    if (!rootsState || (rootsState.order.length === 0 && (rootsState.remoteProjects ?? []).length === 0)) return groupsWithWorkspaceRoots
-    const allowedProjectNames = new Set<string>()
-    for (const projectName of getWorkspaceProjectOrderNames(rootsState, duplicateLeafNames)) {
-      allowedProjectNames.add(projectName)
-    }
-    const filteredGroups = groupsWithWorkspaceRoots.filter((group) => {
-      if (allowedProjectNames.has(group.projectName)) return true
-      return isProjectlessGroup(group)
-    })
-    return orderGroupsByWorkspaceProjectOrder(filteredGroups, rootsState, duplicateLeafNames)
+    if (!rootsState || (rootsState.order.length === 0 && rootsState.projectOrder.length === 0)) return disambiguatedGroups
+    return orderGroupsByWorkspaceProjectOrder(disambiguatedGroups, rootsState, duplicateLeafNames)
   }
 
   function applyThreadGroups(groups: UiProjectGroup[], rootsState: WorkspaceRootsState | null): void {
     const visibleGroups = filterGroupsByWorkspaceRoots(groups, rootsState)
+    const migratedDisplayNames = migrateProjectDisplayNamesForGroups(projectDisplayNameById.value, visibleGroups)
+    if (migratedDisplayNames !== projectDisplayNameById.value) {
+      projectDisplayNameById.value = migratedDisplayNames
+      saveProjectDisplayNames(projectDisplayNameById.value)
+    }
     const hasWorkspaceRootsState = Boolean(
       rootsState && (rootsState.order.length > 0 || rootsState.projectOrder.length > 0 || (rootsState.remoteProjects ?? []).length > 0),
     )
@@ -4619,9 +4588,11 @@ export function useDesktopState() {
     }
     const groupsByProject = new Map<string, UiThread[]>()
     for (const thread of threadById.values()) {
-      const existing = groupsByProject.get(thread.projectName)
-      if (existing) existing.push(thread)
-      else groupsByProject.set(thread.projectName, [thread])
+      const projectName = toHistoryProjectName(thread.cwd || thread.projectName)
+      const nextThread = thread.projectName === projectName ? thread : { ...thread, projectName }
+      const existing = groupsByProject.get(projectName)
+      if (existing) existing.push(nextThread)
+      else groupsByProject.set(projectName, [nextThread])
     }
 
     return Array.from(groupsByProject.entries())
@@ -4638,17 +4609,45 @@ export function useDesktopState() {
       })
   }
 
+  function insertThreadSummaries(threads: UiThread[]): void {
+    const normalizedThreads = threads
+      .map((thread) => {
+        const projectName = toHistoryProjectName(thread.cwd || thread.projectName)
+        return thread.projectName === projectName ? thread : { ...thread, projectName }
+      })
+      .filter((thread, index, rows) => {
+        return thread.id.trim().length > 0 && rows.findIndex((candidate) => candidate.id === thread.id) === index
+      })
+    if (normalizedThreads.length === 0) return
+
+    const incomingGroups = normalizedThreads.map((thread) => ({
+      projectName: thread.projectName,
+      threads: [thread],
+    }))
+    loadedThreadListGroups = mergeThreadGroupPages(loadedThreadListGroups, incomingGroups)
+    applyThreadGroups(loadedThreadListGroups, loadedThreadListRootsState)
+  }
+
   function hasActiveInProgressThreads(): boolean {
     return Object.values(inProgressById.value).some((value) => value === true)
   }
 
+  function loadedThreadListThreadCount(): number {
+    return flattenThreads(loadedThreadListGroups).length
+  }
+
+  function canAutoLoadMoreThreadPages(): boolean {
+    return loadedThreadListThreadCount() < AUTO_THREAD_HISTORY_LOAD_LIMIT
+  }
+
   function scheduleRemainingThreadPages(rootsState: WorkspaceRootsState | null = loadedThreadListRootsState): void {
     if (!threadListNextCursor || isLoadingRemainingThreadPages || hasActiveInProgressThreads()) return
+    if (!canAutoLoadMoreThreadPages()) return
 
     loadedThreadListRootsState = rootsState
 
     if (typeof window === 'undefined') {
-      void loadRemainingThreadPages(rootsState)
+      void loadRemainingThreadPages(rootsState, { manual: false })
       return
     }
 
@@ -4659,17 +4658,27 @@ export function useDesktopState() {
     threadListBackgroundTimer = window.setTimeout(() => {
       threadListBackgroundTimer = null
       if (!threadListNextCursor || hasActiveInProgressThreads()) return
-      void loadRemainingThreadPages(loadedThreadListRootsState)
+      if (!canAutoLoadMoreThreadPages()) return
+      void loadRemainingThreadPages(loadedThreadListRootsState, { manual: false })
     }, BACKGROUND_THREAD_PAGINATION_DELAY_MS)
   }
 
-  async function loadRemainingThreadPages(rootsState: WorkspaceRootsState | null): Promise<void> {
+  async function loadRemainingThreadPages(
+    rootsState: WorkspaceRootsState | null,
+    options: { manual?: boolean } = {},
+  ): Promise<void> {
     if (isLoadingRemainingThreadPages || !threadListNextCursor || hasActiveInProgressThreads()) return
+    const manual = options.manual === true
+    if (!manual && !canAutoLoadMoreThreadPages()) return
     isLoadingRemainingThreadPages = true
+    if (manual) {
+      isLoadingMoreThreadHistory.value = true
+    }
 
     try {
       const page = await getThreadGroupsPage(threadListNextCursor, getBackgroundThreadListLimit())
       threadListNextCursor = page.nextCursor
+      hasMoreThreadHistory.value = page.nextCursor !== null
       hasLoadedAllThreadPages = page.nextCursor === null
       isThreadListFullyLoaded.value = hasLoadedAllThreadPages
       loadedThreadListGroups = mergeThreadGroupPages(loadedThreadListGroups, page.groups)
@@ -4678,10 +4687,18 @@ export function useDesktopState() {
       // Keep the first page usable; a later refresh can retry remaining pages.
     } finally {
       isLoadingRemainingThreadPages = false
-      if (threadListNextCursor && !hasActiveInProgressThreads()) {
+      if (manual) {
+        isLoadingMoreThreadHistory.value = false
+      }
+      if (threadListNextCursor && !hasActiveInProgressThreads() && canAutoLoadMoreThreadPages()) {
         scheduleRemainingThreadPages(rootsState)
       }
     }
+  }
+
+  async function loadMoreThreadHistory(): Promise<void> {
+    if (!threadListNextCursor) return
+    await loadRemainingThreadPages(loadedThreadListRootsState, { manual: true })
   }
 
   async function loadThreads() {
@@ -4709,13 +4726,14 @@ export function useDesktopState() {
       threadListNextCursor = hasLoadedThreads.value && !hasLoadedAllThreadPages
         ? threadListNextCursor
         : page.nextCursor
+      hasMoreThreadHistory.value = threadListNextCursor !== null
       hasLoadedAllThreadPages = page.nextCursor === null
       isThreadListFullyLoaded.value = hasLoadedAllThreadPages
       await hydrateWorkspaceRootsStateIfNeeded(groups, rootsState)
 
       applyThreadGroups(loadedThreadListGroups, rootsState)
       hasLoadedThreads.value = true
-      if (!hasLoadedAllThreadPages) {
+      if (!hasLoadedAllThreadPages && canAutoLoadMoreThreadPages()) {
         scheduleRemainingThreadPages(rootsState)
       }
 
@@ -4775,17 +4793,7 @@ export function useDesktopState() {
         return
       }
 
-      const needsResume = resumedThreadById.value[threadId] !== true
-      const resumedThread = needsResume ? await resumeThread(threadId) : null
-      const detail = resumedThread ?? await getThreadDetail(threadId)
-
-      if (resumedThread) {
-        setThreadModelId(threadId, resumedThread.model)
-        resumedThreadById.value = {
-          ...resumedThreadById.value,
-          [threadId]: true,
-        }
-      }
+      const detail = await getThreadDetail(threadId)
 
       const { messages: nextMessages, inProgress, activeTurnId, turnIndexByTurnId } = detail
       hasMoreOlderMessagesByThreadId.value = {
@@ -5448,8 +5456,20 @@ export function useDesktopState() {
 
     try {
       if (resumedThreadById.value[threadId] !== true) {
+        setTurnActivityForThread(threadId, {
+          label: 'Restoring thread',
+          details: ['Preparing conversation history'],
+        })
         const resumedThread = await resumeThread(threadId)
         setThreadModelId(threadId, resumedThread.model)
+        setTurnActivityForThread(threadId, {
+          label: 'Thinking',
+          details: buildPendingTurnDetails(
+            readModelIdForThread(threadId),
+            reasoningEffort,
+            collaborationMode,
+          ),
+        })
       }
       const modelId = readModelIdForThread(threadId)
 
@@ -6102,8 +6122,10 @@ export function useDesktopState() {
     hasMoreOlderMessages,
     isLoadingThreads,
     isThreadListFullyLoaded,
+    hasMoreThreadHistory,
     isLoadingMessages,
     isLoadingOlderMessages,
+    isLoadingMoreThreadHistory,
     isSendingMessage,
     isInterruptingTurn,
     isUpdatingSpeedMode,
@@ -6120,6 +6142,8 @@ export function useDesktopState() {
     selectThread,
     loadMessages,
     loadOlderMessages,
+    loadMoreThreadHistory,
+    insertThreadSummaries,
     ensureThreadMessagesLoaded,
     archiveThreadById,
     deleteThreadSessionById,

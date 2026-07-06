@@ -17,6 +17,8 @@
         :selected-thread-id="selectedThreadId"
         :is-loading-threads="isLoadingThreads"
         :is-thread-list-fully-loaded="isThreadListFullyLoaded"
+        :has-more-thread-history="hasMoreThreadHistory"
+        :is-loading-more-thread-history="isLoadingMoreThreadHistory"
         :search-matched-thread-ids="serverMatchedThreadIds"
         :accounts="accounts"
         :is-accounts-section-collapsed="isAccountsSectionCollapsed"
@@ -78,6 +80,7 @@
         @hide-project="onHideProject"
         @delete-project="onDeleteProject"
         @reorder-project="onReorderProject"
+        @load-more-thread-history="loadMoreThreadHistory"
         @export-thread="onExportThread"
         @toggle-accounts-section="toggleAccountsSectionCollapsed"
         @refresh-accounts="onRefreshAccounts"
@@ -695,8 +698,10 @@ const {
   hasMoreOlderMessages,
   isLoadingThreads,
   isThreadListFullyLoaded,
+  hasMoreThreadHistory,
   isLoadingMessages,
   isLoadingOlderMessages,
+  isLoadingMoreThreadHistory,
   isSendingMessage,
   isInterruptingTurn,
   isSelectedThreadInterruptPending,
@@ -708,6 +713,8 @@ const {
   selectThread,
   ensureThreadMessagesLoaded,
   loadOlderMessages,
+  loadMoreThreadHistory,
+  insertThreadSummaries,
   archiveThreadById,
   deleteThreadSessionById,
   forkThreadById,
@@ -1316,6 +1323,7 @@ watch(sidebarSearchQuery, (value) => {
     void searchThreads(query, 1000)
       .then((result) => {
         if (sidebarSearchQuery.value.trim() !== query) return
+        insertThreadSummaries(result.threads)
         serverMatchedThreadIds.value = result.threadIds
       })
       .catch(() => {
@@ -1411,7 +1419,8 @@ const projectCwdByName = computed<Record<string, string>>(() =>
 )
 
 function getProjectDisplayNameForWorktree(projectName: string): string {
-  return (projectDisplayNameById.value[projectName] ?? projectName).trim() || projectName
+  const fallbackName = getPathLeafName(projectName) || projectName
+  return (projectDisplayNameById.value[projectName] ?? fallbackName).trim() || fallbackName
 }
 
 function toWorktreeFolderNameDraft(projectName: string): string {

@@ -67,6 +67,8 @@
         :selected-thread-id="selectedThreadId"
         :is-loading="isLoadingThreads"
         :is-thread-list-fully-loaded="isThreadListFullyLoaded"
+        :has-more-thread-history="hasMoreThreadHistory"
+        :is-loading-more-thread-history="isLoadingMoreThreadHistory"
         :search-query="searchQuery"
         :search-matched-thread-ids="searchMatchedThreadIds"
         @select="$emit('select-thread', $event)"
@@ -83,6 +85,7 @@
         @hide-project="$emit('hide-project', $event)"
         @delete-project="$emit('delete-project', $event)"
         @reorder-project="$emit('reorder-project', $event)"
+        @load-more-thread-history="$emit('load-more-thread-history')"
         @export-thread="$emit('export-thread', $event)"
         @start-new-chat="$emit('start-new-thread-toolbar')"
       />
@@ -471,6 +474,8 @@ const props = defineProps<{
   selectedThreadId: string
   isLoadingThreads: boolean
   isThreadListFullyLoaded: boolean
+  hasMoreThreadHistory: boolean
+  isLoadingMoreThreadHistory: boolean
   searchQuery: string
   isSearchVisible: boolean
   searchMatchedThreadIds: string[] | null
@@ -544,6 +549,7 @@ const emit = defineEmits<{
   'hide-project': [projectName: string]
   'delete-project': [projectName: string]
   'reorder-project': [payload: { projectName: string; toIndex: number }]
+  'load-more-thread-history': []
   'export-thread': [threadId: string]
   'update:isSettingsOpen': [value: boolean]
   'toggle-accounts-section': []
