@@ -311,8 +311,12 @@ Bidirectional sync between `selectedThreadId` state and URL is handled via Vue `
 |---|---|
 | `pnpm run dev` | Install deps + start Vite dev server (port 5173) |
 | `pnpm run build` | Type-check + build frontend + build CLI |
-| `pnpm run build:frontend` | `vue-tsc --noEmit && vite build` |
-| `pnpm run build:cli` | `tsup` (builds CLI to `dist-cli/`) |
+| `pnpm run typecheck` | Run frontend, server/CLI, and build-config TypeScript checks |
+| `pnpm run typecheck:frontend` | `vue-tsc --noEmit -p tsconfig.app.json` |
+| `pnpm run typecheck:server` | `tsc --noEmit -p tsconfig.server.json` |
+| `pnpm run typecheck:config` | `tsc --noEmit -p tsconfig.node.json` |
+| `pnpm run build:frontend` | `pnpm run typecheck:frontend && vite build` |
+| `pnpm run build:cli` | `tsup` with `tsconfig.server.json` (builds CLI to `dist-cli/`) |
 | `pnpm run preview` | Preview production build |
 
 ### Dev Mode

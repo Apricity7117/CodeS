@@ -11,5 +11,13 @@
     "types": ["node"],
     "skipLibCheck": true
   },
-  "include": ["src/cli/**/*.ts", "src/server/**/*.ts"]
+  "include": [
+    "src/cli/**/*.ts",
+    "src/server/**/*.ts",
+    "src/config/**/*.ts",
+    "src/utils/commandInvocation.ts",
+    "src/commandResolution.ts",
+    "src/pathUtils.ts",
+    "src/types/**/*.ts"
+  ]
 }

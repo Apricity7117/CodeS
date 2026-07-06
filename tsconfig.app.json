@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue"],
+  "exclude": [
+    "src/cli/**",
+    "src/server/**",
+    "src/config/**",
+    "src/commandResolution.ts",
+    "src/utils/commandInvocation.ts",
+    "src/**/*.test.ts"
+  ]
+}

@@ -1,9 +1,14 @@
 {
+  "extends": "./tsconfig.server.json",
   "compilerOptions": {
-    "composite": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "types": ["node"]
   },
-  "include": ["vite.config.ts"]
+  "include": [
+    "vite.config.ts",
+    "vite.config.https.ts",
+    "vitest.config.ts",
+    "tsup.config.ts"
+  ]
 }
