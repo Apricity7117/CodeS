@@ -1,18 +1,42 @@
 import { readFileSync } from 'node:fs'
+import runtimeDefaults from '../../configs/runtime_defaults.json'
 
-export const ENV_KEYS = {
-  approvalPolicy: ['CODES_APPROVAL_POLICY', 'CODEXUI_APPROVAL_POLICY'],
-  apiPerfBodyMbThreshold: ['CODES_API_PERF_BODY_MB_THRESHOLD', 'CODEXUI_API_PERF_BODY_MB_THRESHOLD'],
-  apiPerfLogging: ['CODES_API_PERF_LOGGING', 'CODEXUI_API_PERF_LOGGING'],
-  apiPerfMsThreshold: ['CODES_API_PERF_MS_THRESHOLD', 'CODEXUI_API_PERF_MS_THRESHOLD'],
-  codexCommand: ['CODES_CODEX_COMMAND', 'CODEXUI_CODEX_COMMAND'],
-  codexHome: ['CODEX_HOME'],
-  rgCommand: ['CODES_RG_COMMAND', 'CODEXUI_RG_COMMAND'],
-  sandboxMode: ['CODES_SANDBOX_MODE', 'CODEXUI_SANDBOX_MODE'],
-  serverPort: ['CODES_SERVER_PORT', 'CODEXUI_SERVER_PORT'],
-  skillsUpstreamOwner: ['CODES_SKILLS_UPSTREAM_OWNER'],
-  skillsUpstreamRepo: ['CODES_SKILLS_UPSTREAM_REPO'],
-} as const
+type RuntimeDefaultsConfig = {
+  envKeys: Record<string, string[]>
+  defaults: {
+    accountImport: {
+      limit: number
+    }
+    cli: {
+      host: string
+      port: number
+    }
+    codexRuntime: {
+      approvalPolicy: string
+      sandboxMode: string
+    }
+    profile: {
+      baseUrl: string
+      headless: boolean
+      route: string
+      testChatBaseUrl: string
+      testChatLabel: string
+      testChatRoot: string
+      testChatTimeoutMs: number
+      threadLoadTimeoutMs: number
+      waitMs: number
+    }
+    viteDevServer: {
+      host: string
+      port: number
+    }
+  }
+}
+
+export const PROJECT_CONFIG = runtimeDefaults as RuntimeDefaultsConfig
+export const PROJECT_DEFAULTS = PROJECT_CONFIG.defaults
+
+export const ENV_KEYS = PROJECT_CONFIG.envKeys
 
 export function readTrimmedEnv(key: string): string {
   return process.env[key]?.trim() ?? ''

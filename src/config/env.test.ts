@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  ENV_KEYS,
+  PROJECT_DEFAULTS,
   readBooleanEnvConfig,
   readEnvValueFromFile,
   readFirstTrimmedEnv,
@@ -49,6 +51,13 @@ afterEach(async () => {
 })
 
 describe('env helpers', () => {
+  it('loads shared env keys and defaults from root config', () => {
+    expect(ENV_KEYS.sandboxMode).toContain('CODES_SANDBOX_MODE')
+    expect(ENV_KEYS.serverPort).toContain('CODEXUI_SERVER_PORT')
+    expect(PROJECT_DEFAULTS.cli.port).toBe(5900)
+    expect(PROJECT_DEFAULTS.viteDevServer.port).toBe(5173)
+  })
+
   it('prefers the first non-empty trimmed env value', () => {
     setEnv('PRIMARY_ENV', '   ')
     setEnv('LEGACY_ENV', ' legacy-value ')

@@ -22,6 +22,7 @@
     "codes": "dist-cli/index.js"
   },
   "files": [
+    "configs/runtime_defaults.json",
     "dist/",
     "dist-cli/",
     "scripts/dev.cjs",

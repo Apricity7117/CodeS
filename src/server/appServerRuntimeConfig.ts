@@ -1,4 +1,4 @@
-import { ENV_KEYS, readFirstTrimmedEnv } from '../config/env.js'
+import { ENV_KEYS, PROJECT_DEFAULTS, readFirstTrimmedEnv } from '../config/env.js'
 
 const SANDBOX_MODES = new Set([
   'read-only',
@@ -21,13 +21,23 @@ type AppServerRuntimeConfig = {
   approvalPolicy: CodexApprovalPolicy
 }
 
-const DEFAULT_RUNTIME_CONFIG: AppServerRuntimeConfig = {
-  sandboxMode: 'danger-full-access',
-  approvalPolicy: 'never',
-}
-
 function normalizeRuntimeValue(value: string | undefined): string {
   return value?.trim().toLowerCase() ?? ''
+}
+
+function normalizeDefaultSandboxMode(): CodexSandboxMode {
+  const candidate = normalizeRuntimeValue(PROJECT_DEFAULTS.codexRuntime.sandboxMode)
+  return SANDBOX_MODES.has(candidate as CodexSandboxMode) ? candidate as CodexSandboxMode : 'danger-full-access'
+}
+
+function normalizeDefaultApprovalPolicy(): CodexApprovalPolicy {
+  const candidate = normalizeRuntimeValue(PROJECT_DEFAULTS.codexRuntime.approvalPolicy)
+  return APPROVAL_POLICIES.has(candidate as CodexApprovalPolicy) ? candidate as CodexApprovalPolicy : 'never'
+}
+
+const DEFAULT_RUNTIME_CONFIG: AppServerRuntimeConfig = {
+  sandboxMode: normalizeDefaultSandboxMode(),
+  approvalPolicy: normalizeDefaultApprovalPolicy(),
 }
 
 function readSandboxModeFromEnv(): CodexSandboxMode {

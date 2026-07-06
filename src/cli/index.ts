@@ -21,10 +21,11 @@ import {
 import { createServer as createApp } from '../server/httpServer.js'
 import { generatePassword } from '../server/password.js'
 import { spawnSyncCommand } from '../utils/commandInvocation.js'
-import { ENV_KEYS, readTrimmedEnv, setEnvValues } from '../config/env.js'
+import { ENV_KEYS, PROJECT_DEFAULTS, readFirstTrimmedEnv, readTrimmedEnv, setEnvValues } from '../config/env.js'
 
 const program = new Command().name('codes').description('CodeS web interface for Codex app-server')
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const DEFAULT_CLI_PORT = String(PROJECT_DEFAULTS.cli.port)
 
 function getCodexHomePath(): string {
   return readTrimmedEnv(ENV_KEYS.codexHome[0]) || join(homedir(), '.codex')
@@ -124,8 +125,14 @@ function openBrowser(url: string): void {
   child.unref()
 }
 
-function getAccessibleUrls(port: number): string[] {
+function isLoopbackBindHost(host: string): boolean {
+  const normalized = host.trim().toLowerCase()
+  return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1'
+}
+
+function getAccessibleUrls(port: number, bindHost: string): string[] {
   const urls = new Set<string>([`http://localhost:${String(port)}`])
+  if (isLoopbackBindHost(bindHost)) return Array.from(urls)
   try {
     const interfaces = networkInterfaces()
     for (const entries of Object.values(interfaces)) {
@@ -141,7 +148,7 @@ function getAccessibleUrls(port: number): string[] {
   return Array.from(urls)
 }
 
-function listenWithFallback(server: ReturnType<typeof createServer>, startPort: number): Promise<number> {
+function listenWithFallback(server: ReturnType<typeof createServer>, startPort: number, host: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const attempt = (port: number) => {
       const onError = (error: NodeJS.ErrnoException) => {
@@ -159,11 +166,15 @@ function listenWithFallback(server: ReturnType<typeof createServer>, startPort: 
 
       server.once('error', onError)
       server.once('listening', onListening)
-      server.listen(port, '0.0.0.0')
+      server.listen(port, host)
     }
 
     attempt(startPort)
   })
+}
+
+function resolveCliHost(): string {
+  return readFirstTrimmedEnv(ENV_KEYS.cliHost) || PROJECT_DEFAULTS.cli.host
 }
 
 function getCodexGlobalStatePath(): string {
@@ -267,7 +278,8 @@ async function startServer(options: {
   const { app, dispose, attachWebSocket } = createApp({ password })
   const server = createServer(app)
   attachWebSocket(server)
-  const port = await listenWithFallback(server, requestedPort)
+  const bindHost = resolveCliHost()
+  const port = await listenWithFallback(server, requestedPort, bindHost)
   setEnvValues(ENV_KEYS.serverPort, String(port))
 
   const lines = [
@@ -276,11 +288,11 @@ async function startServer(options: {
     `  Version:  ${version}`,
     '  App:      CodeS',
     '',
-    `  Bind:     http://0.0.0.0:${String(port)}`,
+    `  Bind:     http://${bindHost}:${String(port)}`,
     `  Codex sandbox: ${runtimeConfig.sandboxMode}`,
     `  Approval policy: ${runtimeConfig.approvalPolicy}`,
   ]
-  const accessUrls = getAccessibleUrls(port)
+  const accessUrls = getAccessibleUrls(port, bindHost)
   if (accessUrls.length > 0) {
     lines.push(`  Local:    ${accessUrls[0]}`)
     for (const accessUrl of accessUrls.slice(1)) {
@@ -328,7 +340,7 @@ async function runLogin() {
 program
   .argument('[projectPath]', 'project directory to open on launch')
   .option('--open-project <path>', 'open project directory on launch (Codex desktop parity)')
-  .option('-p, --port <port>', 'port to listen on', '5900')
+  .option('-p, --port <port>', 'port to listen on', DEFAULT_CLI_PORT)
   .option('--password <pass>', 'set a specific password')
   .option('--no-password', 'disable password protection')
   .option('--open', 'open browser on startup', true)

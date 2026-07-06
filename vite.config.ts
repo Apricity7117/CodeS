@@ -4,9 +4,16 @@ import { createCodexBridgeMiddleware } from "./src/server/codexAppServerBridge";
 import { createLocalResourceMiddleware } from "./src/server/localResourceMiddleware";
 import tailwindcss from "@tailwindcss/vite";
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
 import { WebSocketServer, type WebSocket } from "ws";
 import pkg from "./package.json";
+import {
+  ENV_KEYS,
+  PROJECT_DEFAULTS,
+  readEnvValueFromFile,
+  readFirstTrimmedEnv,
+  readIntegerEnv,
+  setEnvValues,
+} from "./src/config/env";
 
 function getWorktreeName(): string {
   const normalizedCwd = process.cwd().replace(/\\/g, "/");
@@ -53,28 +60,19 @@ const worktreeName = getWorktreeName();
 const appVersion = typeof pkg.version === "string" ? pkg.version : "unknown";
 const WS_UPGRADE_ATTACHED_KEY = "__codexBridgeWsAttached__";
 
-function readEnvValueFromFile(filePath: string, key: string): string {
-  if (!existsSync(filePath)) return "";
-  const raw = readFileSync(filePath, "utf8");
-  for (const line of raw.split(/\r?\n/u)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const separator = trimmed.indexOf("=");
-    if (separator <= 0) continue;
-    const currentKey = trimmed.slice(0, separator).trim();
-    if (currentKey !== key) continue;
-    return trimmed.slice(separator + 1).trim();
+function resolveViteRollbackDebugFallback(): string {
+  for (const filePath of [".env.local", ".env"]) {
+    for (const key of ENV_KEYS.viteRollbackDebug) {
+      const value = readEnvValueFromFile(filePath, key);
+      if (value) return value;
+    }
   }
   return "";
 }
 
-function resolveViteRollbackDebugFallback(): string {
-  const fromEnvLocal = readEnvValueFromFile(".env.local", "VITE_ROLLBACK_DEBUG");
-  if (fromEnvLocal) return fromEnvLocal;
-  return readEnvValueFromFile(".env", "VITE_ROLLBACK_DEBUG");
-}
-
 const viteRollbackDebugFallback = resolveViteRollbackDebugFallback();
+const viteDevHost = readFirstTrimmedEnv(ENV_KEYS.viteDevHost) || PROJECT_DEFAULTS.viteDevServer.host;
+const viteDevPort = readIntegerEnv(ENV_KEYS.viteDevPort) ?? PROJECT_DEFAULTS.viteDevServer.port;
 
 export default defineConfig({
   define: {
@@ -83,8 +81,8 @@ export default defineConfig({
     "import.meta.env.VITE_ROLLBACK_DEBUG_FALLBACK": JSON.stringify(viteRollbackDebugFallback),
   },
   server: {
-    host: "0.0.0.0",
-    port: 5173,
+    host: viteDevHost,
+    port: viteDevPort,
     watch: {
       ignored: [
         '**/.omx/**',
@@ -101,14 +99,14 @@ export default defineConfig({
     {
       name: "codex-bridge",
       configureServer(server) {
-        process.env.CODEXUI_SERVER_PORT = String(server.config.server.port ?? 5173);
+        setEnvValues(ENV_KEYS.serverPort, String(server.config.server.port ?? viteDevPort));
         const bridge = createCodexBridgeMiddleware();
         const httpServer = server.httpServer;
         if (httpServer) {
           httpServer.once("listening", () => {
             const addr = httpServer.address();
             if (addr && typeof addr === "object" && addr.port) {
-              process.env.CODEXUI_SERVER_PORT = String(addr.port);
+              setEnvValues(ENV_KEYS.serverPort, String(addr.port));
             }
           });
           const hostScope = httpServer as typeof httpServer & {

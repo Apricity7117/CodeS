@@ -1,15 +1,16 @@
 const { chromium } = require('playwright')
 const { existsSync, mkdirSync, rmSync, writeFileSync } = require('node:fs')
 const { resolve, join } = require('node:path')
+const { ENV_KEYS, PROJECT_DEFAULTS, readFirstTrimmedEnv, readIntegerEnv } = require('./env.cjs')
 
-const baseUrl = process.env.TESTCHAT_PROFILE_BASE_URL || 'http://127.0.0.1:4173'
-const testChatRoot = process.env.TESTCHAT_ROOT || '/Users/igor/temp/TestChat'
-const label = process.env.TESTCHAT_PROFILE_LABEL || 'optimized'
-const timeoutMs = Number.parseInt(process.env.TESTCHAT_PROFILE_TIMEOUT_MS || '240000', 10)
+const baseUrl = readFirstTrimmedEnv(ENV_KEYS.testChatProfileBaseUrl) || PROJECT_DEFAULTS.profile.testChatBaseUrl
+const testChatRoot = readFirstTrimmedEnv(ENV_KEYS.testChatRoot) || PROJECT_DEFAULTS.profile.testChatRoot
+const label = readFirstTrimmedEnv(ENV_KEYS.testChatProfileLabel) || PROJECT_DEFAULTS.profile.testChatLabel
+const timeoutMs = readIntegerEnv(ENV_KEYS.testChatProfileTimeoutMs, PROJECT_DEFAULTS.profile.testChatTimeoutMs)
 const outputDir = resolve(process.cwd(), 'output/playwright')
 const runStamp = new Date().toISOString().replace(/[:.]/g, '-')
 const appName = `todo-render-profile-${label}-${runStamp}`.replace(/[^a-zA-Z0-9._-]/g, '-')
-const createdAppDir = join(testChatRoot, appName)
+const createdAppDir = testChatRoot ? join(testChatRoot, appName) : ''
 
 function round(value) {
   return Math.round(value * 100) / 100
@@ -107,6 +108,9 @@ async function collectBrowserMetrics(page) {
 }
 
 async function main() {
+  if (!testChatRoot) {
+    throw new Error('Set TESTCHAT_ROOT to the directory used by the TestChat profile run.')
+  }
   mkdirSync(outputDir, { recursive: true })
   if (existsSync(createdAppDir)) {
     rmSync(createdAppDir, { recursive: true, force: true })
@@ -204,7 +208,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  if (existsSync(createdAppDir)) {
+  if (createdAppDir && existsSync(createdAppDir)) {
     rmSync(createdAppDir, { recursive: true, force: true })
   }
   console.error(error)

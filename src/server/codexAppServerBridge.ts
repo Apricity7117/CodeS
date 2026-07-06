@@ -3252,7 +3252,7 @@ function sqlIdentifier(value: string): string {
 }
 
 async function runSqliteScript(databasePath: string, script: string): Promise<string> {
-  const sqliteCommand = readFirstTrimmedEnv(['CODES_SQLITE_COMMAND', 'SQLITE3']) || 'sqlite3'
+  const sqliteCommand = readFirstTrimmedEnv(ENV_KEYS.sqliteCommand) || 'sqlite3'
   const invocation = getSpawnInvocation(sqliteCommand, [databasePath])
   return await new Promise<string>((resolve, reject) => {
     const proc = spawn(invocation.command, invocation.args, {
@@ -3928,7 +3928,6 @@ class AppServerProcess {
   private readonly pending = new Map<number, { resolve: (value: unknown) => void; reject: (reason?: unknown) => void }>()
   private readonly notificationListeners = new Set<(value: { method: string; params: unknown }) => void>()
   private readonly pendingServerRequests = new Map<number, PendingServerRequest>()
-  private readonly appServerArgs = buildAppServerArgs()
   private readonly streamEventsByThreadId = new Map<string, StreamEventFrame[]>()
   private readonly lastThreadReadSnapshotByThreadId = new Map<string, unknown>()
   private readonly threadTurnPageReadCacheByThreadId = new Map<string, { result: unknown; expiresAt: number }>()
@@ -3947,12 +3946,7 @@ class AppServerProcess {
   }
 
   private buildAppServerConfig(): { args: string[]; env: Record<string, string> } {
-    const args = [
-      'app-server',
-      '-c', 'approval_policy="never"',
-      '-c', 'sandbox_mode="danger-full-access"',
-    ]
-    return { args, env: {} }
+    return { args: buildAppServerArgs(), env: {} }
   }
 
   private start(): void {

@@ -1,11 +1,11 @@
 const { spawnSync } = require('node:child_process')
 const { existsSync } = require('node:fs')
 const { join } = require('node:path')
-const { ENV_KEYS, readFirstTrimmedEnv, setEnvValues } = require('./env.cjs')
+const { ENV_KEYS, PROJECT_DEFAULTS, readFirstTrimmedEnv, setEnvValues } = require('./env.cjs')
 
 function run(command, args, options = {}) {
-  const sandboxMode = readFirstTrimmedEnv(ENV_KEYS.sandboxMode) || 'danger-full-access'
-  const approvalPolicy = readFirstTrimmedEnv(ENV_KEYS.approvalPolicy) || 'never'
+  const sandboxMode = readFirstTrimmedEnv(ENV_KEYS.sandboxMode) || PROJECT_DEFAULTS.codexRuntime.sandboxMode
+  const approvalPolicy = readFirstTrimmedEnv(ENV_KEYS.approvalPolicy) || PROJECT_DEFAULTS.codexRuntime.approvalPolicy
   setEnvValues(ENV_KEYS.sandboxMode, sandboxMode)
   setEnvValues(ENV_KEYS.approvalPolicy, approvalPolicy)
   const result = spawnSync(command, args, {

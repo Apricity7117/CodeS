@@ -1,9 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DB_PATH="${1:-/Users/igor/Git-projects/any-auto-register/account_manager.db}"
-LIMIT="${2:-10}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONFIG_PATH="${CODES_RUNTIME_CONFIG:-$ROOT_DIR/configs/runtime_defaults.json}"
 CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 is required" >&2
+  exit 1
+fi
+
+read_config_value() {
+  CONFIG_QUERY="$1" CONFIG_FALLBACK="$2" CONFIG_PATH="$CONFIG_PATH" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+query = os.environ["CONFIG_QUERY"].split(".")
+fallback = os.environ["CONFIG_FALLBACK"]
+try:
+    value = json.loads(Path(os.environ["CONFIG_PATH"]).read_text(encoding="utf-8"))
+    for key in query:
+        value = value[key]
+    if isinstance(value, (str, int, float, bool)):
+        print(value)
+    else:
+        print(fallback)
+except Exception:
+    print(fallback)
+PY
+}
+
+DEFAULT_LIMIT="$(read_config_value "defaults.accountImport.limit" "10")"
+DB_PATH="${1:-${CODES_WORKING_ACCOUNTS_DB:-}}"
+LIMIT="${2:-${CODES_WORKING_ACCOUNTS_LIMIT:-$DEFAULT_LIMIT}}"
+
+if [[ -z "$DB_PATH" ]]; then
+  echo "Usage: $0 <account_manager.db> [limit]" >&2
+  echo "Or set CODES_WORKING_ACCOUNTS_DB and optional CODES_WORKING_ACCOUNTS_LIMIT." >&2
+  exit 1
+fi
 
 if [[ ! -f "$DB_PATH" ]]; then
   echo "DB not found: $DB_PATH" >&2
@@ -12,11 +48,6 @@ fi
 
 if ! command -v sqlite3 >/dev/null 2>&1; then
   echo "sqlite3 is required" >&2
-  exit 1
-fi
-
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "python3 is required" >&2
   exit 1
 fi
 

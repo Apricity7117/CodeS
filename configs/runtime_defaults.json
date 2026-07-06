@@ -1,0 +1,59 @@
+{
+  "envKeys": {
+    "approvalPolicy": ["CODES_APPROVAL_POLICY", "CODEXUI_APPROVAL_POLICY"],
+    "apiPerfBodyMbThreshold": ["CODES_API_PERF_BODY_MB_THRESHOLD", "CODEXUI_API_PERF_BODY_MB_THRESHOLD"],
+    "apiPerfLogging": ["CODES_API_PERF_LOGGING", "CODEXUI_API_PERF_LOGGING"],
+    "apiPerfMsThreshold": ["CODES_API_PERF_MS_THRESHOLD", "CODEXUI_API_PERF_MS_THRESHOLD"],
+    "cliHost": ["CODES_HOST", "CODEXUI_HOST"],
+    "codexCommand": ["CODES_CODEX_COMMAND", "CODEXUI_CODEX_COMMAND"],
+    "codexHome": ["CODEX_HOME"],
+    "profileBaseUrl": ["PROFILE_BASE_URL"],
+    "profileHeadless": ["PROFILE_HEADLESS"],
+    "profileRoute": ["PROFILE_ROUTE"],
+    "profileThreadLoadTimeoutMs": ["PROFILE_THREAD_LOAD_TIMEOUT_MS"],
+    "profileWaitMs": ["PROFILE_WAIT_MS"],
+    "rgCommand": ["CODES_RG_COMMAND", "CODEXUI_RG_COMMAND"],
+    "sandboxMode": ["CODES_SANDBOX_MODE", "CODEXUI_SANDBOX_MODE"],
+    "serverPort": ["CODES_SERVER_PORT", "CODEXUI_SERVER_PORT"],
+    "skillsUpstreamOwner": ["CODES_SKILLS_UPSTREAM_OWNER"],
+    "skillsUpstreamRepo": ["CODES_SKILLS_UPSTREAM_REPO"],
+    "sqliteCommand": ["CODES_SQLITE_COMMAND", "SQLITE3"],
+    "testChatProfileBaseUrl": ["TESTCHAT_PROFILE_BASE_URL"],
+    "testChatProfileLabel": ["TESTCHAT_PROFILE_LABEL"],
+    "testChatProfileTimeoutMs": ["TESTCHAT_PROFILE_TIMEOUT_MS"],
+    "testChatRoot": ["TESTCHAT_ROOT"],
+    "viteDevHost": ["CODES_VITE_DEV_HOST", "CODEXUI_VITE_DEV_HOST"],
+    "viteDevPort": ["CODES_VITE_DEV_PORT", "CODEXUI_VITE_DEV_PORT"],
+    "viteRollbackDebug": ["VITE_ROLLBACK_DEBUG"],
+    "workingAccountsDbPath": ["CODES_WORKING_ACCOUNTS_DB"],
+    "workingAccountsLimit": ["CODES_WORKING_ACCOUNTS_LIMIT"]
+  },
+  "defaults": {
+    "accountImport": {
+      "limit": 10
+    },
+    "cli": {
+      "host": "0.0.0.0",
+      "port": 5900
+    },
+    "codexRuntime": {
+      "approvalPolicy": "never",
+      "sandboxMode": "danger-full-access"
+    },
+    "profile": {
+      "baseUrl": "http://localhost:5173",
+      "headless": true,
+      "route": "/",
+      "testChatBaseUrl": "http://127.0.0.1:4173",
+      "testChatLabel": "optimized",
+      "testChatRoot": "",
+      "testChatTimeoutMs": 240000,
+      "threadLoadTimeoutMs": 15000,
+      "waitMs": 7000
+    },
+    "viteDevServer": {
+      "host": "0.0.0.0",
+      "port": 5173
+    }
+  }
+}

@@ -1,12 +1,13 @@
 const { chromium } = require('playwright')
 const { mkdirSync, writeFileSync } = require('node:fs')
 const { resolve } = require('node:path')
+const { ENV_KEYS, PROJECT_DEFAULTS, readBooleanEnv, readFirstTrimmedEnv, readIntegerEnv } = require('./env.cjs')
 
-const baseUrl = process.env.PROFILE_BASE_URL || 'http://localhost:5173'
-const route = process.env.PROFILE_ROUTE || '/'
-const waitMs = Number.parseInt(process.env.PROFILE_WAIT_MS || '7000', 10)
-const threadLoadTimeoutMs = Number.parseInt(process.env.PROFILE_THREAD_LOAD_TIMEOUT_MS || '15000', 10)
-const headless = process.env.PROFILE_HEADLESS !== 'false'
+const baseUrl = readFirstTrimmedEnv(ENV_KEYS.profileBaseUrl) || PROJECT_DEFAULTS.profile.baseUrl
+const route = readFirstTrimmedEnv(ENV_KEYS.profileRoute) || PROJECT_DEFAULTS.profile.route
+const waitMs = readIntegerEnv(ENV_KEYS.profileWaitMs, PROJECT_DEFAULTS.profile.waitMs)
+const threadLoadTimeoutMs = readIntegerEnv(ENV_KEYS.profileThreadLoadTimeoutMs, PROJECT_DEFAULTS.profile.threadLoadTimeoutMs)
+const headless = readBooleanEnv(ENV_KEYS.profileHeadless, PROJECT_DEFAULTS.profile.headless)
 const outputDir = resolve(process.cwd(), 'output/playwright')
 const runStamp = new Date().toISOString().replace(/[:.]/g, '-')
 const THREAD_LOADING_TEXT = 'Loading threads...'
@@ -173,11 +174,11 @@ async function main() {
 
   const startedAt = performance.now()
   await page.goto(targetUrl, { waitUntil: 'domcontentloaded' })
-  await page.waitForTimeout(Number.isFinite(waitMs) && waitMs >= 0 ? waitMs : 7000)
+  await page.waitForTimeout(Number.isFinite(waitMs) && waitMs >= 0 ? waitMs : PROJECT_DEFAULTS.profile.waitMs)
   let threadLoadingTimedOut = false
   const resolvedThreadLoadTimeoutMs = Number.isFinite(threadLoadTimeoutMs) && threadLoadTimeoutMs >= 0
     ? threadLoadTimeoutMs
-    : 15000
+    : PROJECT_DEFAULTS.profile.threadLoadTimeoutMs
   try {
     await page.waitForFunction(
       (loadingText) => !document.body.innerText.includes(loadingText),
