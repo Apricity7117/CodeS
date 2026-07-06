@@ -798,6 +798,15 @@
               <p class="live-overlay-label">
                 <ThinkingShimmer :message="liveOverlayDisplayLabel" :active="isTextAnimationEnabled && !liveOverlay.errorText" />
               </p>
+              <p v-if="liveOverlay.activityDetails.length > 0" class="live-overlay-details">
+                <span
+                  v-for="(detail, index) in liveOverlay.activityDetails"
+                  :key="`${index}:${detail}`"
+                  class="live-overlay-detail"
+                >
+                  {{ detail }}
+                </span>
+              </p>
               <p
                 v-if="liveOverlay.reasoningText"
                 class="live-overlay-reasoning"
@@ -3671,6 +3680,21 @@ onBeforeUnmount(() => {
 
 .live-overlay-label {
   @apply m-0 text-sm leading-5 font-medium text-zinc-600;
+}
+
+.live-overlay-details {
+  @apply m-0 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs leading-5;
+  color: var(--codex-muted-text);
+}
+
+.live-overlay-detail {
+  @apply min-w-0 max-w-full truncate;
+}
+
+.live-overlay-detail + .live-overlay-detail::before {
+  content: '·';
+  margin-right: 0.5rem;
+  color: var(--codex-muted-text);
 }
 
 .live-overlay-reasoning {

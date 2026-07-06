@@ -2288,7 +2288,10 @@ onBeforeUnmount(() => {
 }
 
 .thread-history-more {
-  @apply mx-2 my-2 flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-xs text-zinc-500;
+  @apply mx-2 my-2 flex items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-xs;
+  border-color: var(--codex-border);
+  background-color: color-mix(in srgb, var(--codex-control-bg) 72%, var(--codex-surface) 28%);
+  color: var(--codex-muted-text);
 }
 
 .thread-history-more-text {
@@ -2296,21 +2299,26 @@ onBeforeUnmount(() => {
 }
 
 .thread-history-more-button {
-  @apply shrink-0 rounded-md px-2 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-200 disabled:cursor-default disabled:opacity-60;
-}
-
-:global(:root.dark) .thread-history-more {
-  border-color: var(--codex-border);
-  background: var(--codex-control-bg);
-  color: var(--codex-muted-text);
-}
-
-:global(:root.dark) .thread-history-more-button {
+  @apply shrink-0 rounded-md px-2 py-1 text-xs font-medium transition disabled:cursor-default disabled:opacity-60;
   color: var(--codex-text);
 }
 
-:global(:root.dark) .thread-history-more-button:hover {
-  background: var(--codex-control-hover);
+.thread-history-more-button:not(:disabled):hover {
+  background-color: var(--codex-control-hover);
+}
+
+.thread-history-more-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--codex-focus-ring);
+}
+
+.thread-history-more-button:disabled {
+  color: var(--codex-muted-text);
+}
+
+:global(:root.dark) .thread-history-more {
+  border-color: var(--codex-border-heavy);
+  background-color: color-mix(in srgb, var(--codex-control-bg) 78%, transparent);
 }
 
 .thread-tree-action-error {
