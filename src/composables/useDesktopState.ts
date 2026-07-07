@@ -1792,7 +1792,6 @@ export function useDesktopState() {
     if (!activity && !reasoningText && !errorText) return null
     return {
       activityLabel: activity?.label || 'Thinking',
-      activityDetails: activity?.details ?? [],
       activityStartedAtMs: activity?.startedAtMs ?? null,
       reasoningText,
       errorText,

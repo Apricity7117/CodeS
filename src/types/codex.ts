@@ -241,7 +241,6 @@ export type UiServerRequestReply = {
 
 export type UiLiveOverlay = {
   activityLabel: string
-  activityDetails: string[]
   activityStartedAtMs?: number | null
   reasoningText: string
   errorText: string

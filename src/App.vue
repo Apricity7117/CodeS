@@ -40,6 +40,7 @@
         :ui-language-options="uiLanguageOptions"
         :chat-width-label="chatWidthLabel"
         :text-animations-enabled="textAnimationsEnabled"
+        :live-reasoning-text-enabled="liveReasoningTextEnabled"
         :dictation-enabled="dictationEnabled"
         :dictation-click-to-toggle="dictationClickToToggle"
         :dictation-auto-send="dictationAutoSend"
@@ -95,6 +96,7 @@
         @set-ui-language="setUiLanguage"
         @cycle-chat-width="cycleChatWidth"
         @toggle-text-animations="toggleTextAnimations"
+        @toggle-live-reasoning-text="toggleLiveReasoningText"
         @toggle-dictation-enabled="toggleDictationEnabled"
         @toggle-dictation-click-to-toggle="toggleDictationClickToToggle"
         @toggle-dictation-auto-send="toggleDictationAutoSend"
@@ -477,6 +479,7 @@
                     :is-loading-persisted-above="isLoadingOlderMessages"
                     :load-earlier-messages="loadOlderMessages"
                     :text-animations-enabled="textAnimationsEnabled"
+                    :live-reasoning-text-enabled="liveReasoningTextEnabled"
                     @fork-thread="onForkThreadFromMessage"
                     @edit-history-message="onEditHistoryMessage"
                     @implement-plan="onImplementPlan"
@@ -760,6 +763,7 @@ const {
   darkMode,
   chatWidth,
   textAnimationsEnabled,
+  liveReasoningTextEnabled,
   dictationEnabled,
   dictationClickToToggle,
   dictationAutoSend,
@@ -771,6 +775,7 @@ const {
   cycleDarkMode,
   cycleChatWidth,
   toggleTextAnimations,
+  toggleLiveReasoningText,
   toggleDictationEnabled,
   toggleDictationClickToToggle,
   toggleDictationAutoSend,

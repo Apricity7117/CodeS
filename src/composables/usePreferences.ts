@@ -8,6 +8,7 @@ import {
   loadDictationEnabledPref,
   loadDictationLanguagePref,
   loadInProgressSendModePref,
+  loadLiveReasoningTextPref,
   loadSendWithEnterPref,
   loadTextAnimationsPref,
   normalizeToWhisperLanguage,
@@ -18,6 +19,7 @@ import {
   saveDictationEnabledPref,
   saveDictationLanguagePref,
   saveInProgressSendModePref,
+  saveLiveReasoningTextPref,
   saveSendWithEnterPref,
   saveTextAnimationsPref,
 } from '../app/preferences'
@@ -35,6 +37,7 @@ export function usePreferences() {
   const darkMode = ref<DarkModePreference>(loadDarkModePref())
   const chatWidth = ref<ChatWidthMode>(loadChatWidthPref())
   const textAnimationsEnabled = ref(loadTextAnimationsPref())
+  const liveReasoningTextEnabled = ref(loadLiveReasoningTextPref())
   const dictationEnabled = ref(loadDictationEnabledPref())
   const dictationClickToToggle = ref(loadDictationClickToTogglePref())
   const dictationAutoSend = ref(loadDictationAutoSendPref())
@@ -72,6 +75,11 @@ export function usePreferences() {
   function toggleTextAnimations(): void {
     textAnimationsEnabled.value = !textAnimationsEnabled.value
     saveTextAnimationsPref(textAnimationsEnabled.value)
+  }
+
+  function toggleLiveReasoningText(): void {
+    liveReasoningTextEnabled.value = !liveReasoningTextEnabled.value
+    saveLiveReasoningTextPref(liveReasoningTextEnabled.value)
   }
 
   function toggleDictationEnabled(): void {
@@ -163,6 +171,7 @@ export function usePreferences() {
     darkMode,
     chatWidth,
     textAnimationsEnabled,
+    liveReasoningTextEnabled,
     dictationEnabled,
     dictationClickToToggle,
     dictationAutoSend,
@@ -174,6 +183,7 @@ export function usePreferences() {
     cycleDarkMode,
     cycleChatWidth,
     toggleTextAnimations,
+    toggleLiveReasoningText,
     toggleDictationEnabled,
     toggleDictationClickToToggle,
     toggleDictationAutoSend,

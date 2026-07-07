@@ -323,6 +323,14 @@
               @update:checked="$emit('toggle-text-animations')"
             />
           </div>
+          <div class="sidebar-settings-row sidebar-settings-row--switch" :title="settingsHelp.liveReasoningText">
+            <span class="sidebar-settings-label">{{ t('Live reasoning summary') }}</span>
+            <CodexSwitch
+              :checked="liveReasoningTextEnabled"
+              :ariaLabel="t('Live reasoning summary')"
+              @update:checked="$emit('toggle-live-reasoning-text')"
+            />
+          </div>
           <div class="sidebar-settings-row sidebar-settings-row--switch" :title="settingsHelp.dictationEnabled">
             <span class="sidebar-settings-label">{{ t('Voice input') }}</span>
             <CodexSwitch
@@ -500,6 +508,7 @@ const props = defineProps<{
   uiLanguageOptions: Array<{ value: UiLanguage; label: string }>
   chatWidthLabel: string
   textAnimationsEnabled: boolean
+  liveReasoningTextEnabled: boolean
   dictationEnabled: boolean
   dictationClickToToggle: boolean
   dictationAutoSend: boolean
@@ -565,6 +574,7 @@ const emit = defineEmits<{
   'set-ui-language': [value: UiLanguage]
   'cycle-chat-width': []
   'toggle-text-animations': []
+  'toggle-live-reasoning-text': []
   'toggle-dictation-enabled': []
   'toggle-dictation-click-to-toggle': []
   'toggle-dictation-auto-send': []

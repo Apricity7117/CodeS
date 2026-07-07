@@ -263,20 +263,11 @@
               <p class="live-overlay-label">
                 <ThinkingShimmer :message="liveOverlayDisplayLabel" :active="isTextAnimationEnabled && !liveOverlay.errorText" />
               </p>
-              <p v-if="liveOverlay.activityDetails.length > 0" class="live-overlay-details">
-                <span
-                  v-for="(detail, index) in liveOverlay.activityDetails"
-                  :key="`${index}:${detail}`"
-                  class="live-overlay-detail"
-                >
-                  {{ detail }}
-                </span>
-              </p>
               <p
-                v-if="liveOverlay.reasoningText"
+                v-if="isLiveReasoningTextEnabled && liveOverlayLatestReasoningLine"
                 class="live-overlay-reasoning"
               >
-                {{ liveOverlay.reasoningText }}
+                {{ liveOverlayLatestReasoningLine }}
               </p>
               <div v-if="liveOverlay.errorText" class="live-overlay-error">
                 <span>{{ liveOverlay.errorText }}</span>
@@ -701,6 +692,7 @@ const props = defineProps<{
   isLoadingPersistedAbove?: boolean
   loadEarlierMessages?: (threadId: string) => Promise<void>
   textAnimationsEnabled?: boolean
+  liveReasoningTextEnabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -713,6 +705,7 @@ const emit = defineEmits<{
 const liveOverlayNowMs = ref(Date.now())
 let liveOverlayTimer: number | undefined
 const isTextAnimationEnabled = computed(() => props.textAnimationsEnabled !== false)
+const isLiveReasoningTextEnabled = computed(() => props.liveReasoningTextEnabled !== false)
 
 const liveOverlayDisplayLabel = computed(() => {
   const overlay = props.liveOverlay
@@ -728,6 +721,16 @@ const liveOverlayDisplayLabel = computed(() => {
     return t('Thinking for {time}', { time })
   }
   return t('{label} for {time}', { label: baseLabel, time })
+})
+
+const liveOverlayLatestReasoningLine = computed(() => {
+  const text = props.liveOverlay?.reasoningText ?? ''
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index].trim()
+    if (line.length > 0) return line
+  }
+  return ''
 })
 
 function formatLiveOverlayDuration(durationMs: number): string {
@@ -2257,34 +2260,8 @@ onBeforeUnmount(() => {
   @apply m-0 text-sm leading-5 font-medium text-zinc-600;
 }
 
-.live-overlay-details {
-  @apply m-0 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs leading-5;
-  color: var(--codex-muted-text);
-}
-
-.live-overlay-detail {
-  @apply min-w-0 max-w-full truncate;
-}
-
-.live-overlay-detail + .live-overlay-detail::before {
-  content: '·';
-  margin-right: 0.5rem;
-  color: var(--codex-muted-text);
-}
-
 .live-overlay-reasoning {
-  @apply m-0 text-sm leading-5 text-zinc-500 whitespace-pre-wrap break-words;
-  display: block;
-  max-height: calc(1.25rem * 5);
-  overflow: auto;
-  overflow-wrap: anywhere;
-  scrollbar-width: none;
-  mask-image: linear-gradient(to top, black 75%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to top, black 75%, transparent 100%);
-}
-
-.live-overlay-reasoning::-webkit-scrollbar {
-  display: none;
+  @apply m-0 min-w-0 max-w-full truncate text-sm leading-5 text-zinc-500;
 }
 
 .live-overlay-error {

@@ -8,6 +8,7 @@ import {
   DICTATION_LANGUAGE_KEY,
   IN_PROGRESS_SEND_MODE_KEY,
   INSPECTOR_PANEL_OPEN_STORAGE_KEY,
+  LIVE_REASONING_TEXT_ENABLED_KEY,
   SEND_WITH_ENTER_KEY,
   SIDEBAR_COLLAPSED_STORAGE_KEY,
   TEXT_ANIMATIONS_ENABLED_KEY,
@@ -46,6 +47,14 @@ export function loadTextAnimationsPref(): boolean {
 
 export function saveTextAnimationsPref(value: boolean): void {
   saveBoolPref(TEXT_ANIMATIONS_ENABLED_KEY, value)
+}
+
+export function loadLiveReasoningTextPref(): boolean {
+  return loadBoolPref(LIVE_REASONING_TEXT_ENABLED_KEY, true)
+}
+
+export function saveLiveReasoningTextPref(value: boolean): void {
+  saveBoolPref(LIVE_REASONING_TEXT_ENABLED_KEY, value)
 }
 
 export function loadDictationEnabledPref(): boolean {

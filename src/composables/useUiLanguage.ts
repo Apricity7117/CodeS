@@ -438,6 +438,8 @@ const zhCN: Record<string, string> = {
   'Switch between system theme, light mode, and dark mode.': '在跟随系统、浅色和深色主题之间切换。',
   'Choose how wide the conversation column and composer can grow on desktop screens.': '选择桌面端会话列和输入框的最大宽度。',
   'Show shimmer animations on thinking and running status text.': '在思考和运行状态文本上显示扫光动画。',
+  'Live reasoning summary': '实时思考摘要',
+  'Show the latest live reasoning summary below the thinking timer.': '在思考计时下方显示最新一行实时思考摘要。',
   'Show voice input controls in the composer.': '在输入区显示语音输入控件。',
   'Use click-to-start and click-to-stop dictation instead of hold-to-talk.': '使用点击开始/停止听写，而不是按住说话。',
   'Automatically send transcribed dictation when recording stops.': '录音停止后自动发送转写结果。',
