@@ -39,6 +39,7 @@ import {
   startThreadTurn,
   type RpcNotification,
   type ModelCatalogResult,
+  type ResumedThread,
   type SkillInfo,
   type ThreadQueueState,
   type WorkspaceRootsState,
@@ -2058,6 +2059,39 @@ export function useDesktopState() {
   function markThreadNeedsResume(threadId: string): void {
     if (!threadId || resumedThreadById.value[threadId] !== true) return
     resumedThreadById.value = omitKey(resumedThreadById.value, threadId)
+  }
+
+  function applyResumedThreadSnapshot(threadId: string, resumedThread: ResumedThread): void {
+    setThreadModelId(threadId, resumedThread.model)
+    if (Array.isArray(resumedThread.messages)) {
+      setPersistedMessagesForThread(threadId, resumedThread.messages)
+    }
+    if (resumedThread.turnIndexByTurnId && typeof resumedThread.turnIndexByTurnId === 'object') {
+      replaceTurnIndexLookupForThread(threadId, resumedThread.turnIndexByTurnId)
+    }
+    hasMoreOlderMessagesByThreadId.value = {
+      ...hasMoreOlderMessagesByThreadId.value,
+      [threadId]: resumedThread.hasMoreOlder === true,
+    }
+    setThreadInProgress(threadId, resumedThread.inProgress === true)
+    if (resumedThread.activeTurnId) {
+      activeTurnIdByThreadId.value = {
+        ...activeTurnIdByThreadId.value,
+        [threadId]: resumedThread.activeTurnId,
+      }
+    } else if (activeTurnIdByThreadId.value[threadId]) {
+      activeTurnIdByThreadId.value = omitKey(activeTurnIdByThreadId.value, threadId)
+    }
+  }
+
+  async function ensureThreadResumedForHistoryMutation(threadId: string): Promise<void> {
+    if (!threadId || resumedThreadById.value[threadId] === true) return
+    const resumedThread = await resumeThread(threadId)
+    applyResumedThreadSnapshot(threadId, resumedThread)
+    resumedThreadById.value = {
+      ...resumedThreadById.value,
+      [threadId]: true,
+    }
   }
 
   async function retryPendingTurnWithFallback(threadId: string): Promise<void> {
@@ -5609,17 +5643,46 @@ export function useDesktopState() {
     if (isRollingBack.value) return false
     if (!turnId.trim()) return false
 
+    isRollingBack.value = true
+    error.value = ''
+    setTurnErrorForThread(threadId, null)
+    try {
+      await ensureThreadResumedForHistoryMutation(threadId)
+    } catch (unknownError) {
+      const errorMessage = unknownError instanceof Error ? unknownError.message : 'Failed to restore thread before rollback'
+      error.value = errorMessage
+      setTurnErrorForThread(threadId, errorMessage)
+      isRollingBack.value = false
+      return false
+    }
+
     const persisted = persistedMessagesByThreadId.value[threadId] ?? []
     const matchedMessage = persisted.find((message) => message.turnId === turnId)
     const turnIndex = typeof matchedMessage?.turnIndex === 'number' ? matchedMessage.turnIndex : -1
-    if (turnIndex < 0) return false
+    if (turnIndex < 0) {
+      const errorMessage = 'Could not find the selected message in this thread. Reload and try again.'
+      error.value = errorMessage
+      setTurnErrorForThread(threadId, errorMessage)
+      isRollingBack.value = false
+      return false
+    }
     const maxTurnIndex = persisted.reduce((max, m) => (typeof m.turnIndex === 'number' && m.turnIndex > max ? m.turnIndex : max), -1)
-    if (maxTurnIndex < 0 || turnIndex > maxTurnIndex) return false
+    if (maxTurnIndex < 0 || turnIndex > maxTurnIndex) {
+      const errorMessage = 'Could not determine how much history to roll back. Reload and try again.'
+      error.value = errorMessage
+      setTurnErrorForThread(threadId, errorMessage)
+      isRollingBack.value = false
+      return false
+    }
     const numTurns = maxTurnIndex - turnIndex + 1
-    if (numTurns < 1) return false
+    if (numTurns < 1) {
+      const errorMessage = 'Could not determine how much history to roll back. Reload and try again.'
+      error.value = errorMessage
+      setTurnErrorForThread(threadId, errorMessage)
+      isRollingBack.value = false
+      return false
+    }
 
-    isRollingBack.value = true
-    error.value = ''
     try {
       const threadCwd = selectedThread.value?.cwd?.trim() ?? ''
       if (threadCwd) {
@@ -5628,6 +5691,7 @@ export function useDesktopState() {
       const nextMessages = await rollbackThread(threadId, numTurns)
       setPersistedMessagesForThread(threadId, nextMessages)
       markThreadNeedsResume(threadId)
+      setThreadInProgress(threadId, false)
       setLiveAgentMessagesForThread(threadId, [])
       clearLiveReasoningForThread(threadId)
       if (liveCommandsByThreadId.value[threadId]) {
@@ -5640,7 +5704,9 @@ export function useDesktopState() {
       await syncFromNotifications()
       return true
     } catch (unknownError) {
-      error.value = unknownError instanceof Error ? unknownError.message : 'Failed to rollback thread'
+      const errorMessage = unknownError instanceof Error ? unknownError.message : 'Failed to rollback thread'
+      error.value = errorMessage
+      setTurnErrorForThread(threadId, errorMessage)
       return false
     } finally {
       isRollingBack.value = false

@@ -1135,6 +1135,203 @@ describe('history message editing', () => {
       'default',
     )
   })
+
+  it('restores an unresumed latest thread before rollback, then clears stale in-progress state before sending the edited turn', async () => {
+    installTestWindow()
+    const latestThreadMessages: UiMessage[] = [
+      uiMessage({
+        id: 'latest-user-turn',
+        role: 'user',
+        text: 'old latest prompt',
+        turnId: 'turn-latest',
+        turnIndex: 0,
+      }),
+      uiMessage({
+        id: 'latest-assistant-turn',
+        role: 'assistant',
+        text: 'old latest answer',
+        turnId: 'turn-latest',
+        turnIndex: 0,
+      }),
+    ]
+
+    setupRefreshMocks([
+      {
+        projectName: 'alpha',
+        threads: [thread('thread-latest', '/tmp/alpha')],
+      },
+    ])
+    gatewayMocks.getPendingServerRequests.mockResolvedValue([])
+    gatewayMocks.getThreadDetail.mockResolvedValue({
+      messages: latestThreadMessages,
+      inProgress: true,
+      activeTurnId: 'turn-latest',
+      hasMoreOlder: false,
+      turnIndexByTurnId: { 'turn-latest': 0 },
+    })
+    gatewayMocks.rollbackThread.mockResolvedValue([])
+    gatewayMocks.resumeThread.mockResolvedValue({ model: 'gpt-5.4' })
+    gatewayMocks.startThreadTurn.mockResolvedValue('turn-edited')
+
+    const state = useDesktopState()
+    state.primeSelectedThread('thread-latest')
+    await state.refreshAll({ includeSelectedThreadMessages: true, awaitAncillaryRefreshes: true })
+
+    expect(state.selectedThreadInProgress.value).toBe(true)
+
+    await expect(state.rollbackSelectedThread('turn-latest')).resolves.toBe(true)
+
+    expect(state.selectedThreadInProgress.value).toBe(false)
+
+    await state.sendMessageToSelectedThread('edited latest prompt')
+
+    expect(gatewayMocks.resumeThread).toHaveBeenCalledTimes(2)
+    expect(gatewayMocks.resumeThread.mock.invocationCallOrder[0]).toBeLessThan(
+      gatewayMocks.rollbackThread.mock.invocationCallOrder[0],
+    )
+    expect(gatewayMocks.rollbackThread.mock.invocationCallOrder[0]).toBeLessThan(
+      gatewayMocks.resumeThread.mock.invocationCallOrder[1],
+    )
+    expect(gatewayMocks.startThreadTurn).toHaveBeenLastCalledWith(
+      'thread-latest',
+      'edited latest prompt',
+      [],
+      'gpt-5.4',
+      'medium',
+      undefined,
+      [],
+      'default',
+    )
+  })
+
+  it('restores each selected old thread before rollback when editing multiple history threads in sequence', async () => {
+    installTestWindow()
+    const firstThreadMessages: UiMessage[] = [
+      uiMessage({
+        id: 'first-user-turn',
+        role: 'user',
+        text: 'first old prompt',
+        turnId: 'first-turn',
+        turnIndex: 0,
+      }),
+      uiMessage({
+        id: 'first-assistant-turn',
+        role: 'assistant',
+        text: 'first old answer',
+        turnId: 'first-turn',
+        turnIndex: 0,
+      }),
+    ]
+    const secondThreadMessages: UiMessage[] = [
+      uiMessage({
+        id: 'second-user-turn-1',
+        role: 'user',
+        text: 'second first prompt',
+        turnId: 'second-turn-1',
+        turnIndex: 0,
+      }),
+      uiMessage({
+        id: 'second-assistant-turn-1',
+        role: 'assistant',
+        text: 'second first answer',
+        turnId: 'second-turn-1',
+        turnIndex: 0,
+      }),
+      uiMessage({
+        id: 'second-user-turn-2',
+        role: 'user',
+        text: 'second old prompt',
+        turnId: 'second-turn-2',
+        turnIndex: 1,
+      }),
+      uiMessage({
+        id: 'second-assistant-turn-2',
+        role: 'assistant',
+        text: 'second old answer',
+        turnId: 'second-turn-2',
+        turnIndex: 1,
+      }),
+    ]
+
+    setupRefreshMocks([
+      {
+        projectName: 'alpha',
+        threads: [
+          thread('thread-first-old', '/tmp/alpha'),
+          thread('thread-second-old', '/tmp/alpha'),
+        ],
+      },
+    ])
+    gatewayMocks.getPendingServerRequests.mockResolvedValue([])
+    gatewayMocks.getThreadDetail.mockImplementation(async (threadId: string) => {
+      if (threadId === 'thread-second-old') {
+        return {
+          messages: secondThreadMessages,
+          inProgress: false,
+          activeTurnId: '',
+          hasMoreOlder: false,
+          turnIndexByTurnId: { 'second-turn-1': 0, 'second-turn-2': 1 },
+        }
+      }
+      return {
+        messages: firstThreadMessages,
+        inProgress: false,
+        activeTurnId: '',
+        hasMoreOlder: false,
+        turnIndexByTurnId: { 'first-turn': 0 },
+      }
+    })
+    gatewayMocks.resumeThread.mockImplementation(async (threadId: string) => ({
+      model: 'gpt-5.4',
+      messages: threadId === 'thread-second-old' ? secondThreadMessages : firstThreadMessages,
+      inProgress: false,
+      activeTurnId: '',
+      hasMoreOlder: false,
+      turnIndexByTurnId: threadId === 'thread-second-old'
+        ? { 'second-turn-1': 0, 'second-turn-2': 1 }
+        : { 'first-turn': 0 },
+    }))
+    gatewayMocks.rollbackThread.mockImplementation(async (threadId: string) => (
+      threadId === 'thread-second-old' ? secondThreadMessages.slice(0, 2) : []
+    ))
+    gatewayMocks.startThreadTurn.mockImplementation(async (threadId: string) => (
+      threadId === 'thread-second-old' ? 'second-edited-turn' : 'first-edited-turn'
+    ))
+
+    const state = useDesktopState()
+    state.primeSelectedThread('thread-first-old')
+    await state.refreshAll({ includeSelectedThreadMessages: true, awaitAncillaryRefreshes: true })
+
+    await expect(state.rollbackSelectedThread('first-turn')).resolves.toBe(true)
+    await state.sendMessageToSelectedThread('first edited prompt')
+
+    await state.selectThread('thread-second-old')
+    await expect(state.rollbackSelectedThread('second-turn-2')).resolves.toBe(true)
+    await state.sendMessageToSelectedThread('second edited prompt')
+
+    expect(gatewayMocks.resumeThread).toHaveBeenCalledTimes(4)
+    expect(gatewayMocks.rollbackThread).toHaveBeenNthCalledWith(2, 'thread-second-old', 1)
+    expect(gatewayMocks.startThreadTurn).toHaveBeenCalledTimes(2)
+    expect(gatewayMocks.resumeThread.mock.invocationCallOrder[2]).toBeLessThan(
+      gatewayMocks.rollbackThread.mock.invocationCallOrder[1],
+    )
+    expect(gatewayMocks.rollbackThread.mock.invocationCallOrder[1]).toBeLessThan(
+      gatewayMocks.resumeThread.mock.invocationCallOrder[3],
+    )
+    expect(gatewayMocks.resumeThread.mock.invocationCallOrder[3]).toBeLessThan(
+      gatewayMocks.startThreadTurn.mock.invocationCallOrder[1],
+    )
+    expect(gatewayMocks.startThreadTurn).toHaveBeenLastCalledWith(
+      'thread-second-old',
+      'second edited prompt',
+      [],
+      'gpt-5.4',
+      'medium',
+      undefined,
+      [],
+      'default',
+    )
+  })
 })
 
 describe('Codex CLI restart state', () => {
