@@ -21,6 +21,7 @@
     :class="{
       'cmd-output-visible': expanded,
       'cmd-output-grouped': grouped,
+      'cmd-output-empty': !hasOutput,
     }"
   >
     <div class="cmd-output-inner">
@@ -56,6 +57,7 @@ defineEmits<{
 }>()
 
 const commandText = computed(() => props.message.commandExecution?.command || '(command)')
+const hasOutput = computed(() => (props.message.commandExecution?.aggregatedOutput ?? '').trim().length > 0)
 const outputText = computed(() => props.message.commandExecution?.aggregatedOutput || '(no output)')
 </script>
 
@@ -127,6 +129,7 @@ const outputText = computed(() => props.message.commandExecution?.aggregatedOutp
   @apply rounded-b-lg;
   display: grid;
   grid-template-rows: 0fr;
+  width: 100%;
   background-color: transparent;
   border: 0 solid transparent;
   border-top: none;
@@ -135,9 +138,9 @@ const outputText = computed(() => props.message.commandExecution?.aggregatedOutp
 
 .cmd-output-wrap.cmd-output-visible {
   grid-template-rows: 1fr;
-  background-color: var(--color-zinc-900);
+  background-color: var(--codex-file-summary-bg);
   border-width: 0 1px 1px;
-  border-color: #e4e4e7;
+  border-color: var(--codex-file-summary-border);
 }
 
 .cmd-output-inner {
@@ -145,10 +148,20 @@ const outputText = computed(() => props.message.commandExecution?.aggregatedOutp
   overflow: hidden;
 }
 
+.cmd-output-wrap.cmd-output-visible.cmd-output-empty .cmd-output-inner {
+  min-height: 2.5rem;
+}
+
 .cmd-output {
-  @apply m-0 max-h-60 overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-zinc-200;
+  @apply m-0 max-h-60 overflow-y-auto whitespace-pre-wrap break-words px-3 py-2;
+  color: var(--codex-text);
   font-family: var(--codex-code-font-family);
   font-size: var(--codex-code-font-size);
+  line-height: 1.55;
+}
+
+.cmd-output-wrap.cmd-output-empty .cmd-output {
+  color: var(--codex-muted-text);
 }
 
 .cmd-output.cmd-output-condensed {

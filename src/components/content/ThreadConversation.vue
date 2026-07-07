@@ -401,7 +401,6 @@ import {
 type HighlightJsModule = (typeof import('highlight.js/lib/common'))['default']
 
 const expandedCommandIds = ref<Set<string>>(new Set())
-const collapsedAutoCommandIds = ref<Set<string>>(new Set())
 const expandedCommandGroupIds = ref<Set<string>>(new Set())
 const expandedWorkedIds = ref<Set<string>>(new Set())
 const expandedFileChangeSummaryIds = ref<Set<string>>(new Set())
@@ -528,14 +527,9 @@ function getProcessMessagesForWorked(message: UiMessage): UiMessage[] {
 
 const hiddenWorkedProcessMessageIds = computed(() => workedTurnGroups.value.hiddenProcessIds)
 
-function isCommandAutoExpanded(message: UiMessage): boolean {
-  return !hasLiveAssistantText.value && message.id === activeCommandMessageId.value
-}
-
 function isCommandExpanded(message: UiMessage): boolean {
   if (!isCommandMessage(message)) return false
   return expandedCommandIds.value.has(message.id)
-    || (!collapsedAutoCommandIds.value.has(message.id) && isCommandAutoExpanded(message))
 }
 
 function isCommandCompact(message: UiMessage): boolean {
@@ -550,22 +544,10 @@ function toggleCommandExpand(message: UiMessage): void {
   if (!isCommandMessage(message)) return
 
   const nextExpanded = new Set(expandedCommandIds.value)
-  const nextCollapsedAuto = new Set(collapsedAutoCommandIds.value)
-  const isAutoExpanded = isCommandAutoExpanded(message)
-  const isManuallyExpanded = nextExpanded.has(message.id)
-
-  if (isManuallyExpanded) {
-    nextExpanded.delete(message.id)
-    if (isAutoExpanded) nextCollapsedAuto.add(message.id)
-  } else if (isAutoExpanded && !nextCollapsedAuto.has(message.id)) {
-    nextCollapsedAuto.add(message.id)
-  } else {
-    nextExpanded.add(message.id)
-    nextCollapsedAuto.delete(message.id)
-  }
+  if (nextExpanded.has(message.id)) nextExpanded.delete(message.id)
+  else nextExpanded.add(message.id)
 
   expandedCommandIds.value = nextExpanded
-  collapsedAutoCommandIds.value = nextCollapsedAuto
 }
 
 function getGroupedCommandsForLatest(message: UiMessage): UiMessage[] {
@@ -1940,7 +1922,6 @@ watch(
         .map((message) => message.id),
     )
     expandedCommandIds.value = pruneCommandIdSet(expandedCommandIds.value, commandIds)
-    collapsedAutoCommandIds.value = pruneCommandIdSet(collapsedAutoCommandIds.value, commandIds)
     expandedCommandGroupIds.value = pruneCommandIdSet(
       expandedCommandGroupIds.value,
       new Set(Object.keys(groupedCommandsByLatestId.value)),
@@ -1975,17 +1956,6 @@ watch(
     void ensureHighlightJsLoaded()
   },
   { immediate: true },
-)
-
-watch(
-  activeCommandMessageId,
-  (nextId, prevId) => {
-    if (!prevId || prevId === nextId) return
-    if (!collapsedAutoCommandIds.value.has(prevId)) return
-    const nextCollapsedAuto = new Set(collapsedAutoCommandIds.value)
-    nextCollapsedAuto.delete(prevId)
-    collapsedAutoCommandIds.value = nextCollapsedAuto
-  },
 )
 
 watch(

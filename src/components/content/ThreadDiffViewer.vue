@@ -171,23 +171,32 @@ function displayPath(pathValue: string): string {
 }
 
 .diff-viewer-shell {
-  @apply relative grid h-[min(88vh,920px)] w-[min(96vw,1320px)] grid-cols-1 overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl lg:grid-cols-[320px_minmax(0,1fr)];
+  @apply relative grid h-[min(86vh,900px)] w-[min(94vw,1320px)] grid-cols-1 overflow-hidden border shadow-2xl lg:grid-cols-[320px_minmax(0,1fr)];
+  border-radius: var(--codex-radius-2xl);
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-panel-surface);
+  color: var(--codex-text);
 }
 
 .diff-viewer-sidebar {
-  @apply flex min-h-0 flex-col border-b border-zinc-200 bg-zinc-50 lg:border-b-0 lg:border-r;
+  @apply flex min-h-0 flex-col border-b lg:border-b-0 lg:border-r;
+  border-color: var(--codex-border);
+  background-color: var(--codex-surface);
 }
 
 .diff-viewer-sidebar-header {
-  @apply flex items-center justify-between gap-3 border-b border-zinc-200 px-4 py-4;
+  @apply flex items-center justify-between gap-3 border-b px-4 py-4;
+  border-color: var(--codex-border);
 }
 
 .diff-viewer-sidebar-title {
-  @apply m-0 text-sm font-semibold text-zinc-900;
+  @apply m-0 text-sm font-semibold;
+  color: var(--codex-text);
 }
 
 .diff-viewer-sidebar-count {
-  @apply m-0 text-xs font-medium text-zinc-500;
+  @apply m-0 text-xs font-medium;
+  color: var(--codex-muted-text);
 }
 
 .diff-viewer-sidebar-list {
@@ -195,11 +204,20 @@ function displayPath(pathValue: string): string {
 }
 
 .diff-viewer-file-button {
-  @apply flex w-full flex-col items-start gap-2 rounded-2xl border border-transparent bg-transparent px-3 py-3 text-left transition hover:border-zinc-200 hover:bg-white;
+  @apply flex w-full flex-col items-start gap-2 border border-transparent bg-transparent px-3 py-3 text-left transition;
+  border-radius: var(--codex-radius-lg);
+  color: var(--codex-text);
+}
+
+.diff-viewer-file-button:hover {
+  border-color: var(--codex-border);
+  background-color: var(--codex-control-hover);
 }
 
 .diff-viewer-file-button[data-active='true'] {
-  @apply border-sky-200 bg-white shadow-sm;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  box-shadow: inset 2px 0 0 var(--codex-accent);
 }
 
 .file-change-badge {
@@ -225,19 +243,27 @@ function displayPath(pathValue: string): string {
 }
 
 .diff-viewer-file-label {
-  @apply break-all font-mono text-[13px] text-zinc-700;
+  @apply font-mono text-[13px];
+  color: var(--codex-text);
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .diff-viewer-file-delta {
-  @apply inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-600;
+  @apply inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium;
+  background-color: var(--codex-control-bg);
+  color: var(--codex-muted-text);
 }
 
 .diff-viewer-main {
-  @apply flex min-h-0 flex-col bg-white;
+  @apply flex min-h-0 flex-col;
+  background-color: var(--codex-panel-surface);
 }
 
 .diff-viewer-toolbar {
-  @apply flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4;
+  @apply flex items-start justify-between gap-4 border-b px-5 py-4;
+  border-color: var(--codex-border);
+  background-color: var(--codex-panel-surface);
 }
 
 .diff-viewer-toolbar-actions {
@@ -249,19 +275,35 @@ function displayPath(pathValue: string): string {
 }
 
 .diff-viewer-title {
-  @apply m-0 break-all text-base font-semibold text-zinc-900;
+  @apply m-0 break-all text-base font-semibold;
+  color: var(--codex-text);
 }
 
 .diff-viewer-subtitle {
-  @apply mt-1 mb-0 text-sm text-zinc-500;
+  @apply mt-1 mb-0 text-sm;
+  color: var(--codex-muted-text);
 }
 
 .diff-viewer-close {
-  @apply static inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-zinc-100 text-zinc-700;
+  @apply static inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border;
+  border-color: var(--codex-border);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.diff-viewer-close:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .diff-viewer-mobile-files-button {
-  @apply inline-flex items-center rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700;
+  @apply inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium;
+  border-color: var(--codex-border);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.diff-viewer-mobile-files-button:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .diff-viewer-empty {
@@ -269,11 +311,13 @@ function displayPath(pathValue: string): string {
 }
 
 .diff-viewer-empty-title {
-  @apply m-0 text-base font-semibold text-zinc-900;
+  @apply m-0 text-base font-semibold;
+  color: var(--codex-text);
 }
 
 .diff-viewer-empty-text {
-  @apply mt-2 max-w-2xl text-sm leading-relaxed text-zinc-500;
+  @apply mt-2 max-w-2xl text-sm leading-relaxed;
+  color: var(--codex-muted-text);
 }
 
 .diff-viewer-panel {
@@ -281,15 +325,20 @@ function displayPath(pathValue: string): string {
 }
 
 .diff-viewer-meta {
-  @apply border-b border-zinc-200 bg-zinc-50 px-5 py-2;
+  @apply border-b px-5 py-2;
+  border-color: var(--codex-border);
+  background-color: var(--codex-file-summary-bg);
 }
 
 .diff-viewer-language {
-  @apply inline-flex items-center rounded-full bg-zinc-200 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700;
+  @apply inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-normal;
+  background-color: var(--codex-control-bg);
+  color: var(--codex-muted-text);
 }
 
 .diff-viewer-lines {
-  @apply min-h-0 flex-1 overflow-auto bg-zinc-950;
+  @apply min-h-0 flex-1 overflow-auto;
+  background-color: var(--codex-file-summary-bg);
 }
 
 .diff-viewer-line {
@@ -300,35 +349,40 @@ function displayPath(pathValue: string): string {
 }
 
 .diff-viewer-line-number {
-  @apply border-r border-zinc-800 px-3 py-1.5 text-right font-mono text-xs text-zinc-500 select-none;
+  @apply border-r px-3 py-1.5 text-right font-mono text-xs select-none;
+  border-color: var(--codex-file-row-border);
+  color: var(--codex-muted-text);
 }
 
 .diff-viewer-line-marker {
-  @apply border-r border-zinc-800 px-2 py-1.5 text-center font-mono text-xs text-zinc-500 select-none;
+  @apply border-r px-2 py-1.5 text-center font-mono text-xs select-none;
+  border-color: var(--codex-file-row-border);
+  color: var(--codex-muted-text);
 }
 
 .diff-viewer-line-code {
-  @apply block whitespace-pre px-3 py-1.5 leading-5 text-zinc-100;
+  @apply block whitespace-pre px-3 py-1.5 leading-5;
+  color: var(--codex-text);
   font-family: var(--codex-code-font-family);
   font-size: var(--codex-code-font-size);
 }
 
 .diff-viewer-line[data-kind='meta'] {
-  @apply bg-zinc-900;
+  background-color: color-mix(in srgb, var(--codex-text) 7%, var(--codex-file-summary-bg));
 }
 
 .diff-viewer-line[data-kind='meta'] .diff-viewer-line-code,
 .diff-viewer-line[data-kind='meta'] .diff-viewer-line-marker {
-  @apply text-sky-300;
+  color: var(--codex-link);
 }
 
 .diff-viewer-line[data-kind='hunk'] {
-  @apply bg-sky-950/40;
+  background-color: color-mix(in srgb, var(--codex-accent) 12%, var(--codex-file-summary-bg));
 }
 
 .diff-viewer-line[data-kind='hunk'] .diff-viewer-line-code,
 .diff-viewer-line[data-kind='hunk'] .diff-viewer-line-marker {
-  @apply text-sky-300;
+  color: var(--codex-link);
 }
 
 .diff-viewer-line[data-kind='add'] {
@@ -350,11 +404,11 @@ function displayPath(pathValue: string): string {
 }
 
 .diff-viewer-line[data-kind='context'] {
-  @apply bg-zinc-950;
+  background-color: var(--codex-file-summary-bg);
 }
 
 .diff-viewer-line[data-kind='context'] .diff-viewer-line-code {
-  @apply text-zinc-100;
+  color: var(--codex-text);
 }
 
 .diff-viewer-mobile-sheet-backdrop {
@@ -362,15 +416,19 @@ function displayPath(pathValue: string): string {
 }
 
 .diff-viewer-mobile-sheet {
-  @apply w-full max-h-[70vh] rounded-t-3xl bg-white shadow-2xl border-t border-zinc-200 flex flex-col overflow-hidden;
+  @apply w-full max-h-[70vh] rounded-t-3xl shadow-2xl border-t flex flex-col overflow-hidden;
+  border-color: var(--codex-border);
+  background-color: var(--codex-panel-surface);
 }
 
 .diff-viewer-mobile-sheet-handle {
-  @apply mx-auto mt-3 h-1.5 w-12 rounded-full bg-zinc-300;
+  @apply mx-auto mt-3 h-1.5 w-12 rounded-full;
+  background-color: var(--codex-border-heavy);
 }
 
 .diff-viewer-mobile-sheet-header {
-  @apply flex items-center justify-between gap-3 px-4 pt-3 pb-2 border-b border-zinc-200;
+  @apply flex items-center justify-between gap-3 px-4 pt-3 pb-2 border-b;
+  border-color: var(--codex-border);
 }
 
 .diff-viewer-mobile-sheet-list {
@@ -415,7 +473,8 @@ function displayPath(pathValue: string): string {
   }
 
   .diff-viewer-toolbar {
-    @apply sticky top-0 z-10 bg-white px-3 py-3;
+    @apply sticky top-0 z-10 px-3 py-3;
+    background-color: var(--codex-panel-surface);
   }
 
   .diff-viewer-title {

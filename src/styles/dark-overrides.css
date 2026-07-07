@@ -890,7 +890,7 @@
 }
 
 :root.dark .cmd-output-wrap.cmd-output-visible {
-  @apply border-zinc-700;
+  border-color: var(--codex-file-summary-border);
 }
 
 :root.dark .file-change-summary-label {
@@ -954,91 +954,103 @@
 }
 
 :root.dark .diff-viewer-shell {
-  @apply border-zinc-700 bg-zinc-900;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-panel-surface);
 }
 
 :root.dark .diff-viewer-sidebar {
-  @apply border-zinc-700 bg-zinc-950;
+  border-color: var(--codex-border);
+  background-color: var(--codex-surface);
 }
 
 :root.dark .diff-viewer-sidebar-header {
-  @apply border-zinc-700;
+  border-color: var(--codex-border);
 }
 
 :root.dark .diff-viewer-sidebar-title {
-  @apply text-zinc-100;
+  color: var(--codex-text);
 }
 
 :root.dark .diff-viewer-sidebar-count {
-  @apply text-zinc-400;
+  color: var(--codex-muted-text);
 }
 
 :root.dark .diff-viewer-file-button {
-  @apply hover:border-zinc-700 hover:bg-zinc-900;
+  color: var(--codex-text);
 }
 
 :root.dark .diff-viewer-file-button[data-active='true'] {
-  @apply border-sky-800 bg-zinc-900;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
 }
 
 :root.dark .diff-viewer-file-label {
-  @apply text-zinc-200;
+  color: var(--codex-text);
 }
 
 :root.dark .diff-viewer-file-delta {
-  @apply bg-zinc-800 text-zinc-300;
+  background-color: var(--codex-control-bg);
+  color: var(--codex-muted-text);
 }
 
 :root.dark .diff-viewer-main {
-  @apply bg-zinc-900;
+  background-color: var(--codex-panel-surface);
 }
 
 :root.dark .diff-viewer-toolbar {
-  @apply border-zinc-700 bg-zinc-900;
+  border-color: var(--codex-border);
+  background-color: var(--codex-panel-surface);
 }
 
 :root.dark .diff-viewer-mobile-files-button {
-  @apply border-zinc-700 bg-zinc-800 text-zinc-200;
+  border-color: var(--codex-border);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
 }
 
 :root.dark .diff-viewer-title {
-  @apply text-zinc-100;
+  color: var(--codex-text);
 }
 
 :root.dark .diff-viewer-subtitle {
-  @apply text-zinc-400;
+  color: var(--codex-muted-text);
 }
 
 :root.dark .diff-viewer-empty-title {
-  @apply text-zinc-100;
+  color: var(--codex-text);
 }
 
 :root.dark .diff-viewer-empty-text {
-  @apply text-zinc-400;
+  color: var(--codex-muted-text);
 }
 
 :root.dark .diff-viewer-meta {
-  @apply border-zinc-700 bg-zinc-950;
+  border-color: var(--codex-border);
+  background-color: var(--codex-file-summary-bg);
 }
 
 :root.dark .diff-viewer-language {
-  @apply bg-zinc-800 text-zinc-300;
+  background-color: var(--codex-control-bg);
+  color: var(--codex-muted-text);
 }
 
 :root.dark .diff-viewer-mobile-sheet {
-  @apply border-zinc-700 bg-zinc-900;
+  border-color: var(--codex-border);
+  background-color: var(--codex-panel-surface);
 }
 
 :root.dark .diff-viewer-mobile-sheet-handle {
-  @apply bg-zinc-700;
+  background-color: var(--codex-border-heavy);
 }
 
 :root.dark .diff-viewer-mobile-sheet-header {
-  @apply border-zinc-700;
+  border-color: var(--codex-border);
 }
 
 :root.dark .diff-viewer-close {
-  @apply border-zinc-700 bg-zinc-800 text-zinc-100;
+  border-color: var(--codex-border);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
 }
 
 :root.dark .review-pane {
