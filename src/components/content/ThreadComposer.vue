@@ -2181,25 +2181,25 @@ watch(
 }
 
 .thread-composer-skill-chip {
-  @apply inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs;
-  border-color: var(--codex-skill-border);
-  background-color: var(--codex-skill-bg);
-  color: var(--codex-skill-fg);
+  @apply inline-flex max-w-full items-center gap-1 rounded-md border px-2.5 py-0.5 text-xs font-medium leading-5 transition-colors;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-subtle-surface);
+  color: var(--codex-text);
 }
 
 .thread-composer-skill-chip-name {
-  @apply min-w-0 max-w-[12rem] truncate border-0 bg-transparent p-0 text-left font-medium text-inherit underline-offset-2 transition hover:underline focus-visible:outline-none focus-visible:ring-1;
+  @apply min-w-0 max-w-[12rem] truncate border-0 bg-transparent p-0 text-left text-inherit underline-offset-2 transition hover:underline focus-visible:outline-none focus-visible:ring-1;
   --tw-ring-color: var(--codex-focus-ring);
 }
 
 .thread-composer-skill-chip-remove {
-  @apply ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border-0 bg-transparent transition text-xs leading-none p-0;
-  color: var(--codex-skill-fg);
+  @apply ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border-0 bg-transparent p-0 text-xs leading-none transition-colors;
+  color: var(--codex-muted-text);
 }
 
 .thread-composer-skill-chip-remove:hover {
-  background-color: color-mix(in srgb, var(--codex-skill-bg) 70%, var(--codex-skill) 30%);
-  color: var(--codex-skill-fg);
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
 }
 
 .thread-composer-rate-limit {

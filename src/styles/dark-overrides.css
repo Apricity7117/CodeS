@@ -902,12 +902,6 @@
   color: var(--codex-link-hover);
 }
 
-:root.dark .thread-composer-skill-chip {
-  border-color: var(--codex-skill-border);
-  background-color: var(--codex-skill-bg);
-  color: var(--codex-skill-fg);
-}
-
 :root.dark .thread-composer-input::placeholder {
   @apply text-zinc-500;
 }
