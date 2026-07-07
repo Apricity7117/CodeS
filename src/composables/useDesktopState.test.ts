@@ -1042,6 +1042,101 @@ describe('optimistic submitted user messages', () => {
   })
 })
 
+describe('history message editing', () => {
+  it('resumes a previously restored thread again after rollback before sending the edited turn', async () => {
+    installTestWindow()
+    const historyMessages: UiMessage[] = [
+      uiMessage({
+        id: 'user-turn-1',
+        role: 'user',
+        text: 'first prompt',
+        turnId: 'turn-1',
+        turnIndex: 0,
+      }),
+      uiMessage({
+        id: 'assistant-turn-1',
+        role: 'assistant',
+        text: 'first answer',
+        turnId: 'turn-1',
+        turnIndex: 0,
+      }),
+      uiMessage({
+        id: 'user-turn-2',
+        role: 'user',
+        text: 'old prompt',
+        turnId: 'turn-2',
+        turnIndex: 1,
+      }),
+      uiMessage({
+        id: 'assistant-turn-2',
+        role: 'assistant',
+        text: 'old answer',
+        turnId: 'turn-2',
+        turnIndex: 1,
+      }),
+    ]
+    let emitNotification: (notification: { method: string; params?: unknown; atIso?: string }) => void = () => {}
+
+    setupRefreshMocks([
+      {
+        projectName: 'alpha',
+        threads: [thread('thread-a', '/tmp/alpha')],
+      },
+    ])
+    gatewayMocks.getPendingServerRequests.mockResolvedValue([])
+    gatewayMocks.subscribeCodexNotifications.mockImplementation((callback) => {
+      emitNotification = callback
+      return vi.fn()
+    })
+    gatewayMocks.getThreadDetail.mockResolvedValue({
+      messages: historyMessages,
+      inProgress: false,
+      activeTurnId: '',
+      hasMoreOlder: false,
+      turnIndexByTurnId: { 'turn-1': 0, 'turn-2': 1 },
+    })
+    gatewayMocks.resumeThread.mockResolvedValue({ model: 'gpt-5.4' })
+    gatewayMocks.startThreadTurn
+      .mockResolvedValueOnce('turn-3')
+      .mockResolvedValueOnce('turn-4')
+    gatewayMocks.rollbackThread.mockResolvedValue(historyMessages.slice(0, 2))
+
+    const state = useDesktopState()
+    state.primeSelectedThread('thread-a')
+    await state.refreshAll({ includeSelectedThreadMessages: true, awaitAncillaryRefreshes: true })
+    state.startPolling()
+
+    await state.sendMessageToSelectedThread('warm up restore state')
+    expect(gatewayMocks.resumeThread).toHaveBeenCalledTimes(1)
+
+    emitNotification({
+      method: 'turn/completed',
+      params: {
+        threadId: 'thread-a',
+        turnId: 'turn-3',
+        turn: { id: 'turn-3', status: 'completed' },
+      },
+      atIso: '2026-07-07T10:00:00.000Z',
+    })
+
+    await expect(state.rollbackSelectedThread('turn-2')).resolves.toBe(true)
+    await state.sendMessageToSelectedThread('edited prompt')
+
+    expect(gatewayMocks.rollbackThread).toHaveBeenCalledWith('thread-a', 1)
+    expect(gatewayMocks.resumeThread).toHaveBeenCalledTimes(2)
+    expect(gatewayMocks.startThreadTurn).toHaveBeenLastCalledWith(
+      'thread-a',
+      'edited prompt',
+      [],
+      'gpt-5.4',
+      'medium',
+      undefined,
+      [],
+      'default',
+    )
+  })
+})
+
 describe('Codex CLI restart state', () => {
   it('requires inline confirmation before restarting and refreshing app-server backed state', async () => {
     installTestWindow()

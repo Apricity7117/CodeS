@@ -2055,7 +2055,10 @@ export function useDesktopState() {
     pendingTurnRequestByThreadId.value = omitKey(pendingTurnRequestByThreadId.value, threadId)
   }
 
-
+  function markThreadNeedsResume(threadId: string): void {
+    if (!threadId || resumedThreadById.value[threadId] !== true) return
+    resumedThreadById.value = omitKey(resumedThreadById.value, threadId)
+  }
 
   async function retryPendingTurnWithFallback(threadId: string): Promise<void> {
     if (fallbackRetryInFlightThreadIds.has(threadId)) return
@@ -2077,6 +2080,7 @@ export function useDesktopState() {
       try {
         const rolledBackMessages = await rollbackThread(threadId, 1)
         setPersistedMessagesForThread(threadId, rolledBackMessages)
+        markThreadNeedsResume(threadId)
         removedFailedUserTurn = true
         clearLivePlansForThread(threadId)
         setLiveAgentMessagesForThread(threadId, [])
@@ -5158,6 +5162,7 @@ export function useDesktopState() {
       if (turnsToRollback > 0) {
         const rolledBackMessages = await rollbackThread(forkedThreadId, turnsToRollback)
         setPersistedMessagesForThread(forkedThreadId, rolledBackMessages)
+        markThreadNeedsResume(forkedThreadId)
       }
 
       await renameThreadById(forkedThreadId, forkedThreadTitle)
@@ -5622,6 +5627,7 @@ export function useDesktopState() {
       }
       const nextMessages = await rollbackThread(threadId, numTurns)
       setPersistedMessagesForThread(threadId, nextMessages)
+      markThreadNeedsResume(threadId)
       setLiveAgentMessagesForThread(threadId, [])
       clearLiveReasoningForThread(threadId)
       if (liveCommandsByThreadId.value[threadId]) {
