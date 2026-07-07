@@ -1204,6 +1204,79 @@ describe('history message editing', () => {
     )
   })
 
+  it('shows restoring thread activity while rollback restores an unresumed history thread', async () => {
+    installTestWindow()
+    const historyMessages: UiMessage[] = [
+      uiMessage({
+        id: 'history-user-turn',
+        role: 'user',
+        text: 'old prompt',
+        turnId: 'history-turn',
+        turnIndex: 0,
+      }),
+      uiMessage({
+        id: 'history-assistant-turn',
+        role: 'assistant',
+        text: 'old answer',
+        turnId: 'history-turn',
+        turnIndex: 0,
+      }),
+    ]
+    let resolveResumeThread: (value: {
+      model: string
+      messages: UiMessage[]
+      inProgress: boolean
+      activeTurnId: string
+      hasMoreOlder: boolean
+      turnIndexByTurnId: Record<string, number>
+    }) => void = () => {}
+
+    setupRefreshMocks([
+      {
+        projectName: 'alpha',
+        threads: [thread('thread-history-wait', '/tmp/alpha')],
+      },
+    ])
+    gatewayMocks.getPendingServerRequests.mockResolvedValue([])
+    gatewayMocks.getThreadDetail.mockResolvedValue({
+      messages: historyMessages,
+      inProgress: false,
+      activeTurnId: '',
+      hasMoreOlder: false,
+      turnIndexByTurnId: { 'history-turn': 0 },
+    })
+    gatewayMocks.resumeThread.mockImplementation(() => new Promise((resolve) => {
+      resolveResumeThread = resolve
+    }))
+    gatewayMocks.rollbackThread.mockResolvedValue([])
+
+    const state = useDesktopState()
+    state.primeSelectedThread('thread-history-wait')
+    await state.refreshAll({ includeSelectedThreadMessages: true, awaitAncillaryRefreshes: true })
+
+    const rollbackPromise = state.rollbackSelectedThread('history-turn')
+    await Promise.resolve()
+
+    expect(state.selectedThreadInProgress.value).toBe(false)
+    expect(state.selectedLiveOverlay.value).toMatchObject({
+      activityLabel: 'Restoring thread',
+      reasoningText: '',
+      errorText: '',
+    })
+
+    resolveResumeThread({
+      model: 'gpt-5.4',
+      messages: historyMessages,
+      inProgress: false,
+      activeTurnId: '',
+      hasMoreOlder: false,
+      turnIndexByTurnId: { 'history-turn': 0 },
+    })
+    await expect(rollbackPromise).resolves.toBe(true)
+
+    expect(state.selectedLiveOverlay.value).toBe(null)
+  })
+
   it('restores each selected old thread before rollback when editing multiple history threads in sequence', async () => {
     installTestWindow()
     const firstThreadMessages: UiMessage[] = [
@@ -1331,6 +1404,40 @@ describe('history message editing', () => {
       [],
       'default',
     )
+  })
+})
+
+describe('new thread activity', () => {
+  it('shows starting thread activity while the first new-thread request is creating the thread', async () => {
+    installTestWindow()
+    let resolveStartThread: (value: { threadId: string; model: string }) => void = () => {}
+
+    setupRefreshMocks([])
+    gatewayMocks.startThread.mockImplementation(() => new Promise((resolve) => {
+      resolveStartThread = resolve
+    }))
+    gatewayMocks.startThreadTurn.mockImplementation(() => new Promise(() => {}))
+
+    const state = useDesktopState()
+
+    const sendPromise = state.sendMessageToNewThread('start a new task', '/tmp/alpha')
+    await Promise.resolve()
+
+    expect(state.newThreadLiveOverlay.value).toMatchObject({
+      activityLabel: 'Starting thread',
+      reasoningText: '',
+      errorText: '',
+    })
+
+    resolveStartThread({ threadId: 'thread-new', model: 'gpt-5.4' })
+
+    await expect(sendPromise).resolves.toBe('thread-new')
+
+    expect(state.newThreadLiveOverlay.value).toBe(null)
+    expect(state.selectedLiveOverlay.value).toMatchObject({
+      activityLabel: 'Thinking',
+      errorText: '',
+    })
   })
 })
 

@@ -341,6 +341,8 @@ const zhCN: Record<string, string> = {
   'Collapse progress': '折叠进度',
   'Sources': '来源',
   'No sources yet': '暂无来源',
+  'Restoring thread': '正在恢复对话线程',
+  'Starting thread': '正在新建对话线程',
   'Thinking for {time}': '思考 {time}',
   '{label} for {time}': '{label} {time}',
   'No Git repository': '没有 Git 仓库',

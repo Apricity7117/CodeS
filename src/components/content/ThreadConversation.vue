@@ -342,6 +342,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { UiFileChange, UiLiveOverlay, UiMessage, UiPlanStep, UiServerRequest } from '../../types/codex'
 import { useMobile } from '../../composables/useMobile'
 import { useUiLanguage } from '../../composables/useUiLanguage'
+import { formatLiveOverlayDuration } from '../../utils/liveOverlay'
 import ThinkingShimmer from './ThinkingShimmer.vue'
 import ThreadCommandExecution from './ThreadCommandExecution.vue'
 import ThreadDiffViewer from './ThreadDiffViewer.vue'
@@ -732,21 +733,6 @@ const liveOverlayLatestReasoningLine = computed(() => {
   }
   return ''
 })
-
-function formatLiveOverlayDuration(durationMs: number): string {
-  const totalSeconds = Math.max(1, Math.round(durationMs / 1000))
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  const parts: string[] = []
-
-  if (hours > 0) parts.push(`${hours}h`)
-  if (minutes > 0 || hours > 0) parts.push(`${minutes}m`)
-
-  const displaySeconds = seconds > 0 || parts.length === 0 ? seconds : 0
-  parts.push(`${displaySeconds}s`)
-  return parts.join(' ')
-}
 
 function clearLiveOverlayTimer(): void {
   if (liveOverlayTimer === undefined) return

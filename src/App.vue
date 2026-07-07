@@ -430,6 +430,11 @@
               </div>
 
               <div class="composer-with-queue">
+                <div v-if="homeLiveOverlay" class="new-thread-live-overlay" aria-live="polite">
+                  <p class="new-thread-live-overlay-label">
+                    <ThinkingShimmer :message="homeLiveOverlayDisplayLabel" :active="textAnimationsEnabled" />
+                  </p>
+                </div>
                 <div v-if="codexCliMissingError" class="composer-runtime-error" role="alert">
                   <span>{{ t(codexCliMissingError) }}</span>
                 </div>
@@ -600,6 +605,7 @@ import ContentHeader from './components/content/ContentHeader.vue'
 import ThreadComposer from './components/content/ThreadComposer.vue'
 import ThreadPendingRequestPanel from './components/content/ThreadPendingRequestPanel.vue'
 import QueuedMessages from './components/content/QueuedMessages.vue'
+import ThinkingShimmer from './components/content/ThinkingShimmer.vue'
 import ComposerDropdown from './components/content/ComposerDropdown.vue'
 import ComposerRuntimeDropdown from './components/content/ComposerRuntimeDropdown.vue'
 import SidebarThreadControls from './components/sidebar/SidebarThreadControls.vue'
@@ -650,7 +656,7 @@ import {
   openProjectRoot,
   searchThreads,
 } from './api/codexGateway'
-import type { ReasoningEffort, SpeedMode, UiServerRequest, UiServerRequestReply, UiThreadTokenUsage } from './types/codex'
+import type { ReasoningEffort, SpeedMode, UiLiveOverlay, UiServerRequest, UiServerRequestReply, UiThreadTokenUsage } from './types/codex'
 import type { ComposerDraftPayload, ThreadComposerExposed } from './components/content/ThreadComposer.vue'
 import type { LocalDirectoryEntry, WorktreeBranchOption } from './api/codexGateway'
 import type {
@@ -659,6 +665,7 @@ import type {
 } from './app/appTypes'
 import { getPathLeafName, getPathParent, isProjectlessChatPath, normalizePathForUi } from './pathUtils.js'
 import { isImeComposingKeydown, shouldHandleEnterKeydown } from './utils/keyboard'
+import { formatLiveOverlayDuration } from './utils/liveOverlay'
 import { hasDuplicateFolderLeaf, isWorktreePath, joinPath, normalizeAbsolutePath } from './utils/pathHelpers'
 
 const ThreadConversation = defineAsyncComponent(() => import('./components/content/ThreadConversation.vue'))
@@ -680,6 +687,7 @@ const {
   selectedThreadTokenUsage,
   selectedThreadServerRequests,
   selectedLiveOverlay,
+  newThreadLiveOverlay,
   codexQuota,
   selectedThreadId,
   availableCollaborationModes,
@@ -907,6 +915,7 @@ const isEditingHistoryMessage = computed(() => {
   return Boolean(state && state.threadId === selectedThreadId.value)
 })
 const liveOverlay = computed(() => selectedLiveOverlay.value)
+const homeLiveOverlay = computed(() => (isHomeRoute.value ? newThreadLiveOverlay.value : null))
 const composerThreadContextId = computed(() => (isHomeRoute.value ? '__new-thread__' : selectedThreadId.value))
 const composerSelectedModelId = computed(() => readModelIdForThread(composerThreadContextId.value))
 const composerSelectedModelIsSelectable = computed(() => isModelSelectableForThread(composerThreadContextId.value))
@@ -935,6 +944,43 @@ const isAccountSwitchBlocked = computed(() =>
   isSelectedThreadInProgress.value ||
   selectedThreadServerRequests.value.length > 0,
 )
+const homeLiveOverlayNowMs = ref(Date.now())
+let homeLiveOverlayTimer: number | undefined
+const homeLiveOverlayDisplayLabel = computed(() => {
+  const overlay = homeLiveOverlay.value
+  return formatLiveOverlayDisplayLabel(overlay, homeLiveOverlayNowMs.value)
+})
+
+function formatLiveOverlayDisplayLabel(overlay: UiLiveOverlay | null, nowMs: number): string {
+  const baseLabel = overlay?.activityLabel?.trim() || 'Thinking'
+  const startedAtMs = overlay?.activityStartedAtMs
+  if (typeof startedAtMs !== 'number' || !Number.isFinite(startedAtMs)) return t(baseLabel)
+
+  const elapsedMs = Math.max(0, nowMs - startedAtMs)
+  if (elapsedMs < 1000) return t(baseLabel)
+
+  const time = formatLiveOverlayDuration(elapsedMs)
+  if (baseLabel === 'Thinking') {
+    return t('Thinking for {time}', { time })
+  }
+  return t('{label} for {time}', { label: t(baseLabel), time })
+}
+
+function clearHomeLiveOverlayTimer(): void {
+  if (homeLiveOverlayTimer === undefined) return
+  window.clearInterval(homeLiveOverlayTimer)
+  homeLiveOverlayTimer = undefined
+}
+
+function syncHomeLiveOverlayTimer(): void {
+  clearHomeLiveOverlayTimer()
+  const startedAtMs = homeLiveOverlay.value?.activityStartedAtMs
+  if (typeof startedAtMs !== 'number' || !Number.isFinite(startedAtMs)) return
+  homeLiveOverlayNowMs.value = Date.now()
+  homeLiveOverlayTimer = window.setInterval(() => {
+    homeLiveOverlayNowMs.value = Date.now()
+  }, 1000)
+}
 const {
   accounts,
   isRefreshingAccounts,
@@ -1309,6 +1355,7 @@ onUnmounted(() => {
     threadSearchTimer = null
   }
   stopPolling()
+  clearHomeLiveOverlayTimer()
 })
 
 function updateVisualViewportState(): void {
@@ -1317,6 +1364,12 @@ function updateVisualViewportState(): void {
   visualViewportHeight.value = window.visualViewport?.height ?? window.innerHeight
   visualViewportOffsetTop.value = window.visualViewport?.offsetTop ?? 0
 }
+
+watch(
+  () => homeLiveOverlay.value?.activityStartedAtMs ?? null,
+  syncHomeLiveOverlayTimer,
+  { immediate: true },
+)
 
 watch(sidebarSearchQuery, (value) => {
   const query = value.trim()
@@ -2758,6 +2811,18 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 
 .composer-runtime-error {
   @apply flex w-full items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-zinc-800 shadow-sm;
+}
+
+.new-thread-live-overlay {
+  @apply mx-auto flex w-full max-w-[min(var(--chat-column-max,72rem),100%)] flex-col gap-1 px-0 py-1;
+}
+
+.new-thread-live-overlay-label {
+  @apply m-0 text-sm leading-5 font-medium text-zinc-600;
+}
+
+:global(:root.dark) .new-thread-live-overlay-label {
+  @apply text-zinc-400;
 }
 
 .content-header-inspector-toggle {

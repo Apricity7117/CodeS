@@ -1674,6 +1674,7 @@ export function useDesktopState() {
   const turnIndexByTurnIdByThreadId = ref<Record<string, Record<string, number>>>({})
   const turnSummaryByThreadId = ref<Record<string, TurnSummariesByTurnIdState>>({})
   const turnActivityByThreadId = ref<Record<string, TurnActivityState>>({})
+  const newThreadActivity = ref<TurnActivityState | null>(null)
   const turnErrorByThreadId = ref<Record<string, TurnErrorState>>({})
   const activeTurnIdByThreadId = ref<Record<string, string>>({})
   const interruptBlockedUntilPersistedByThreadId = ref<Record<string, boolean>>({})
@@ -1784,7 +1785,7 @@ export function useDesktopState() {
     if (!threadId) return null
 
     const isInProgress = inProgressById.value[threadId] === true
-    const activity = isInProgress ? turnActivityByThreadId.value[threadId] : undefined
+    const activity = turnActivityByThreadId.value[threadId]
     const reasoningText = isInProgress
       ? (liveReasoningTextByThreadId.value[threadId] ?? '').trim()
       : ''
@@ -1796,6 +1797,16 @@ export function useDesktopState() {
       activityStartedAtMs: activity?.startedAtMs ?? null,
       reasoningText,
       errorText,
+    }
+  })
+  const newThreadLiveOverlay = computed<UiLiveOverlay | null>(() => {
+    const activity = newThreadActivity.value
+    if (!activity) return null
+    return {
+      activityLabel: activity.label,
+      activityStartedAtMs: activity.startedAtMs ?? null,
+      reasoningText: '',
+      errorText: '',
     }
   })
   const codexQuota = computed<UiRateLimitSnapshot | null>(() => codexRateLimit.value)
@@ -2773,23 +2784,40 @@ export function useDesktopState() {
       return
     }
 
+    const nextActivity = normalizeTurnActivity(activity, previous)
+    if (areTurnActivitiesEqual(previous, nextActivity)) return
+    turnActivityByThreadId.value = {
+      ...turnActivityByThreadId.value,
+      [threadId]: nextActivity,
+    }
+  }
+
+  function setNewThreadActivity(activity: TurnActivityState | null): void {
+    const previous = newThreadActivity.value ?? undefined
+    if (!activity) {
+      if (newThreadActivity.value) {
+        newThreadActivity.value = null
+      }
+      return
+    }
+
+    const nextActivity = normalizeTurnActivity(activity, previous)
+    if (areTurnActivitiesEqual(previous, nextActivity)) return
+    newThreadActivity.value = nextActivity
+  }
+
+  function normalizeTurnActivity(activity: TurnActivityState, previous?: TurnActivityState): TurnActivityState {
     const normalizedLabel = sanitizeDisplayText(activity.label) || 'Thinking'
     const incomingDetails = activity.details
       .map((line) => sanitizeDisplayText(line))
       .filter((line) => line.length > 0 && line !== normalizedLabel)
     const mergedDetails = Array.from(new Set([...(previous?.details ?? []), ...incomingDetails])).slice(-3)
-    const nextActivity: TurnActivityState = {
+    return {
       label: normalizedLabel,
       details: mergedDetails,
       startedAtMs: typeof activity.startedAtMs === 'number'
         ? activity.startedAtMs
         : previous?.startedAtMs ?? Date.now(),
-    }
-
-    if (areTurnActivitiesEqual(previous, nextActivity)) return
-    turnActivityByThreadId.value = {
-      ...turnActivityByThreadId.value,
-      [threadId]: nextActivity,
     }
   }
 
@@ -5370,6 +5398,10 @@ export function useDesktopState() {
 
     isSendingMessage.value = true
     error.value = ''
+    setNewThreadActivity({
+      label: 'Starting thread',
+      details: ['Creating conversation'],
+    })
     let threadId = ''
 
     try {
@@ -5389,7 +5421,10 @@ export function useDesktopState() {
           throw unknownError
         }
       }
-      if (!threadId) return ''
+      if (!threadId) {
+        setNewThreadActivity(null)
+        return ''
+      }
 
       insertOptimisticThread(threadId, targetCwd, nextText || '[Image]')
       blockInterruptUntilThreadIsPersisted(threadId)
@@ -5398,6 +5433,7 @@ export function useDesktopState() {
         [threadId]: true,
       }
       setSelectedThreadId(threadId)
+      setNewThreadActivity(null)
       shouldAutoScrollOnNextAgentEvent = true
       setTurnSummaryForThread(threadId, null)
       setTurnActivityForThread(
@@ -5432,6 +5468,7 @@ export function useDesktopState() {
       return threadId
     } catch (unknownError) {
       shouldAutoScrollOnNextAgentEvent = false
+      setNewThreadActivity(null)
       if (threadId) {
         setThreadInProgress(threadId, false)
         setTurnActivityForThread(threadId, null)
@@ -5646,6 +5683,10 @@ export function useDesktopState() {
     isRollingBack.value = true
     error.value = ''
     setTurnErrorForThread(threadId, null)
+    setTurnActivityForThread(threadId, {
+      label: 'Restoring thread',
+      details: ['Preparing conversation history'],
+    })
     try {
       await ensureThreadResumedForHistoryMutation(threadId)
     } catch (unknownError) {
@@ -5663,6 +5704,7 @@ export function useDesktopState() {
       const errorMessage = 'Could not find the selected message in this thread. Reload and try again.'
       error.value = errorMessage
       setTurnErrorForThread(threadId, errorMessage)
+      setTurnActivityForThread(threadId, null)
       isRollingBack.value = false
       return false
     }
@@ -5671,6 +5713,7 @@ export function useDesktopState() {
       const errorMessage = 'Could not determine how much history to roll back. Reload and try again.'
       error.value = errorMessage
       setTurnErrorForThread(threadId, errorMessage)
+      setTurnActivityForThread(threadId, null)
       isRollingBack.value = false
       return false
     }
@@ -5679,6 +5722,7 @@ export function useDesktopState() {
       const errorMessage = 'Could not determine how much history to roll back. Reload and try again.'
       error.value = errorMessage
       setTurnErrorForThread(threadId, errorMessage)
+      setTurnActivityForThread(threadId, null)
       isRollingBack.value = false
       return false
     }
@@ -6087,6 +6131,7 @@ export function useDesktopState() {
     liveFileChangeMessagesByThreadId.value = {}
     turnIndexByTurnIdByThreadId.value = {}
     turnActivityByThreadId.value = {}
+    newThreadActivity.value = null
     turnSummaryByThreadId.value = {}
     turnErrorByThreadId.value = {}
     activeTurnIdByThreadId.value = {}
@@ -6174,6 +6219,7 @@ export function useDesktopState() {
     isSelectedThreadInterruptPending,
     selectedThreadServerRequests,
     selectedLiveOverlay,
+    newThreadLiveOverlay,
     codexQuota,
     selectedThreadId,
     availableCollaborationModes,
