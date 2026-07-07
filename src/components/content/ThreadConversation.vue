@@ -2090,11 +2090,14 @@ onBeforeUnmount(() => {
 }
 
 .load-more-button {
-  @apply px-4 py-1.5 text-xs rounded-full border border-slate-300 dark:border-slate-600
-         text-slate-500 dark:text-slate-400 bg-transparent
-         hover:bg-slate-100 dark:hover:bg-slate-800
-         disabled:opacity-40 disabled:cursor-not-allowed
-         transition-colors cursor-pointer;
+  @apply cursor-pointer rounded-full border bg-transparent px-4 py-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40;
+  border-color: var(--codex-border-heavy);
+  color: var(--codex-muted-text);
+}
+
+.load-more-button:hover {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
 }
 
 .conversation-item {
@@ -2269,7 +2272,13 @@ onBeforeUnmount(() => {
 }
 
 .message-copy-button[data-copied='true'] {
-  @apply bg-emerald-50 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-700;
+  background-color: var(--codex-success-bg);
+  color: var(--codex-success-fg);
+}
+
+.message-copy-button[data-copied='true']:hover {
+  background-color: var(--codex-success-bg);
+  color: var(--codex-success-fg);
 }
 
 .message-edit-button {
@@ -2514,7 +2523,7 @@ onBeforeUnmount(() => {
 }
 
 .cmd-status-ok .cmd-status {
-  @apply text-emerald-600;
+  color: var(--codex-success-fg);
 }
 
 .cmd-status-error .cmd-status {

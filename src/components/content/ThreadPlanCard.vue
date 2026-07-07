@@ -340,7 +340,13 @@ const planMarkdown = computed(() => readPlanMarkdown(props.message))
 }
 
 .plan-card-markdown :deep(.message-code-copy[data-copied='true']) {
-  @apply bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-700;
+  background-color: var(--codex-success-bg);
+  color: var(--codex-success-fg);
+}
+
+.plan-card-markdown :deep(.message-code-copy[data-copied='true']:hover) {
+  background-color: var(--codex-success-bg);
+  color: var(--codex-success-fg);
 }
 
 .plan-card-markdown :deep(.message-code-copy-icon) {

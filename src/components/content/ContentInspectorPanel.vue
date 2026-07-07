@@ -185,7 +185,10 @@ function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
 }
 
 .content-inspector-shell {
-  @apply flex max-h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-zinc-200/80 bg-white/95 pt-3 shadow-[0_18px_48px_-30px_rgba(0,0,0,0.45)];
+  @apply flex max-h-full min-h-0 flex-col overflow-hidden rounded-[24px] border pt-3;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-elevated-surface);
+  box-shadow: 0 18px 48px -30px color-mix(in srgb, #000 45%, transparent);
   backdrop-filter: blur(18px);
 }
 
@@ -199,7 +202,8 @@ function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
 
 .content-inspector-section::after {
   content: '';
-  @apply absolute inset-x-4 bottom-0 h-px bg-zinc-200;
+  @apply absolute inset-x-4 bottom-0 h-px;
+  background-color: var(--codex-border);
 }
 
 .content-inspector-section:last-child {
@@ -211,7 +215,8 @@ function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
 }
 
 .content-inspector-heading {
-  @apply m-0 px-4 pb-1 text-sm font-medium leading-5 text-zinc-500;
+  @apply m-0 px-4 pb-1 text-sm font-medium leading-5;
+  color: var(--codex-muted-text);
 }
 
 .content-inspector-heading-row {
@@ -223,7 +228,8 @@ function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
 }
 
 .content-inspector-heading-icon {
-  @apply h-4.5 w-4.5 shrink-0 text-zinc-500;
+  @apply h-4.5 w-4.5 shrink-0;
+  color: var(--codex-muted-text);
 }
 
 .content-inspector-progress-heading-row {
@@ -231,7 +237,14 @@ function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
 }
 
 .content-inspector-progress-heading-button {
-  @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300;
+  @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus:outline-none focus-visible:ring-2;
+  color: var(--codex-muted-text);
+  --tw-ring-color: var(--codex-focus-ring);
+}
+
+.content-inspector-progress-heading-button:hover {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
 }
 
 .content-inspector-progress-chevron {
@@ -247,7 +260,8 @@ function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
 }
 
 .content-inspector-row {
-  @apply flex min-h-7 min-w-0 items-center gap-2.5 rounded-md px-0 py-0.5 text-sm leading-5 text-zinc-800;
+  @apply flex min-h-7 min-w-0 items-center gap-2.5 rounded-md px-0 py-0.5 text-sm leading-5;
+  color: var(--codex-text);
 }
 
 .content-inspector-row-icon,
@@ -256,7 +270,7 @@ function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
 }
 
 .content-inspector-row-icon {
-  @apply text-zinc-500;
+  color: var(--codex-muted-text);
 }
 
 .content-inspector-row-label {
@@ -264,83 +278,35 @@ function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
 }
 
 .content-inspector-row-value {
-  @apply ml-auto max-w-40 shrink-0 truncate text-right text-xs text-zinc-500;
+  @apply ml-auto max-w-40 shrink-0 truncate text-right text-xs;
+  color: var(--codex-muted-text);
 }
 
 .content-inspector-row-label--muted {
-  @apply text-xs text-zinc-500;
+  @apply text-xs;
+  color: var(--codex-muted-text);
 }
 
 .content-inspector-empty {
-  @apply py-0.5 text-sm leading-5 text-zinc-500;
+  @apply py-0.5 text-sm leading-5;
+  color: var(--codex-muted-text);
 }
 
 .content-inspector-status-icon {
   @apply h-4.5 w-4.5 shrink-0;
-  color: rgb(113 113 122);
+  color: var(--codex-muted-text);
 }
 
 .content-inspector-status-icon[data-state='done'] {
-  color: rgb(113 113 122);
+  color: var(--codex-muted-text);
 }
 
 .content-inspector-status-icon[data-state='active'] {
-  color: rgb(82 82 91);
-}
-
-.content-inspector-source-mark {
-  @apply inline-flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-[10px] font-semibold text-zinc-600;
-}
-
-:global(:root.dark) .content-inspector-shell {
-  border-color: rgba(255, 255, 255, 0.14);
-  background-color: #303030;
-  box-shadow: 0 18px 48px -30px rgba(0, 0, 0, 0.72);
-}
-
-:global(:root.dark) .content-inspector-section::after {
-  background-color: rgba(255, 255, 255, 0.11);
-}
-
-:global(:root.dark) .content-inspector-heading,
-:global(:root.dark) .content-inspector-row-label--muted,
-:global(:root.dark) .content-inspector-row-icon,
-:global(:root.dark) .content-inspector-heading-icon,
-:global(:root.dark) .content-inspector-row-value {
-  color: var(--codex-muted-text);
-}
-
-:global(:root.dark) .content-inspector-row {
-  color: #d6d6d6;
-}
-
-:global(:root.dark) .content-inspector-empty {
-  color: var(--codex-muted-text);
-}
-
-:global(:root.dark) .content-inspector-status-icon {
-  color: #9a9a9a;
-}
-
-:global(:root.dark) .content-inspector-status-icon[data-state='done'] {
-  color: #9a9a9a;
-}
-
-:global(:root.dark) .content-inspector-status-icon[data-state='active'] {
-  color: #d6d6d6;
-}
-
-:global(:root.dark) .content-inspector-progress-heading-button {
-  @apply focus-visible:ring-zinc-700;
-  color: var(--codex-muted-text);
-}
-
-:global(:root.dark) .content-inspector-progress-heading-button:hover {
-  background-color: var(--codex-control-hover);
   color: var(--codex-text);
 }
 
-:global(:root.dark) .content-inspector-source-mark {
+.content-inspector-source-mark {
+  @apply inline-flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold;
   background-color: var(--codex-subtle-surface);
   color: var(--codex-muted-text);
 }

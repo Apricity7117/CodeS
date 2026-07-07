@@ -46,7 +46,9 @@ function onClick(): void {
 @reference "tailwindcss";
 
 .codex-switch {
-  @apply inline-flex items-center rounded-full border-0 bg-transparent p-0 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-blue-500/50;
+  @apply inline-flex items-center rounded-full border-0 bg-transparent p-0 text-sm outline-none transition focus-visible:ring-2;
+  color: var(--codex-muted-text);
+  --tw-ring-color: var(--codex-focus-ring);
 }
 
 .codex-switch:not(.is-disabled) {
@@ -59,11 +61,11 @@ function onClick(): void {
 
 .codex-switch-track {
   @apply relative inline-flex shrink-0 items-center rounded-full transition-colors duration-200 ease-out;
-  background-color: color-mix(in srgb, currentColor 10%, transparent);
+  background-color: var(--codex-switch-track-bg);
 }
 
 .codex-switch-track[data-state='checked'] {
-  background-color: var(--codex-switch-checked-bg, #0ea5e9);
+  background-color: var(--codex-switch-checked-bg);
 }
 
 .codex-switch--default .codex-switch-track {
@@ -76,8 +78,13 @@ function onClick(): void {
 
 .codex-switch-thumb {
   @apply rounded-full border shadow-sm transition-transform duration-200 ease-out;
-  border-color: var(--codex-switch-thumb-bg, #fff);
-  background-color: var(--codex-switch-thumb-bg, #fff);
+  border-color: var(--codex-switch-thumb-bg);
+  background-color: var(--codex-switch-thumb-bg);
+}
+
+.codex-switch-thumb[data-state='checked'] {
+  border-color: var(--codex-switch-checked-thumb-bg);
+  background-color: var(--codex-switch-checked-thumb-bg);
 }
 
 .codex-switch--default .codex-switch-thumb {
@@ -98,15 +105,4 @@ function onClick(): void {
   transform: translateX(14px);
 }
 
-:global(:root.dark) .codex-switch {
-  color: var(--codex-muted-text);
-}
-
-:global(:root.dark) .codex-switch-track {
-  background-color: color-mix(in srgb, var(--codex-text) 12%, transparent);
-}
-
-:global(:root.dark) .codex-switch-track[data-state='checked'] {
-  background-color: var(--codex-switch-checked-bg, #38bdf8);
-}
 </style>

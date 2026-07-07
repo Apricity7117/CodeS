@@ -118,7 +118,7 @@ const outputText = computed(() => props.message.commandExecution?.aggregatedOutp
 }
 
 .cmd-status-ok .cmd-status {
-  @apply text-emerald-600;
+  color: var(--codex-success-fg);
 }
 
 .cmd-status-error .cmd-status {

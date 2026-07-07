@@ -41,11 +41,20 @@ defineEmits<{
 @reference "tailwindcss";
 
 .ui-icon-button {
-  @apply rounded-md border border-transparent bg-transparent text-zinc-600 flex items-center justify-center transition hover:border-zinc-200 hover:bg-zinc-50 disabled:pointer-events-none disabled:opacity-45;
+  @apply flex items-center justify-center rounded-md border border-transparent bg-transparent transition disabled:pointer-events-none disabled:opacity-45;
+  color: var(--codex-muted-text);
+}
+
+.ui-icon-button:hover {
+  border-color: var(--codex-border);
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
 }
 
 .ui-icon-button[aria-pressed='true'] {
-  @apply border-zinc-300 bg-zinc-100 text-zinc-700;
+  border-color: var(--codex-selected-border);
+  background-color: var(--codex-selected-surface);
+  color: var(--codex-text);
 }
 
 .ui-icon-button--sm {
@@ -60,11 +69,4 @@ defineEmits<{
   @apply h-4 w-4;
 }
 
-:global(:root.dark) .ui-icon-button {
-  @apply text-zinc-400 hover:border-zinc-600 hover:bg-zinc-800;
-}
-
-:global(:root.dark) .ui-icon-button[aria-pressed='true'] {
-  @apply border-zinc-600 bg-zinc-800 text-zinc-300;
-}
 </style>

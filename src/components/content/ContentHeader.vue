@@ -27,12 +27,14 @@ defineProps<{
 }
 
 .content-title {
-  @apply m-0 min-w-0 max-w-[min(72ch,100%)] flex-1 truncate font-medium leading-6 text-slate-900;
+  @apply m-0 min-w-0 max-w-[min(72ch,100%)] flex-1 truncate font-medium leading-6;
   font-size: var(--codex-text-sm);
+  color: var(--codex-text);
 }
 
 .content-title.is-accent {
-  @apply text-lg font-semibold leading-7 tracking-[-0.01em] text-zinc-950 sm:text-[1.4rem];
+  @apply text-lg font-semibold leading-7 tracking-[-0.01em] sm:text-[1.4rem];
+  color: var(--codex-text);
 }
 
 .content-actions {
@@ -47,7 +49,4 @@ defineProps<{
   @apply gap-2;
 }
 
-:global(:root.dark) .content-title.is-accent {
-  @apply text-zinc-100;
-}
 </style>

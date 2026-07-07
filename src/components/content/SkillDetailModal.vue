@@ -332,7 +332,12 @@ function onBrowseFiles(): void {
 }
 
 .sdm-btn-primary {
-  @apply bg-zinc-900 text-white hover:bg-black;
+  background-color: var(--codex-primary);
+  color: var(--codex-primary-fg);
+}
+
+.sdm-btn-primary:hover {
+  background-color: var(--codex-primary-hover);
 }
 
 .sdm-btn-danger {
@@ -340,6 +345,11 @@ function onBrowseFiles(): void {
 }
 
 .sdm-btn-secondary {
-  @apply bg-zinc-100 text-zinc-700 hover:bg-zinc-200;
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.sdm-btn-secondary:hover {
+  background-color: var(--codex-control-hover);
 }
 </style>

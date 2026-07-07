@@ -103,7 +103,9 @@ onMounted(() => {
 }
 
 .codex-login-modal {
-  @apply flex w-full max-w-md flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-2xl;
+  @apply flex w-full max-w-md flex-col gap-3 rounded-xl border p-4 shadow-2xl;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-popover-surface);
 }
 
 .codex-login-modal-header {
@@ -111,23 +113,45 @@ onMounted(() => {
 }
 
 .codex-login-modal-title {
-  @apply text-base font-semibold text-zinc-900;
+  @apply text-base font-semibold;
+  color: var(--codex-text);
 }
 
 .codex-login-modal-close {
-  @apply inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white text-lg leading-none text-zinc-600 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
+  @apply inline-flex h-7 w-7 items-center justify-center rounded-full border text-lg leading-none transition disabled:cursor-default disabled:opacity-60;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-surface);
+  color: var(--codex-muted-text);
+}
+
+.codex-login-modal-close:hover {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
 }
 
 .codex-login-modal-copy {
-  @apply text-sm leading-5 text-zinc-600;
+  @apply text-sm leading-5;
+  color: var(--codex-muted-text);
 }
 
 .codex-login-modal-link {
-  @apply min-w-0 truncate text-sm text-blue-600 hover:text-blue-700 hover:underline;
+  @apply min-w-0 truncate text-sm hover:underline;
+  color: var(--codex-link);
+}
+
+.codex-login-modal-link:hover {
+  color: var(--codex-link-hover);
 }
 
 .codex-login-modal-input {
-  @apply w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-zinc-400 disabled:cursor-default disabled:opacity-60;
+  @apply w-full rounded-lg border px-3 py-2 text-sm outline-none transition disabled:cursor-default disabled:opacity-60;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.codex-login-modal-input:focus {
+  border-color: var(--codex-selected-border);
 }
 
 .codex-login-modal-error {
@@ -140,43 +164,24 @@ onMounted(() => {
 
 .codex-login-modal-cancel,
 .codex-login-modal-submit {
-  @apply rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
+  @apply rounded-full border px-3 py-1.5 text-sm transition disabled:cursor-default disabled:opacity-60;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-surface);
+  color: var(--codex-text);
+}
+
+.codex-login-modal-cancel:hover,
+.codex-login-modal-submit:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .codex-login-modal-submit {
-  @apply border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800;
+  border-color: var(--codex-primary);
+  background-color: var(--codex-primary);
+  color: var(--codex-primary-fg);
 }
 
-:global(:root.dark) .codex-login-modal {
-  @apply border-zinc-700 bg-zinc-900;
-}
-
-:global(:root.dark) .codex-login-modal-title {
-  @apply text-zinc-100;
-}
-
-:global(:root.dark) .codex-login-modal-close,
-:global(:root.dark) .codex-login-modal-cancel {
-  @apply border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700;
-}
-
-:global(:root.dark) .codex-login-modal-copy {
-  @apply text-zinc-300;
-}
-
-:global(:root.dark) .codex-login-modal-link {
-  @apply text-sky-300 hover:text-sky-200;
-}
-
-:global(:root.dark) .codex-login-modal-input {
-  @apply border-zinc-600 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-400;
-}
-
-:global(:root.dark) .codex-login-modal-error {
-  @apply bg-rose-950/40 text-zinc-200;
-}
-
-:global(:root.dark) .codex-login-modal-submit {
-  @apply border-zinc-200 bg-zinc-100 text-zinc-900 hover:bg-white;
+.codex-login-modal-submit:hover {
+  background-color: var(--codex-primary-hover);
 }
 </style>

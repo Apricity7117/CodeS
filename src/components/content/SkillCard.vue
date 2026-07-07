@@ -152,7 +152,10 @@ function onAvatarError(e: Event): void {
 }
 
 .skill-card-badge {
-  @apply shrink-0 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 leading-none;
+  @apply shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-medium leading-none;
+  border-color: var(--codex-selected-border);
+  background-color: var(--codex-primary-subtle-bg);
+  color: var(--codex-primary-subtle-fg);
 }
 
 .skill-card-badge-disabled {

@@ -199,7 +199,10 @@ onMounted(() => {
 }
 
 .skills-hub-toast-success {
-  @apply border border-emerald-200 bg-emerald-50 text-emerald-700;
+  @apply border;
+  border-color: var(--codex-success-border);
+  background-color: var(--codex-success-bg);
+  color: var(--codex-success-fg);
 }
 
 .skills-hub-toast-error {

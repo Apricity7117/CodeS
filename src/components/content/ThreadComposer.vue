@@ -2400,15 +2400,27 @@ watch(
 }
 
 .thread-composer-attach-menu {
-  @apply absolute bottom-11 left-0 z-20 w-72 max-w-[calc(100vw-1rem)] rounded-xl border border-zinc-200 bg-white p-1 shadow-lg;
+  @apply absolute bottom-11 left-0 z-20 w-72 max-w-[calc(100vw-1rem)] rounded-xl border p-1 shadow-lg;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-popover-surface);
 }
 
 .thread-composer-attach-item {
-  @apply block w-full rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm text-zinc-800 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-400;
+  @apply block w-full rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm transition disabled:cursor-not-allowed;
+  color: var(--codex-text);
+}
+
+.thread-composer-attach-item:hover {
+  background-color: var(--codex-control-hover);
+}
+
+.thread-composer-attach-item:disabled {
+  color: var(--codex-muted-text);
 }
 
 .thread-composer-attach-separator {
-  @apply my-1 h-px bg-zinc-100;
+  @apply my-1 h-px;
+  background-color: var(--codex-border);
 }
 
 .thread-composer-attach-mode {
@@ -2416,23 +2428,49 @@ watch(
 }
 
 .thread-composer-attach-mode-label {
-  @apply text-sm text-zinc-800;
+  @apply text-sm;
+  color: var(--codex-text);
 }
 
 .thread-composer-attach-mode-buttons {
-  @apply inline-flex items-center rounded-full border border-zinc-200 bg-white p-0.5;
+  @apply inline-flex items-center rounded-full border p-0.5;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-surface);
 }
 
 .thread-composer-attach-mode-button {
-  @apply rounded-full border-0 bg-transparent px-2 py-1 text-xs text-zinc-600 transition hover:text-zinc-800 disabled:cursor-not-allowed disabled:text-zinc-400;
+  @apply rounded-full border-0 bg-transparent px-2 py-1 text-xs transition disabled:cursor-not-allowed;
+  color: var(--codex-muted-text);
+}
+
+.thread-composer-attach-mode-button:hover {
+  color: var(--codex-text);
+}
+
+.thread-composer-attach-mode-button:disabled {
+  color: var(--codex-muted-text);
 }
 
 .thread-composer-attach-mode-button.is-active {
-  @apply bg-zinc-900 text-white hover:text-white;
+  background-color: var(--codex-primary);
+  color: var(--codex-primary-fg);
+}
+
+.thread-composer-attach-mode-button.is-active:hover {
+  color: var(--codex-primary-fg);
 }
 
 .thread-composer-attach-setting {
-  @apply flex w-full items-center justify-between gap-3 rounded-lg border-0 bg-transparent px-3 py-2 text-left transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-400;
+  @apply flex w-full items-center justify-between gap-3 rounded-lg border-0 bg-transparent px-3 py-2 text-left transition disabled:cursor-not-allowed;
+  color: var(--codex-text);
+}
+
+.thread-composer-attach-setting:hover {
+  background-color: var(--codex-control-hover);
+}
+
+.thread-composer-attach-setting:disabled {
+  color: var(--codex-muted-text);
 }
 
 .thread-composer-attach-setting-copy {
@@ -2440,24 +2478,32 @@ watch(
 }
 
 .thread-composer-attach-setting-label {
-  @apply text-sm text-zinc-800;
+  @apply text-sm;
+  color: var(--codex-text);
 }
 
 .thread-composer-attach-setting-description {
-  @apply mt-0.5 text-xs text-zinc-500;
+  @apply mt-0.5 text-xs;
+  color: var(--codex-muted-text);
 }
 
 .thread-composer-attach-switch {
-  @apply relative h-5 w-9 shrink-0 rounded-full bg-zinc-300 transition-colors;
+  @apply relative h-5 w-9 shrink-0 rounded-full transition-colors;
+  background-color: var(--codex-switch-track-bg);
 }
 
 .thread-composer-attach-switch::after {
   content: '';
-  @apply absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform shadow-sm;
+  @apply absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition-transform shadow-sm;
+  background-color: var(--codex-switch-thumb-bg);
 }
 
 .thread-composer-attach-switch.is-on {
-  @apply bg-emerald-600;
+  background-color: var(--codex-switch-checked-bg);
+}
+
+.thread-composer-attach-switch.is-on::after {
+  background-color: var(--codex-switch-checked-thumb-bg);
 }
 
 .thread-composer-attach-switch.is-on::after {

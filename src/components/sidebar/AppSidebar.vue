@@ -771,7 +771,13 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-button {
-  @apply flex items-center gap-2 w-full rounded-lg border-0 bg-transparent px-2 py-2 text-sm text-zinc-600 transition hover:bg-zinc-200 hover:text-zinc-900 cursor-pointer;
+  @apply flex items-center gap-2 w-full rounded-lg border-0 bg-transparent px-2 py-2 text-sm transition cursor-pointer;
+  color: var(--codex-muted-text);
+}
+
+.sidebar-settings-button:hover {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
 }
 
 .sidebar-settings-icon {
@@ -779,11 +785,18 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-panel {
-  @apply mb-1 max-h-[min(70vh,36rem)] overflow-y-auto rounded-lg border border-zinc-200 bg-white;
+  @apply mb-1 max-h-[min(70vh,36rem)] overflow-y-auto rounded-lg border;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-panel-surface);
 }
 
 .sidebar-settings-row {
-  @apply flex items-center justify-between w-full px-3 py-2.5 text-sm text-zinc-700 border-0 bg-transparent transition hover:bg-zinc-50 cursor-pointer;
+  @apply flex items-center justify-between w-full px-3 py-2.5 text-sm border-0 bg-transparent transition cursor-pointer;
+  color: var(--codex-text);
+}
+
+.sidebar-settings-row:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .sidebar-settings-row--select {
@@ -799,7 +812,10 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-language-dropdown :deep(.composer-dropdown-trigger) {
-  @apply h-auto rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700;
+  @apply h-auto rounded-md border px-2 py-1 text-xs;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
 }
 
 .sidebar-settings-language-dropdown :deep(.composer-dropdown-value) {
@@ -807,11 +823,14 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-row + .sidebar-settings-row {
-  @apply border-t border-zinc-100;
+  @apply border-t;
+  border-color: var(--codex-border);
 }
 
 .sidebar-settings-telegram-panel {
-  @apply border-t border-zinc-100 bg-zinc-50/70 px-3 py-3;
+  @apply border-t px-3 py-3;
+  border-color: var(--codex-border);
+  background-color: var(--codex-surface);
 }
 
 .sidebar-settings-field {
@@ -823,12 +842,23 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-field-label {
-  @apply text-xs font-medium text-zinc-700;
+  @apply text-xs font-medium;
+  color: var(--codex-text);
 }
 
 .sidebar-settings-input,
 .sidebar-settings-textarea {
-  @apply w-full rounded-md border border-zinc-200 bg-white px-2.5 py-2 text-sm text-zinc-800 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200;
+  @apply w-full rounded-md border px-2.5 py-2 text-sm outline-none transition;
+  color-scheme: light dark;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.sidebar-settings-input:focus,
+.sidebar-settings-textarea:focus {
+  border-color: var(--codex-border-heavy);
+  box-shadow: 0 0 0 2px var(--codex-focus-ring);
 }
 
 .sidebar-settings-textarea {
@@ -836,7 +866,8 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-field-help {
-  @apply mt-2 text-xs leading-5 text-zinc-500;
+  @apply mt-2 text-xs leading-5;
+  color: var(--codex-muted-text);
 }
 
 .sidebar-settings-telegram-error {
@@ -848,7 +879,9 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-model-catalog {
-  @apply border-t border-zinc-100 bg-zinc-50/60 px-3 py-3;
+  @apply border-t px-3 py-3;
+  border-color: var(--codex-border);
+  background-color: var(--codex-surface);
 }
 
 .sidebar-settings-model-catalog-toggle {
@@ -864,7 +897,8 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-model-catalog-path {
-  @apply mt-2 truncate text-[11px] text-zinc-500;
+  @apply mt-2 truncate text-[11px];
+  color: var(--codex-muted-text);
 }
 
 .sidebar-settings-model-catalog-actions {
@@ -876,19 +910,32 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-model-catalog-item {
-  @apply min-w-0 rounded-md border border-zinc-200 bg-white px-2 py-1.5;
+  @apply min-w-0 rounded-md border px-2 py-1.5;
+  border-color: var(--codex-border);
+  background-color: var(--codex-panel-surface);
 }
 
 .sidebar-settings-model-catalog-item.is-hidden {
-  @apply border-zinc-200 bg-zinc-100 opacity-75;
+  @apply opacity-75;
+  border-color: var(--codex-border);
+  background-color: var(--codex-subtle-surface);
 }
 
 .sidebar-settings-codex-cli {
-  @apply border-t border-zinc-100 bg-zinc-50/60 px-3 py-3;
+  @apply border-t px-3 py-3;
+  border-color: var(--codex-border);
+  background-color: var(--codex-surface);
 }
 
 .sidebar-settings-codex-cli-restart {
-  @apply shrink-0 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
+  @apply shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:cursor-default disabled:opacity-60;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.sidebar-settings-codex-cli-restart:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .sidebar-settings-codex-cli-restart.is-confirming {
@@ -900,7 +947,8 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-codex-cli-message[data-state='success'] {
-  @apply bg-emerald-50 text-emerald-800;
+  background-color: var(--codex-success-bg);
+  color: var(--codex-success-fg);
 }
 
 .sidebar-settings-codex-cli-message[data-state='warning'] {
@@ -912,20 +960,31 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-model-catalog-label {
-  @apply block truncate text-xs font-medium text-zinc-800;
+  @apply block truncate text-xs font-medium;
+  color: var(--codex-text);
 }
 
 .sidebar-settings-model-catalog-meta,
 .sidebar-settings-model-catalog-more {
-  @apply block truncate text-[11px] text-zinc-500;
+  @apply block truncate text-[11px];
+  color: var(--codex-muted-text);
 }
 
 .sidebar-settings-telegram-save {
-  @apply rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
+  @apply rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:cursor-default disabled:opacity-60;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.sidebar-settings-telegram-save:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .sidebar-settings-account-section {
-  @apply border-t border-zinc-100 bg-zinc-50/60 px-3 py-3;
+  @apply border-t px-3 py-3;
+  border-color: var(--codex-border);
+  background-color: var(--codex-surface);
 }
 
 .sidebar-settings-account-header {
@@ -937,7 +996,14 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-account-collapse {
-  @apply inline-flex h-5 w-5 items-center justify-center rounded border border-zinc-200 bg-white text-zinc-600 transition hover:bg-zinc-100;
+  @apply inline-flex h-5 w-5 items-center justify-center rounded border transition;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.sidebar-settings-account-collapse:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .sidebar-settings-account-collapse-icon {
@@ -945,11 +1011,14 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-account-title {
-  @apply text-sm font-medium text-zinc-800;
+  @apply text-sm font-medium;
+  color: var(--codex-text);
 }
 
 .sidebar-settings-account-count {
-  @apply rounded bg-zinc-200 px-1.5 py-0.5 text-[11px] text-zinc-600;
+  @apply rounded px-1.5 py-0.5 text-[11px];
+  background-color: var(--codex-subtle-surface);
+  color: var(--codex-text);
 }
 
 .sidebar-settings-account-error {
@@ -957,7 +1026,14 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-account-refresh {
-  @apply shrink-0 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
+  @apply shrink-0 rounded-full border px-2.5 py-1 text-xs transition disabled:cursor-default disabled:opacity-60;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.sidebar-settings-account-refresh:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .sidebar-settings-account-login {
@@ -965,7 +1041,14 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-account-login-button {
-  @apply shrink-0 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
+  @apply shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition disabled:cursor-default disabled:opacity-60;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.sidebar-settings-account-login-button:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .sidebar-settings-account-login-link {
@@ -973,7 +1056,8 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-account-empty {
-  @apply text-xs text-zinc-500;
+  @apply text-xs;
+  color: var(--codex-muted-text);
 }
 
 .sidebar-settings-account-list {
@@ -981,11 +1065,14 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-account-item {
-  @apply flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-2;
+  @apply flex items-center gap-2 rounded-lg border px-2.5 py-2;
+  border-color: var(--codex-border);
+  background-color: var(--codex-surface);
 }
 
 .sidebar-settings-account-item.is-active {
-  @apply border-emerald-200 bg-emerald-50;
+  border-color: var(--codex-selected-border);
+  background-color: var(--codex-selected-surface);
 }
 
 .sidebar-settings-account-item.is-unavailable {
@@ -1001,23 +1088,29 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-account-email {
-  @apply truncate text-sm text-zinc-800;
+  @apply truncate text-sm;
+  color: var(--codex-text);
 }
 
 .sidebar-settings-account-meta {
-  @apply truncate text-[11px] text-zinc-500;
+  @apply truncate text-[11px];
+  color: var(--codex-muted-text);
 }
 
 .sidebar-settings-account-quota {
-  @apply truncate text-[11px] text-zinc-600;
+  @apply truncate text-[11px];
+  color: var(--codex-text);
 }
 
 .sidebar-settings-account-id {
-  @apply mt-1 inline-flex max-w-full rounded-full bg-zinc-100 px-2 py-0.5 font-mono text-[11px] text-zinc-700;
+  @apply mt-1 inline-flex max-w-full rounded-full px-2 py-0.5 font-mono text-[11px];
+  background-color: var(--codex-subtle-surface);
+  color: var(--codex-text);
 }
 
 .sidebar-settings-account-item.is-active .sidebar-settings-account-id {
-  @apply bg-emerald-100 text-emerald-800;
+  background-color: var(--codex-primary-subtle-bg);
+  color: var(--codex-primary-subtle-fg);
 }
 
 .sidebar-settings-account-item.is-unavailable .sidebar-settings-account-id {
@@ -1025,7 +1118,14 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-account-switch {
-  @apply min-w-[4.75rem] shrink-0 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-center text-xs text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
+  @apply min-w-[4.75rem] shrink-0 rounded-full border px-2.5 py-1 text-center text-xs transition disabled:cursor-default disabled:opacity-60;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.sidebar-settings-account-switch:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .sidebar-settings-account-remove {
@@ -1045,15 +1145,27 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-value {
-  @apply text-xs text-zinc-500 bg-zinc-100 rounded px-1.5 py-0.5;
+  @apply text-xs rounded px-1.5 py-0.5;
+  background-color: var(--codex-subtle-surface);
+  color: var(--codex-muted-text);
 }
 
 .sidebar-settings-language-select {
-  @apply min-w-0 max-w-40 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 outline-none transition-colors cursor-pointer;
+  @apply min-w-0 max-w-40 rounded-md border px-2 py-1 text-xs outline-none transition-colors cursor-pointer;
+  color-scheme: light dark;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
 }
 
 .sidebar-settings-language-select:focus {
-  @apply border-zinc-400 ring-2 ring-zinc-200;
+  border-color: var(--codex-border-heavy);
+  box-shadow: 0 0 0 2px var(--codex-focus-ring);
+}
+
+.sidebar-settings-language-select option {
+  background-color: var(--codex-popover-surface);
+  color: var(--codex-text);
 }
 
 .settings-panel-enter-active,
@@ -1072,11 +1184,12 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-context-value {
-  @apply text-xs font-semibold text-zinc-700 text-right;
+  @apply text-xs font-semibold text-right;
+  color: var(--codex-text);
 }
 
 .sidebar-settings-context-value[data-state='ok'] {
-  @apply text-emerald-700;
+  color: var(--codex-success-fg);
 }
 
 .sidebar-settings-context-value[data-state='warning'] {
@@ -1088,14 +1201,18 @@ function getAccountRemoveLabel(account: UiAccountEntry): string {
 }
 
 .sidebar-settings-context-meta {
-  @apply block text-[11px] font-normal text-zinc-500;
+  @apply block text-[11px] font-normal;
+  color: var(--codex-muted-text);
 }
 
 .sidebar-settings-rate-limits {
-  @apply border-t border-zinc-200 px-2 pt-2;
+  @apply border-t px-2 pt-2;
+  border-color: var(--codex-border);
 }
 
 .sidebar-settings-build-label {
-  @apply border-t border-zinc-100 px-3 py-2 text-[11px] text-zinc-500;
+  @apply border-t px-3 py-2 text-[11px];
+  border-color: var(--codex-border);
+  color: var(--codex-muted-text);
 }
 </style>

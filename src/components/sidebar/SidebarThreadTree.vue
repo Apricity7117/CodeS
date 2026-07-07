@@ -2289,8 +2289,8 @@ onBeforeUnmount(() => {
 
 .thread-history-more {
   @apply mx-2 my-2 flex items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-xs;
-  border-color: var(--codex-border);
-  background-color: color-mix(in srgb, var(--codex-control-bg) 72%, var(--codex-surface) 28%);
+  border-color: var(--codex-border-heavy);
+  background-color: color-mix(in srgb, var(--codex-control-bg) 78%, transparent);
   color: var(--codex-muted-text);
 }
 
@@ -2314,11 +2314,6 @@ onBeforeUnmount(() => {
 
 .thread-history-more-button:disabled {
   color: var(--codex-muted-text);
-}
-
-:global(:root.dark) .thread-history-more {
-  border-color: var(--codex-border-heavy);
-  background-color: color-mix(in srgb, var(--codex-control-bg) 78%, transparent);
 }
 
 .thread-tree-action-error {
@@ -2482,7 +2477,9 @@ onBeforeUnmount(() => {
 }
 
 .thread-row-request-chip[data-state='approval'] {
-  @apply border-emerald-500/20 bg-emerald-500/15 text-emerald-700;
+  border-color: var(--codex-selected-border);
+  background-color: var(--codex-primary-subtle-bg);
+  color: var(--codex-primary-subtle-fg);
 }
 
 .thread-row-request-chip[data-state='response'] {
@@ -2559,7 +2556,7 @@ onBeforeUnmount(() => {
 .thread-status-indicator[data-state='unread'] {
   width: 6.6667px;
   height: 6.6667px;
-  background-color: #0078d5;
+  background-color: var(--codex-primary);
 }
 
 .thread-status-indicator[data-state='working'] {
@@ -2567,7 +2564,7 @@ onBeforeUnmount(() => {
 }
 
 .thread-status-indicator[data-state='awaiting-approval'] {
-  @apply bg-emerald-500;
+  background-color: var(--codex-primary);
 }
 
 .thread-status-indicator[data-state='awaiting-response'] {

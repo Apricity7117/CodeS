@@ -146,7 +146,8 @@ onBeforeUnmount(() => {
 }
 
 .account-menu-item.is-active {
-  @apply border-emerald-200 bg-emerald-50;
+  border-color: var(--codex-selected-border);
+  background-color: var(--codex-selected-surface);
 }
 
 .account-menu-item-main {

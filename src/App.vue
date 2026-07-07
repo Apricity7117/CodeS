@@ -2818,19 +2818,24 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-live-overlay-label {
-  @apply m-0 text-sm leading-5 font-medium text-zinc-600;
-}
-
-:global(:root.dark) .new-thread-live-overlay-label {
-  @apply text-zinc-400;
+  @apply m-0 text-sm leading-5 font-medium;
+  color: var(--codex-muted-text);
 }
 
 .content-header-inspector-toggle {
-  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300;
+  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent transition focus-visible:outline-none focus-visible:ring-2;
+  color: var(--codex-muted-text);
+  --tw-ring-color: var(--codex-focus-ring);
+}
+
+.content-header-inspector-toggle:hover {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
 }
 
 .content-header-inspector-toggle.is-active {
-  @apply bg-zinc-100 text-zinc-950;
+  background-color: var(--codex-selected-surface);
+  color: var(--codex-text);
 }
 
 .content-header-inspector-toggle-icon {
@@ -2876,7 +2881,12 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-launch-card {
-  @apply mt-4 w-full max-w-3xl rounded-[28px] border border-emerald-200 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.2),_transparent_42%),linear-gradient(135deg,_#f4fff8,_#ffffff_58%)] px-5 py-5 text-left shadow-[0_18px_50px_-28px_rgba(5,150,105,0.45)];
+  @apply mt-4 w-full max-w-3xl rounded-[28px] border px-5 py-5 text-left;
+  border-color: var(--codex-border-heavy);
+  background:
+    radial-gradient(circle at top left, var(--codex-primary-subtle-bg), transparent 42%),
+    linear-gradient(135deg, var(--codex-panel-surface), var(--codex-subtle-surface) 70%);
+  box-shadow: 0 18px 50px -32px color-mix(in srgb, var(--codex-text) 28%, transparent);
 }
 
 .new-thread-launch-card-copy {
@@ -2888,7 +2898,10 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-launch-card-badge {
-  @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-emerald-700 text-white shadow-[0_12px_28px_-18px_rgba(5,150,105,0.9)];
+  @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl;
+  background-color: var(--codex-primary);
+  color: var(--codex-primary-fg);
+  box-shadow: 0 12px 28px -18px color-mix(in srgb, var(--codex-primary) 90%, transparent);
 }
 
 .new-thread-launch-card-badge :deep(svg) {
@@ -2896,15 +2909,18 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-launch-card-eyebrow {
-  @apply m-0 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700;
+  @apply m-0 text-[11px] font-semibold uppercase tracking-[0.24em];
+  color: var(--codex-muted-text);
 }
 
 .new-thread-launch-card-title {
-  @apply m-0 text-xl font-semibold leading-tight text-zinc-950 sm:text-2xl;
+  @apply m-0 text-xl font-semibold leading-tight sm:text-2xl;
+  color: var(--codex-text);
 }
 
 .new-thread-launch-card-text {
-  @apply m-0 max-w-2xl text-sm leading-6 text-zinc-700 sm:text-[15px];
+  @apply m-0 max-w-2xl text-sm leading-6 sm:text-[15px];
+  color: var(--codex-muted-text);
 }
 
 .new-thread-launch-card-actions {
@@ -2916,55 +2932,52 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-launch-card-pill {
-  @apply inline-flex items-center rounded-full border border-emerald-100 bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700;
+  @apply inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em];
+  border-color: var(--codex-border);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-muted-text);
 }
 
 .new-thread-launch-card-button {
-  @apply inline-flex h-10 items-center justify-center rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50;
+  @apply inline-flex h-10 items-center justify-center rounded-full border px-4 text-sm font-medium transition;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-surface);
+  color: var(--codex-text);
+}
+
+.new-thread-launch-card-button:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .new-thread-launch-card-button-primary {
-  @apply border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-600;
+  border-color: var(--codex-primary);
+  background-color: var(--codex-primary);
+  color: var(--codex-primary-fg);
 }
 
-:global(:root.dark) .new-thread-launch-card {
-  @apply border-emerald-900/80 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.2),_transparent_38%),linear-gradient(135deg,_rgba(6,78,59,0.32),_rgba(24,24,27,0.96)_58%)] shadow-[0_24px_64px_-34px_rgba(16,185,129,0.35)];
-}
-
-:global(:root.dark) .new-thread-launch-card-eyebrow {
-  @apply text-emerald-300;
-}
-
-:global(:root.dark) .new-thread-launch-card-badge {
-  @apply bg-emerald-500 text-white;
-}
-
-:global(:root.dark) .new-thread-launch-card-title {
-  @apply text-zinc-50;
-}
-
-:global(:root.dark) .new-thread-launch-card-text {
-  @apply text-zinc-300;
-}
-
-:global(:root.dark) .new-thread-launch-card-pill {
-  @apply border-emerald-900 bg-zinc-900/70 text-emerald-300;
-}
-
-:global(:root.dark) .new-thread-launch-card-button {
-  @apply border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800;
-}
-
-:global(:root.dark) .new-thread-launch-card-button-primary {
-  @apply border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-500;
+.new-thread-launch-card-button-primary:hover {
+  background-color: var(--codex-primary-hover);
 }
 
 .new-thread-folder-action {
-  @apply inline-flex h-9 items-center justify-center rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-default disabled:opacity-60;
+  @apply inline-flex h-9 items-center justify-center rounded-full border px-4 text-sm font-medium transition disabled:cursor-default disabled:opacity-60;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.new-thread-folder-action:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .new-thread-folder-action-primary {
-  @apply border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800;
+  border-color: var(--codex-primary);
+  background-color: var(--codex-primary);
+  color: var(--codex-primary-fg);
+}
+
+.new-thread-folder-action-primary:hover {
+  background-color: var(--codex-primary-hover);
 }
 
 .new-thread-open-folder-overlay {
@@ -2972,11 +2985,17 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-open-folder {
-  @apply flex w-full max-w-3xl max-h-[90vh] flex-col gap-2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white px-4 py-4 text-left shadow-xl;
+  @apply flex w-full max-w-3xl max-h-[90vh] flex-col gap-2 overflow-y-auto rounded-2xl border px-4 py-4 text-left shadow-xl;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-panel-surface);
+  color: var(--codex-text);
 }
 
 .new-thread-project-modal {
-  @apply flex w-full max-w-xl max-h-[90vh] flex-col gap-3 overflow-y-auto rounded-2xl border border-zinc-200 bg-white px-4 py-4 text-left shadow-xl;
+  @apply flex w-full max-w-xl max-h-[90vh] flex-col gap-3 overflow-y-auto rounded-2xl border px-4 py-4 text-left shadow-xl;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-panel-surface);
+  color: var(--codex-text);
 }
 
 .new-thread-open-folder-header {
@@ -2984,15 +3003,22 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-open-folder-title {
-  @apply m-0 text-sm font-semibold text-zinc-900;
+  @apply m-0 text-sm font-semibold;
+  color: var(--codex-text);
 }
 
 .new-thread-open-folder-close {
-  @apply border-0 bg-transparent p-0 text-sm text-zinc-500 transition hover:text-zinc-800;
+  @apply border-0 bg-transparent p-0 text-sm transition;
+  color: var(--codex-muted-text);
+}
+
+.new-thread-open-folder-close:hover {
+  color: var(--codex-text);
 }
 
 .new-thread-open-folder-label {
-  @apply m-0 text-xs font-medium uppercase tracking-wide text-zinc-500;
+  @apply m-0 text-xs font-medium uppercase tracking-wide;
+  color: var(--codex-muted-text);
 }
 
 .new-thread-open-folder-current {
@@ -3000,7 +3026,14 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-open-folder-path {
-  @apply min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 font-mono text-xs text-zinc-700 outline-none transition focus:border-zinc-400;
+  @apply min-w-0 flex-1 rounded-xl border px-3 py-2 font-mono text-xs outline-none transition;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.new-thread-open-folder-path:focus {
+  box-shadow: 0 0 0 2px var(--codex-focus-ring);
 }
 
 .new-thread-open-folder-actions {
@@ -3008,15 +3041,25 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-project-mode-tabs {
-  @apply grid grid-cols-2 rounded-xl border border-zinc-200 bg-zinc-50 p-1;
+  @apply grid grid-cols-2 rounded-xl border p-1;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
 }
 
 .new-thread-project-mode-tab {
-  @apply inline-flex h-9 items-center justify-center rounded-lg border-0 bg-transparent px-3 text-sm font-medium text-zinc-600 transition hover:bg-white hover:text-zinc-900 disabled:cursor-default disabled:opacity-60;
+  @apply inline-flex h-9 items-center justify-center rounded-lg border-0 bg-transparent px-3 text-sm font-medium transition disabled:cursor-default disabled:opacity-60;
+  color: var(--codex-muted-text);
+}
+
+.new-thread-project-mode-tab:hover {
+  background-color: var(--codex-control-hover);
+  color: var(--codex-text);
 }
 
 .new-thread-project-mode-tab.is-active {
-  @apply bg-white text-zinc-950 shadow-sm;
+  background-color: var(--codex-selected-surface);
+  color: var(--codex-text);
+  box-shadow: var(--codex-shadow);
 }
 
 .new-thread-project-field {
@@ -3028,20 +3071,23 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-open-folder-toggle {
-  @apply inline-flex items-center gap-2 text-sm text-zinc-600;
+  @apply inline-flex items-center gap-2 text-sm;
+  color: var(--codex-muted-text);
 }
 
 .new-thread-open-folder-toggle-input {
-  @apply relative h-4 w-4 shrink-0 appearance-none rounded-[4px] border border-zinc-300 bg-white outline-none transition;
+  @apply relative h-4 w-4 shrink-0 appearance-none rounded-[4px] border outline-none transition;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
 }
 
 .new-thread-open-folder-toggle-input:focus-visible {
-  box-shadow: 0 0 0 3px rgb(228 228 231);
+  box-shadow: 0 0 0 3px var(--codex-focus-ring);
 }
 
 .new-thread-open-folder-toggle-input:checked {
-  border-color: rgb(24 24 27);
-  background-color: rgb(255 255 255);
+  border-color: var(--codex-primary);
+  background-color: var(--codex-primary);
 }
 
 .new-thread-open-folder-toggle-input::after {
@@ -3051,8 +3097,8 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
   top: 1px;
   width: 4px;
   height: 8px;
-  border-right: 2px solid rgb(24 24 27);
-  border-bottom: 2px solid rgb(24 24 27);
+  border-right: 2px solid var(--codex-checkbox-check);
+  border-bottom: 2px solid var(--codex-checkbox-check);
   transform: rotate(45deg);
   opacity: 0;
 }
@@ -3062,7 +3108,14 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-open-folder-filter {
-  @apply w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-zinc-400;
+  @apply w-full rounded-xl border px-3 py-2 text-sm outline-none transition;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.new-thread-open-folder-filter:focus {
+  box-shadow: 0 0 0 2px var(--codex-focus-ring);
 }
 
 .new-thread-open-folder-create {
@@ -3074,7 +3127,14 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-open-folder-create-input {
-  @apply w-full min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-zinc-400;
+  @apply w-full min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm outline-none transition;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.new-thread-open-folder-create-input:focus {
+  box-shadow: 0 0 0 2px var(--codex-focus-ring);
 }
 
 .new-thread-open-folder-create-submit {
@@ -3082,11 +3142,20 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-folder-action[aria-pressed='true'] {
-  @apply border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800;
+  border-color: var(--codex-primary);
+  background-color: var(--codex-primary);
+  color: var(--codex-primary-fg);
+}
+
+.new-thread-folder-action[aria-pressed='true']:hover {
+  background-color: var(--codex-primary-hover);
 }
 
 .new-thread-open-folder-status {
-  @apply m-0 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600;
+  @apply m-0 rounded-xl border px-3 py-2 text-sm;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-muted-text);
 }
 
 .new-thread-open-folder-error {
@@ -3100,7 +3169,7 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 .new-thread-open-folder-list {
   @apply m-0 flex max-h-72 list-none flex-col gap-1 overflow-y-auto p-0 pr-3;
   scrollbar-gutter: stable;
-  scrollbar-color: rgb(161 161 170) rgb(244 244 245);
+  scrollbar-color: var(--codex-scrollbar-thumb) var(--codex-scrollbar-track);
   scrollbar-width: thin;
 }
 
@@ -3109,18 +3178,18 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-open-folder-list::-webkit-scrollbar-track {
-  background: rgb(244 244 245);
+  background: var(--codex-scrollbar-track);
   border-radius: 9999px;
 }
 
 .new-thread-open-folder-list::-webkit-scrollbar-thumb {
-  background: rgb(161 161 170);
+  background: var(--codex-scrollbar-thumb);
   border-radius: 9999px;
-  border: 2px solid rgb(244 244 245);
+  border: 2px solid var(--codex-scrollbar-track);
 }
 
 .new-thread-open-folder-list::-webkit-scrollbar-thumb:hover {
-  background: rgb(113 113 122);
+  background: var(--codex-scrollbar-thumb-hover);
 }
 
 .new-thread-open-folder-item {
@@ -3128,7 +3197,14 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-open-folder-item-main {
-  @apply min-w-0 truncate rounded-xl border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-left text-sm font-medium leading-5 text-zinc-900 transition hover:border-zinc-300 hover:bg-zinc-100;
+  @apply min-w-0 truncate rounded-xl border px-2.5 py-1 text-left text-sm font-medium leading-5 transition;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.new-thread-open-folder-item-main:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .new-thread-open-folder-item-main:disabled,
@@ -3141,7 +3217,14 @@ async function loadWorktreeBranches(sourceCwd: string): Promise<void> {
 }
 
 .new-thread-open-folder-item-open {
-  @apply inline-flex h-7 items-center justify-center rounded-xl border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50;
+  @apply inline-flex h-7 items-center justify-center rounded-xl border px-2.5 text-xs font-medium transition;
+  border-color: var(--codex-border-heavy);
+  background-color: var(--codex-control-bg);
+  color: var(--codex-text);
+}
+
+.new-thread-open-folder-item-open:hover {
+  background-color: var(--codex-control-hover);
 }
 
 .new-thread-runtime-dropdown {
