@@ -7,6 +7,7 @@ import {
   insertTurnSummaryMessages,
   removeThreadFromGroups,
   isThreadUnreadByLastRead,
+  sortProjectGroupsByUpdatedAt,
   useDesktopState,
 } from './useDesktopState'
 import type { ReasoningEffort, UiMessage, UiModelOption, UiProjectGroup } from '../types/codex'
@@ -67,6 +68,25 @@ function thread(id: string, cwd: string, options: { hasWorktree?: boolean } = {}
     inProgress: false,
   }
 }
+
+describe('sortProjectGroupsByUpdatedAt', () => {
+  it('按项目内最新线程更新时间排列项目和线程', () => {
+    const olderProjectThread = thread('older-project', '/projects/older')
+    olderProjectThread.updatedAtIso = '2026-07-10T10:00:00.000Z'
+    const newestThread = thread('newest-thread', '/projects/active')
+    newestThread.updatedAtIso = '2026-07-11T12:00:00.000Z'
+    const olderThread = thread('older-thread', '/projects/active')
+    olderThread.updatedAtIso = '2026-07-09T08:00:00.000Z'
+
+    const result = sortProjectGroupsByUpdatedAt([
+      { projectName: 'older', threads: [olderProjectThread] },
+      { projectName: 'active', threads: [olderThread, newestThread] },
+    ])
+
+    expect(result.map((group) => group.projectName)).toEqual(['active', 'older'])
+    expect(result[0]?.threads.map((item) => item.id)).toEqual(['newest-thread', 'older-thread'])
+  })
+})
 
 function modelOption(
   id: string,

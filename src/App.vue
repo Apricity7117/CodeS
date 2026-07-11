@@ -80,7 +80,6 @@
         @delete-thread="onDeleteThread"
         @hide-project="onHideProject"
         @delete-project="onDeleteProject"
-        @reorder-project="onReorderProject"
         @load-more-thread-history="loadMoreThreadHistory"
         @export-thread="onExportThread"
         @toggle-accounts-section="toggleAccountsSectionCollapsed"
@@ -754,7 +753,6 @@ const {
   renameProject,
   removeProject,
   deleteProjectSessionsByCwd,
-  reorderProject,
   pinProjectToTop,
   startPolling,
   stopPolling,
@@ -1600,10 +1598,6 @@ async function onDeleteProject(projectName: string): Promise<void> {
   await deleteProjectSessionsByCwd(projectName, cwd)
   await loadWorkspaceRootOptionsState()
   void refreshDefaultProjectName()
-}
-
-function onReorderProject(payload: { projectName: string; toIndex: number }): void {
-  reorderProject(payload.projectName, payload.toIndex)
 }
 
 function onRequestProjectGitStatus(projectName: string): void {

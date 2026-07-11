@@ -84,7 +84,6 @@
         @delete-thread="$emit('delete-thread', $event)"
         @hide-project="$emit('hide-project', $event)"
         @delete-project="$emit('delete-project', $event)"
-        @reorder-project="$emit('reorder-project', $event)"
         @load-more-thread-history="$emit('load-more-thread-history')"
         @export-thread="$emit('export-thread', $event)"
         @start-new-chat="$emit('start-new-thread-toolbar')"
@@ -557,7 +556,6 @@ const emit = defineEmits<{
   'delete-thread': [threadId: string]
   'hide-project': [projectName: string]
   'delete-project': [projectName: string]
-  'reorder-project': [payload: { projectName: string; toIndex: number }]
   'load-more-thread-history': []
   'export-thread': [threadId: string]
   'update:isSettingsOpen': [value: boolean]

@@ -257,7 +257,6 @@
             tabindex="0"
             @click="toggleProjectCollapse(group.projectName)"
             @contextmenu.prevent="openProjectContextMenu($event, group.projectName)"
-            @keydown="onProjectHeaderKeyDown($event, group.projectName)"
             @keydown.enter.prevent="toggleProjectCollapse(group.projectName)"
             @keydown.space.prevent="toggleProjectCollapse(group.projectName)"
             :force-right-hover="isProjectMenuOpen(group.projectName)"
@@ -276,8 +275,6 @@
             </template>
             <span
               class="project-main-button"
-              :data-dragging-handle="isDraggingProject(group.projectName)"
-              @mousedown.left="onProjectHandleMouseDown($event, group.projectName)"
             >
               <span class="project-title" :title="getProjectTooltipTitle(group.projectName)">
                 {{ getProjectVisibleName(group) }}
@@ -727,7 +724,6 @@ const emit = defineEmits<{
   'delete-thread': [threadId: string]
   'hide-project': [projectName: string]
   'delete-project': [projectName: string]
-  'reorder-project': [payload: { projectName: string; toIndex: number }]
   'load-more-thread-history': []
   'export-thread': [threadId: string]
   'fork-thread': [threadId: string]
@@ -1575,24 +1571,6 @@ function submitDeleteProject(): void {
   closeDeleteProjectDialog()
 }
 
-function onProjectHeaderKeyDown(event: KeyboardEvent, projectName: string): void {
-  if (!event.altKey) return
-  if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
-
-  const currentIndex = visibleProjectNames.value.indexOf(projectName)
-  if (currentIndex < 0) return
-
-  const delta = event.key === 'ArrowUp' ? -1 : 1
-  const targetIndex = Math.max(0, Math.min(currentIndex + delta, visibleProjectNames.value.length - 1))
-  if (targetIndex === currentIndex) return
-
-  event.preventDefault()
-  emit('reorder-project', {
-    projectName,
-    toIndex: toFullProjectReorderIndex(projectName, targetIndex),
-  })
-}
-
 function isExpanded(projectName: string): boolean {
   return expandedProjects.value[projectName] === true
 }
@@ -1881,10 +1859,8 @@ function onProjectDragMouseUp(event: MouseEvent): void {
     if (currentProjectIndex >= 0) {
       const toIndex = projectedDropProjectIndex.value
       if (toIndex !== currentProjectIndex) {
-        emit('reorder-project', {
-          projectName: drag.projectName,
-          toIndex: toFullProjectReorderIndex(drag.projectName, toIndex),
-        })
+        resetProjectDragState({ preserveToggleSuppression: true })
+        return
       }
     }
   }
@@ -2006,38 +1982,6 @@ function isPointerInProjectDropZone(sample: DragPointerSample): boolean {
 
 function isDraggingProject(projectName: string): boolean {
   return activeProjectDrag.value?.projectName === projectName
-}
-
-function toFullProjectReorderIndex(projectName: string, visibleToIndex: number): number {
-  const fullOrder = props.groups.map((group) => group.projectName)
-  const fullFromIndex = fullOrder.indexOf(projectName)
-  if (fullFromIndex < 0) return visibleToIndex
-
-  const currentVisibleOrder = visibleProjectNames.value
-  const visibleFromIndex = currentVisibleOrder.indexOf(projectName)
-  if (visibleFromIndex < 0) return fullFromIndex
-
-  const boundedVisibleToIndex = Math.max(0, Math.min(visibleToIndex, currentVisibleOrder.length - 1))
-  const nextVisibleOrder = [...currentVisibleOrder]
-  nextVisibleOrder.splice(visibleFromIndex, 1)
-  nextVisibleOrder.splice(boundedVisibleToIndex, 0, projectName)
-
-  const movedVisibleIndex = nextVisibleOrder.indexOf(projectName)
-  const nextVisibleProject = nextVisibleOrder[movedVisibleIndex + 1]
-  const previousVisibleProject = movedVisibleIndex > 0 ? nextVisibleOrder[movedVisibleIndex - 1] : undefined
-  const fullOrderWithoutMoved = fullOrder.filter((name) => name !== projectName)
-
-  if (nextVisibleProject) {
-    const nextFullIndex = fullOrderWithoutMoved.indexOf(nextVisibleProject)
-    if (nextFullIndex >= 0) return nextFullIndex
-  }
-
-  if (previousVisibleProject) {
-    const previousFullIndex = fullOrderWithoutMoved.indexOf(previousVisibleProject)
-    if (previousFullIndex >= 0) return Math.min(previousFullIndex + 1, fullOrder.length - 1)
-  }
-
-  return 0
 }
 
 function projectGroupStyle(projectName: string): Record<string, string> | undefined {

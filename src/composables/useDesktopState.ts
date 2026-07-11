@@ -716,19 +716,23 @@ function mergeProjectOrder(previousOrder: string[], incomingGroups: UiProjectGro
   return areStringArraysEqual(previousOrder, nextOrder) ? previousOrder : nextOrder
 }
 
-function orderGroupsByProjectOrder(incoming: UiProjectGroup[], projectOrder: string[]): UiProjectGroup[] {
-  const incomingByName = new Map(incoming.map((group) => [group.projectName, group]))
-  const ordered: UiProjectGroup[] = projectOrder
-    .map((projectName) => incomingByName.get(projectName) ?? null)
-    .filter((group): group is UiProjectGroup => group !== null)
-
-  for (const group of incoming) {
-    if (!projectOrder.includes(group.projectName)) {
-      ordered.push(group)
-    }
+export function sortProjectGroupsByUpdatedAt(groups: UiProjectGroup[]): UiProjectGroup[] {
+  const getThreadTimestamp = (thread: UiThread | undefined): number => {
+    if (!thread) return 0
+    const timestamp = Date.parse(thread.updatedAtIso || thread.createdAtIso)
+    return Number.isFinite(timestamp) ? timestamp : 0
   }
 
-  return ordered
+  return groups
+    .map((group) => ({
+      ...group,
+      threads: [...group.threads].sort(
+        (first, second) => getThreadTimestamp(second) - getThreadTimestamp(first),
+      ),
+    }))
+    .sort(
+      (first, second) => getThreadTimestamp(second.threads[0]) - getThreadTimestamp(first.threads[0]),
+    )
 }
 
 function areStringArraysEqual(first?: string[], second?: string[]): boolean {
@@ -799,21 +803,6 @@ function fileAttachmentsWithLocalImages(
     next.push({ label: fileNameFromPath(path), path })
   }
   return next.length > 0 ? next : undefined
-}
-
-function reorderStringArray(items: string[], fromIndex: number, toIndex: number): string[] {
-  if (fromIndex < 0 || fromIndex >= items.length || toIndex < 0 || toIndex >= items.length) {
-    return items
-  }
-
-  if (fromIndex === toIndex) {
-    return items
-  }
-
-  const next = [...items]
-  const [moved] = next.splice(fromIndex, 1)
-  next.splice(toIndex, 0, moved)
-  return next
 }
 
 function areCommandExecutionsEqual(first?: CommandExecutionData, second?: CommandExecutionData): boolean {
@@ -4583,14 +4572,15 @@ export function useDesktopState() {
       }
     }
 
-    const orderedGroups = orderGroupsByProjectOrder(visibleGroups, projectOrder.value)
-    markServerListedThreads(new Set(flattenThreads(orderedGroups).map((thread) => thread.id)))
+    markServerListedThreads(new Set(flattenThreads(visibleGroups).map((thread) => thread.id)))
     const mergedWithInProgress = mergeIncomingWithLocalInProgressThreads(
       sourceGroups.value,
-      orderedGroups,
+      visibleGroups,
       inProgressById.value,
     )
-    sourceGroups.value = mergeThreadGroups(sourceGroups.value, mergedWithInProgress)
+    sourceGroups.value = sortProjectGroupsByUpdatedAt(
+      mergeThreadGroups(sourceGroups.value, mergedWithInProgress),
+    )
     inProgressById.value = pruneThreadStateMap(
       inProgressById.value,
       new Set(flattenThreads(sourceGroups.value).map((thread) => thread.id)),
@@ -5906,28 +5896,6 @@ export function useDesktopState() {
     }
   }
 
-  function reorderProject(projectName: string, toIndex: number): void {
-    if (projectName.length === 0) return
-    if (sourceGroups.value.length === 0) return
-
-    const visibleOrder = sourceGroups.value.map((group) => group.projectName)
-    const fromIndex = visibleOrder.indexOf(projectName)
-    if (fromIndex === -1) return
-
-    const clampedToIndex = Math.max(0, Math.min(toIndex, visibleOrder.length - 1))
-    const reorderedVisibleOrder = reorderStringArray(visibleOrder, fromIndex, clampedToIndex)
-    if (reorderedVisibleOrder === visibleOrder) return
-
-    const normalizedProjectOrder = mergeProjectOrder(reorderedVisibleOrder, sourceGroups.value)
-    projectOrder.value = normalizedProjectOrder
-    saveProjectOrder(projectOrder.value)
-
-    const orderedGroups = orderGroupsByProjectOrder(sourceGroups.value, projectOrder.value)
-    sourceGroups.value = mergeThreadGroups(sourceGroups.value, orderedGroups)
-    applyThreadFlags()
-    void persistProjectOrderToWorkspaceRoots()
-  }
-
   function pinProjectToTop(projectName: string): void {
     const normalizedName = projectName.trim()
     if (!normalizedName) return
@@ -5935,10 +5903,6 @@ export function useDesktopState() {
     if (areStringArraysEqual(projectOrder.value, nextOrder)) return
     projectOrder.value = nextOrder
     saveProjectOrder(projectOrder.value)
-
-    const orderedGroups = orderGroupsByProjectOrder(sourceGroups.value, projectOrder.value)
-    sourceGroups.value = mergeThreadGroups(sourceGroups.value, orderedGroups)
-    applyThreadFlags()
     void persistProjectOrderToWorkspaceRoots()
   }
 
@@ -6310,7 +6274,6 @@ export function useDesktopState() {
     renameProject,
     removeProject,
     deleteProjectSessionsByCwd,
-    reorderProject,
     pinProjectToTop,
     startPolling,
     stopPolling,
