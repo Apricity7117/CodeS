@@ -13,7 +13,14 @@
     >
       <div v-if="selectedImages.length > 0" class="thread-composer-attachments">
         <div v-for="image in selectedImages" :key="image.id" class="thread-composer-attachment">
-          <img class="thread-composer-attachment-image" :src="image.url" :alt="image.name || 'Selected image'" />
+          <button
+            class="thread-composer-attachment-preview-trigger"
+            type="button"
+            :aria-label="`${t('Preview')} ${image.name || t('Selected image')}`"
+            @click="openImagePreview(image)"
+          >
+            <img class="thread-composer-attachment-image" :src="image.url" :alt="image.name || t('Selected image')" />
+          </button>
           <button
             class="thread-composer-attachment-remove"
             type="button"
@@ -336,36 +343,24 @@
               class="thread-composer-model-menu"
               @keydown.esc.prevent.stop="closeModelReasoningMenu"
             >
-              <div class="thread-composer-model-menu-title">{{ t('Reasoning') }}</div>
-              <button
-                v-for="option in reasoningMenuOptions"
-                :key="option.value"
-                class="thread-composer-model-menu-option"
-                :class="{ 'is-selected': option.value === selectedReasoningEffort }"
-                type="button"
-                @click="onReasoningEffortSelect(option.value)"
+              <div
+                class="thread-composer-model-submenu-anchor"
+                @mouseenter="openModelMenuSection('model')"
               >
-                <span class="thread-composer-model-menu-option-label">{{ t(option.label) }}</span>
-                <IconCodexCheckMd
-                  v-if="option.value === selectedReasoningEffort"
-                  class="thread-composer-model-menu-check"
-                />
-              </button>
-              <div class="thread-composer-model-menu-separator" />
-              <div class="thread-composer-model-submenu-anchor" @mouseenter="openModelSubmenu">
                 <button
                   class="thread-composer-model-menu-option thread-composer-model-row"
                   type="button"
                   :disabled="selectableModelOptions.length === 0"
-                  @click="openModelSubmenu"
+                  @click="openModelMenuSection('model')"
                 >
                   <span class="thread-composer-model-row-copy">
+                    <span class="thread-composer-model-row-label">{{ t('Model') }}</span>
                     <span class="thread-composer-model-row-value">{{ selectedFullModelLabel }}</span>
                   </span>
                   <IconCodexChevronRight class="thread-composer-model-row-chevron" />
                 </button>
 
-                <div v-if="isModelSubmenuOpen" class="thread-composer-model-submenu">
+                <div v-if="activeModelMenuSection === 'model'" class="thread-composer-model-submenu">
                   <div class="thread-composer-model-menu-title thread-composer-model-submenu-title">{{ t('Model') }}</div>
                   <button
                     v-for="option in modelOptions"
@@ -384,6 +379,41 @@
                   <div v-if="modelOptions.length === 0" class="thread-composer-model-menu-empty">
                     {{ t('No models available') }}
                   </div>
+                </div>
+              </div>
+
+              <div
+                class="thread-composer-model-submenu-anchor"
+                @mouseenter="openModelMenuSection('reasoning')"
+              >
+                <button
+                  class="thread-composer-model-menu-option thread-composer-model-row"
+                  type="button"
+                  @click="openModelMenuSection('reasoning')"
+                >
+                  <span class="thread-composer-model-row-copy">
+                    <span class="thread-composer-model-row-label">{{ t('Reasoning effort') }}</span>
+                    <span class="thread-composer-model-row-value">{{ selectedReasoningLabel }}</span>
+                  </span>
+                  <IconCodexChevronRight class="thread-composer-model-row-chevron" />
+                </button>
+
+                <div v-if="activeModelMenuSection === 'reasoning'" class="thread-composer-model-submenu">
+                  <div class="thread-composer-model-menu-title thread-composer-model-submenu-title">{{ t('Reasoning effort') }}</div>
+                  <button
+                    v-for="option in reasoningMenuOptions"
+                    :key="option.value"
+                    class="thread-composer-model-menu-option"
+                    :class="{ 'is-selected': option.value === selectedReasoningEffort }"
+                    type="button"
+                    @click="onReasoningEffortSelect(option.value)"
+                  >
+                    <span class="thread-composer-model-menu-option-label">{{ t(option.label) }}</span>
+                    <IconCodexCheckMd
+                      v-if="option.value === selectedReasoningEffort"
+                      class="thread-composer-model-menu-check"
+                    />
+                  </button>
                 </div>
               </div>
             </div>
@@ -466,6 +496,31 @@
       :disabled="isInteractionDisabled"
       @change="onFolderPickerChange"
     />
+
+    <Teleport to="body">
+      <div
+        v-if="previewedImage"
+        class="thread-composer-image-preview"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="t('Selected image')"
+        @click.self="closeImagePreview"
+      >
+        <img
+          class="thread-composer-image-preview-content"
+          :src="previewedImage.url"
+          :alt="previewedImage.name || t('Selected image')"
+        />
+        <button
+          class="thread-composer-image-preview-close"
+          type="button"
+          :aria-label="t('Close image preview')"
+          @click="closeImagePreview"
+        >
+          <IconCodexX class="thread-composer-image-preview-close-icon" />
+        </button>
+      </div>
+    </Teleport>
   </form>
 </template>
 
@@ -505,6 +560,7 @@ import {
   IconCodexExpand2,
   IconCodexFolder,
   IconCodexStop,
+  IconCodexX,
 } from '../icons/codex'
 import ComposerSearchDropdown from './ComposerSearchDropdown.vue'
 import { isImeComposingKeydown } from '../../utils/keyboard'
@@ -590,6 +646,8 @@ type SelectedImage = {
   url: string
 }
 
+type ModelMenuSection = 'model' | 'reasoning'
+
 type FolderUploadGroup = {
   id: string
   name: string
@@ -611,6 +669,7 @@ const PROMPT_OPTION_PREFIX = 'prompt:'
 
 const draft = ref('')
 const selectedImages = ref<SelectedImage[]>([])
+const previewedImage = ref<SelectedImage | null>(null)
 const selectedSkills = ref<SkillItem[]>([])
 const savedPrompts = ref<ComposerPromptInfo[]>([])
 const fileAttachments = ref<FileAttachment[]>([])
@@ -670,7 +729,7 @@ const isComposerExpanded = ref(false)
 const isDraftOverflowing = ref(false)
 const modelReasoningMenuRootRef = ref<HTMLElement | null>(null)
 const isModelReasoningMenuOpen = ref(false)
-const isModelSubmenuOpen = ref(false)
+const activeModelMenuSection = ref<ModelMenuSection | null>(null)
 let composerOverflowMeasurementQueued = false
 const draftGeneration = ref(0)
 let fileMentionSearchToken = 0
@@ -1110,6 +1169,7 @@ function setActiveInProgressMode(mode: 'steer' | 'queue'): void {
 
 function replaceDraftState(payload: ComposerDraftPayload): void {
   draftGeneration.value += 1
+  previewedImage.value = null
   draft.value = payload.text
   selectedImages.value = payload.imageUrls.map((url, index) => ({
     id: `queued-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1290,18 +1350,18 @@ function toggleModelReasoningMenu(): void {
   if (isComposerConfigDisabled.value) return
   isModelReasoningMenuOpen.value = !isModelReasoningMenuOpen.value
   if (!isModelReasoningMenuOpen.value) {
-    isModelSubmenuOpen.value = false
+    activeModelMenuSection.value = null
   }
 }
 
 function closeModelReasoningMenu(): void {
   isModelReasoningMenuOpen.value = false
-  isModelSubmenuOpen.value = false
+  activeModelMenuSection.value = null
 }
 
-function openModelSubmenu(): void {
-  if (selectableModelOptions.value.length === 0) return
-  isModelSubmenuOpen.value = true
+function openModelMenuSection(section: ModelMenuSection): void {
+  if (section === 'model' && selectableModelOptions.value.length === 0) return
+  activeModelMenuSection.value = section
 }
 
 function onToggleSpeedMode(): void {
@@ -1377,7 +1437,18 @@ function triggerFolderPicker(): void {
 }
 
 function removeImage(id: string): void {
+  if (previewedImage.value?.id === id) {
+    closeImagePreview()
+  }
   selectedImages.value = selectedImages.value.filter((image) => image.id !== id)
+}
+
+function openImagePreview(image: SelectedImage): void {
+  previewedImage.value = image
+}
+
+function closeImagePreview(): void {
+  previewedImage.value = null
 }
 
 function removeSkill(path: string): void {
@@ -1998,8 +2069,21 @@ function onDocumentClick(event: MouseEvent): void {
   }
 }
 
+function onDocumentKeydown(event: KeyboardEvent): void {
+  if (isImeComposingKeydown(event)) return
+  if (event.key !== 'Escape') return
+  if (previewedImage.value) {
+    closeImagePreview()
+    return
+  }
+  if (isModelReasoningMenuOpen.value) {
+    closeModelReasoningMenu()
+  }
+}
+
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
+  document.addEventListener('keydown', onDocumentKeydown)
   window.addEventListener('drop', onWindowDragCleanup)
   window.addEventListener('dragend', onWindowDragCleanup)
   window.addEventListener('blur', onWindowDragCleanup)
@@ -2016,6 +2100,7 @@ defineExpose<ThreadComposerExposed>({
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
+  document.removeEventListener('keydown', onDocumentKeydown)
   window.removeEventListener('drop', onWindowDragCleanup)
   window.removeEventListener('dragend', onWindowDragCleanup)
   window.removeEventListener('blur', onWindowDragCleanup)
@@ -2123,12 +2208,40 @@ watch(
   @apply relative h-14 w-14 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50;
 }
 
+.thread-composer-attachment-preview-trigger {
+  @apply block h-full w-full cursor-zoom-in border-0 bg-transparent p-0;
+}
+
 .thread-composer-attachment-image {
   @apply h-full w-full object-cover;
 }
 
 .thread-composer-attachment-remove {
   @apply absolute right-0.5 top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border-0 bg-black/70 text-xs leading-none text-white;
+}
+
+.thread-composer-image-preview {
+  @apply fixed inset-0 z-[100] flex items-center justify-center p-6;
+  background-color: rgba(0, 0, 0, 0.78);
+}
+
+.thread-composer-image-preview-content {
+  @apply max-h-full max-w-full rounded-xl object-contain shadow-2xl;
+}
+
+.thread-composer-image-preview-close {
+  @apply absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border transition;
+  border-color: color-mix(in srgb, white 24%, transparent);
+  background-color: color-mix(in srgb, black 70%, transparent);
+  color: white;
+}
+
+.thread-composer-image-preview-close:hover {
+  background-color: color-mix(in srgb, black 86%, transparent);
+}
+
+.thread-composer-image-preview-close-icon {
+  @apply h-5 w-5;
 }
 
 .thread-composer-file-chips {
@@ -2599,12 +2712,17 @@ watch(
 }
 
 .thread-composer-model-row-copy {
-  @apply flex min-w-0 flex-1;
+  @apply flex min-w-0 flex-1 items-center justify-between gap-3;
+}
+
+.thread-composer-model-row-label {
+  @apply shrink-0 font-medium;
+  color: var(--codex-text);
 }
 
 .thread-composer-model-row-value {
-  @apply truncate text-[15px] leading-5;
-  color: var(--codex-text);
+  @apply min-w-0 truncate text-[15px] leading-5;
+  color: var(--codex-muted-text);
 }
 
 .thread-composer-model-menu-empty {
