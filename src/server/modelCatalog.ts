@@ -5,6 +5,12 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { ENV_KEYS, readTrimmedEnv } from '../config/env.js'
 import type { ReasoningEffort, UiModelOption } from '../types/codex.js'
+import {
+  DEFAULT_MODEL_REASONING_EFFORTS,
+  isKnownReasoningEffort,
+  KNOWN_REASONING_EFFORTS,
+  normalizeReasoningEffort,
+} from '../reasoningEffort.js'
 
 export type ModelCatalogConfigModel = {
   id: string
@@ -22,7 +28,7 @@ export type ModelCatalogConfig = {
 export type ModelCatalogSource = UiModelOption['source']
 
 export type ModelCatalogBuildInput = {
-  codexModelIds: string[]
+  codexModels: unknown[]
   providerModelIds: string[]
   config: ModelCatalogConfig
 }
@@ -36,13 +42,11 @@ export type ModelCatalogResponse = {
 
 type ModelCatalogRouteContext = {
   readJsonBody: (req: IncomingMessage) => Promise<unknown>
-  readCodexModelIds: () => Promise<string[]>
+  readCodexModels: () => Promise<unknown[]>
   readProviderModelIds: () => Promise<string[]>
 }
 
 const MODEL_CATALOG_CONFIG_FILE = 'codes-model-catalog.json'
-const DEFAULT_REASONING_EFFORTS: ReasoningEffort[] = ['low', 'medium', 'high', 'xhigh']
-const ALLOWED_REASONING_EFFORTS = new Set<ReasoningEffort>(['none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
 const DEFAULT_CONFIG: ModelCatalogConfig = {
   models: [],
   order: [],
@@ -142,24 +146,27 @@ export function buildEffectiveModelCatalog(input: ModelCatalogBuildInput): UiMod
   const optionsById = new Map<string, UiModelOption>()
   const discoveredOrder: string[] = []
 
-  for (const id of input.codexModelIds) {
-    addDiscoveredModel(optionsById, discoveredOrder, id, 'codex')
+  for (const rawModel of input.codexModels) {
+    const option = normalizeCodexModelOption(rawModel)
+    if (option) addDiscoveredModel(optionsById, discoveredOrder, option)
   }
   for (const id of input.providerModelIds) {
-    addDiscoveredModel(optionsById, discoveredOrder, id, 'provider')
+    const option = createFallbackModelOption(id, 'provider')
+    if (option) addDiscoveredModel(optionsById, discoveredOrder, option)
   }
 
   const configuredOrder: string[] = []
   for (const configModel of input.config.models) {
     const existing = optionsById.get(configModel.id)
-    const reasoningEfforts = readEffectiveReasoningEfforts(configModel)
-    const defaultReasoningEffort = readEffectiveDefaultReasoningEffort(configModel, reasoningEfforts)
+    const reasoningEfforts = readEffectiveReasoningEfforts(configModel, existing)
+    const defaultReasoningEffort = readEffectiveDefaultReasoningEffort(configModel, reasoningEfforts, existing)
+    const isHidden = configModel.hidden ?? existing?.isHidden ?? false
     optionsById.set(configModel.id, {
       id: configModel.id,
       label: configModel.label?.trim() || existing?.label || configModel.id,
       source: existing?.source ?? 'custom',
-      isHidden: configModel.hidden === true,
-      isSelectable: configModel.hidden !== true,
+      isHidden,
+      isSelectable: !isHidden,
       reasoningEfforts,
       defaultReasoningEffort,
     })
@@ -182,15 +189,15 @@ export function buildEffectiveModelCatalog(input: ModelCatalogBuildInput): UiMod
 }
 
 export async function readModelCatalogResponse(context: ModelCatalogRouteContext): Promise<ModelCatalogResponse> {
-  const [codexModelIds, providerModelIds, configState] = await Promise.all([
-    context.readCodexModelIds(),
+  const [codexModels, providerModelIds, configState] = await Promise.all([
+    context.readCodexModels(),
     context.readProviderModelIds(),
     readModelCatalogConfigText(),
   ])
 
   return {
     data: buildEffectiveModelCatalog({
-      codexModelIds,
+      codexModels,
       providerModelIds,
       config: configState.config,
     }),
@@ -310,41 +317,92 @@ function normalizeOrder(value: unknown): string[] {
   return orderedIds
 }
 
-function addDiscoveredModel(
-  optionsById: Map<string, UiModelOption>,
-  discoveredOrder: string[],
-  rawId: string,
-  source: ModelCatalogSource,
-): void {
+function createFallbackModelOption(rawId: string, source: ModelCatalogSource): UiModelOption | null {
   const id = rawId.trim()
-  if (!id || optionsById.has(id)) return
-  optionsById.set(id, {
+  if (!id) return null
+  return {
     id,
     label: id,
     source,
     isHidden: false,
     isSelectable: true,
-    reasoningEfforts: DEFAULT_REASONING_EFFORTS,
+    reasoningEfforts: [...DEFAULT_MODEL_REASONING_EFFORTS],
     defaultReasoningEffort: 'medium',
-  })
-  discoveredOrder.push(id)
+  }
 }
 
-function readEffectiveReasoningEfforts(configModel: ModelCatalogConfigModel): ReasoningEffort[] {
+function normalizeCodexModelOption(value: unknown): UiModelOption | null {
+  const record = asRecord(value)
+  const id = readNonEmptyString(record?.id) || readNonEmptyString(record?.model)
+  if (!id) return null
+
+  const reasoningEfforts: ReasoningEffort[] = []
+  const supportedEfforts = Array.isArray(record?.supportedReasoningEfforts)
+    ? record.supportedReasoningEfforts
+    : []
+  for (const rawOption of supportedEfforts) {
+    const option = asRecord(rawOption)
+    const effort = normalizeReasoningEffort(option?.reasoningEffort ?? rawOption)
+    if (effort && !reasoningEfforts.includes(effort)) reasoningEfforts.push(effort)
+  }
+
+  const defaultReasoningEffort = normalizeReasoningEffort(record?.defaultReasoningEffort)
+  if (defaultReasoningEffort && !reasoningEfforts.includes(defaultReasoningEffort)) {
+    reasoningEfforts.push(defaultReasoningEffort)
+  }
+  const effectiveReasoningEfforts = reasoningEfforts.length > 0
+    ? reasoningEfforts
+    : [...DEFAULT_MODEL_REASONING_EFFORTS]
+  const isHidden = record?.hidden === true
+
+  return {
+    id,
+    label: readNonEmptyString(record?.displayName) || id,
+    source: 'codex',
+    isHidden,
+    isSelectable: !isHidden,
+    reasoningEfforts: effectiveReasoningEfforts,
+    defaultReasoningEffort: defaultReasoningEffort && effectiveReasoningEfforts.includes(defaultReasoningEffort)
+      ? defaultReasoningEffort
+      : effectiveReasoningEfforts.includes('medium') ? 'medium' : effectiveReasoningEfforts[0] ?? 'medium',
+  }
+}
+
+function addDiscoveredModel(
+  optionsById: Map<string, UiModelOption>,
+  discoveredOrder: string[],
+  option: UiModelOption,
+): void {
+  if (optionsById.has(option.id)) return
+  optionsById.set(option.id, option)
+  discoveredOrder.push(option.id)
+}
+
+function readEffectiveReasoningEfforts(
+  configModel: ModelCatalogConfigModel,
+  existing: UiModelOption | undefined,
+): ReasoningEffort[] {
   const configured = configModel.reasoningEfforts
   if (configured && configured.length > 0) return configured
-  if (configModel.defaultReasoningEffort && !DEFAULT_REASONING_EFFORTS.includes(configModel.defaultReasoningEffort)) {
-    return [configModel.defaultReasoningEffort, ...DEFAULT_REASONING_EFFORTS]
+  const discovered = existing?.reasoningEfforts.length
+    ? existing.reasoningEfforts
+    : DEFAULT_MODEL_REASONING_EFFORTS
+  if (configModel.defaultReasoningEffort && !discovered.includes(configModel.defaultReasoningEffort)) {
+    return [configModel.defaultReasoningEffort, ...discovered]
   }
-  return DEFAULT_REASONING_EFFORTS
+  return [...discovered]
 }
 
 function readEffectiveDefaultReasoningEffort(
   configModel: ModelCatalogConfigModel,
   reasoningEfforts: ReasoningEffort[],
+  existing: UiModelOption | undefined,
 ): ReasoningEffort {
   if (configModel.defaultReasoningEffort && reasoningEfforts.includes(configModel.defaultReasoningEffort)) {
     return configModel.defaultReasoningEffort
+  }
+  if (existing?.defaultReasoningEffort && reasoningEfforts.includes(existing.defaultReasoningEffort)) {
+    return existing.defaultReasoningEffort
   }
   return reasoningEfforts.includes('medium') ? 'medium' : reasoningEfforts[0] ?? 'medium'
 }
@@ -418,10 +476,10 @@ function readOptionalReasoningEfforts(value: unknown, field: string): ReasoningE
 
 function readOptionalReasoningEffort(value: unknown, field: string): ReasoningEffort | undefined {
   if (value === undefined) return undefined
-  if (typeof value !== 'string' || !ALLOWED_REASONING_EFFORTS.has(value as ReasoningEffort)) {
-    throw new Error(`${field} must be one of none, minimal, low, medium, high, xhigh`)
+  if (!isKnownReasoningEffort(value)) {
+    throw new Error(`${field} must be one of ${KNOWN_REASONING_EFFORTS.join(', ')}`)
   }
-  return value as ReasoningEffort
+  return value
 }
 
 function readNonEmptyString(value: unknown): string {

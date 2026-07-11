@@ -22,6 +22,7 @@ import {
   resolveRipgrepCommand,
 } from '../commandResolution.js'
 import type { CollaborationModeKind, ReasoningEffort } from '../types/codex.js'
+import { normalizeReasoningEffort } from '../reasoningEffort.js'
 import { isAbsoluteLikePath } from '../pathUtils.js'
 import {
   ENV_KEYS,
@@ -985,17 +986,9 @@ function normalizeProviderModelsData(payload: unknown): string[] {
   return ids
 }
 
-async function readCodexBackedModelIds(appServer: AppServerProcess): Promise<string[]> {
+async function readCodexBackedModels(appServer: AppServerProcess): Promise<unknown[]> {
   const payload = asRecord(await appServer.rpc('model/list', {}))
-  const rows = Array.isArray(payload?.data) ? payload.data : []
-  const ids: string[] = []
-  for (const row of rows) {
-    const record = asRecord(row)
-    const candidate = readNonEmptyString(record?.id) || readNonEmptyString(record?.model)
-    if (!candidate || ids.includes(candidate)) continue
-    ids.push(candidate)
-  }
-  return ids
+  return Array.isArray(payload?.data) ? payload.data : []
 }
 
 async function readProviderBackedModelIds(appServer: AppServerProcess): Promise<ProviderModelsResponse> {
@@ -3028,13 +3021,6 @@ async function appendThreadQueuedMessage(threadId: string, message: StoredQueued
     },
     result: undefined,
   }))
-}
-
-function normalizeReasoningEffort(value: unknown): ReasoningEffort | '' {
-  const allowed: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh']
-  return typeof value === 'string' && allowed.includes(value as ReasoningEffort)
-    ? (value as ReasoningEffort)
-    : ''
 }
 
 function normalizeCollaborationModeReasoningEffort(value: ReasoningEffort | '' | null | undefined): ReasoningEffort | null {
@@ -5110,7 +5096,7 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
 
       if (await handleModelCatalogRoutes(req, res, url, {
         readJsonBody,
-        readCodexModelIds: () => readCodexBackedModelIds(appServer),
+        readCodexModels: () => readCodexBackedModels(appServer),
         readProviderModelIds: async () => (await readProviderBackedModelIds(appServer)).data,
       })) {
         return

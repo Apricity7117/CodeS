@@ -2,7 +2,8 @@ export type RpcEnvelope<T> = {
   result: T
 }
 
-export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+// Codex app-server 0.144 起将思考强度定义为开放字符串，具体选项由 model/list 返回。
+export type ReasoningEffort = string
 export type SpeedMode = 'standard' | 'fast'
 export type CollaborationModeKind = 'default' | 'plan'
 

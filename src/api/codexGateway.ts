@@ -12,7 +12,6 @@ import type {
   ConfigReadResponse,
   GetAccountRateLimitsResponse,
   ModelListResponse,
-  ReasoningEffort,
   ThreadForkResponse,
   ThreadListResponse,
   ThreadReadResponse,
@@ -54,8 +53,10 @@ import type {
   UiRateLimitSnapshot,
   UiRateLimitWindow,
   UiModelOption,
+  ReasoningEffort,
 } from '../types/codex'
 import { normalizePathForUi } from '../pathUtils.js'
+import { DEFAULT_MODEL_REASONING_EFFORTS, normalizeReasoningEffort } from '../reasoningEffort.js'
 
 type CurrentModelConfig = {
   model: string
@@ -95,8 +96,6 @@ export type ModelCatalogResult = {
 }
 
 const PROVIDER_MODELS_FETCH_TIMEOUT_MS = 5_000
-const DEFAULT_MODEL_REASONING_EFFORTS: ReasoningEffort[] = ['low', 'medium', 'high', 'xhigh']
-
 type ResolvedCollaborationModeSettings = {
   model: string
   reasoningEffort: ReasoningEffort | null
@@ -501,13 +500,6 @@ async function enrichThreadMessagesWithFallback(threadId: string, messages: UiMe
   }
 }
 
-function normalizeReasoningEffort(value: unknown): ReasoningEffort | '' {
-  const allowed: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh']
-  return typeof value === 'string' && allowed.includes(value as ReasoningEffort)
-    ? (value as ReasoningEffort)
-    : ''
-}
-
 function normalizeSpeedMode(value: unknown): SpeedMode {
   return typeof value === 'string' && value.trim().toLowerCase() === 'fast'
     ? 'fast'
@@ -519,7 +511,7 @@ function normalizeModelSource(value: unknown): UiModelOption['source'] {
 }
 
 function normalizeReasoningEffortList(value: unknown): ReasoningEffort[] {
-  if (!Array.isArray(value)) return DEFAULT_MODEL_REASONING_EFFORTS
+  if (!Array.isArray(value)) return [...DEFAULT_MODEL_REASONING_EFFORTS]
   const efforts: ReasoningEffort[] = []
   for (const item of value) {
     const effort = normalizeReasoningEffort(item)
@@ -527,7 +519,7 @@ function normalizeReasoningEffortList(value: unknown): ReasoningEffort[] {
       efforts.push(effort)
     }
   }
-  return efforts.length > 0 ? efforts : DEFAULT_MODEL_REASONING_EFFORTS
+  return efforts.length > 0 ? efforts : [...DEFAULT_MODEL_REASONING_EFFORTS]
 }
 
 function normalizeModelOption(value: unknown): UiModelOption | null {

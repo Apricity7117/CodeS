@@ -68,6 +68,7 @@ import type {
   UiModelOption,
 } from '../types/codex'
 import { getPathParent, isProjectlessChatPath, normalizePathForUi, toHistoryProjectName, toProjectName } from '../pathUtils.js'
+import { DEFAULT_MODEL_REASONING_EFFORTS } from '../reasoningEffort.js'
 
 function flattenThreads(groups: UiProjectGroup[]): UiThread[] {
   return groups.flatMap((group) => group.threads)
@@ -97,8 +98,6 @@ const AUTO_THREAD_HISTORY_LOAD_LIMIT = 1000
 const RATE_LIMIT_REFRESH_DEBOUNCE_MS = 500
 const TURN_START_FOLLOW_UP_SYNC_DELAY_MS = 3000
 const RECENT_THREAD_MESSAGE_LOAD_REUSE_MS = 2000
-const REASONING_EFFORT_OPTIONS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh']
-const DEFAULT_MODEL_REASONING_EFFORTS: ReasoningEffort[] = ['low', 'medium', 'high', 'xhigh']
 const GLOBAL_SERVER_REQUEST_SCOPE = '__global__'
 const MODEL_FALLBACK_ID = 'gpt-5.4-mini'
 const CODEX_CLI_MISSING_MESSAGE = 'Codex CLI not found. Install @openai/codex or set CODES_CODEX_COMMAND.'
@@ -181,7 +180,7 @@ function createFallbackModelOption(modelId: string, source: UiModelOption['sourc
     source,
     isHidden: false,
     isSelectable: true,
-    reasoningEfforts: DEFAULT_MODEL_REASONING_EFFORTS,
+    reasoningEfforts: [...DEFAULT_MODEL_REASONING_EFFORTS],
     defaultReasoningEffort: 'medium',
   }
 }
@@ -2193,9 +2192,8 @@ export function useDesktopState() {
   }
 
   function setSelectedReasoningEffort(effort: ReasoningEffort | ''): void {
-    if (effort && !REASONING_EFFORT_OPTIONS.includes(effort)) {
-      return
-    }
+    const option = findModelOption(readModelIdForThread(selectedThreadId.value))
+    if (effort && option && !option.reasoningEfforts.includes(effort)) return
     selectedReasoningEffort.value = effort
   }
 
@@ -2276,9 +2274,7 @@ export function useDesktopState() {
     try {
       const currentConfig = await getCurrentModelConfig()
       const normalizedConfiguredModelId = currentConfig.model.trim()
-      const configuredReasoningEffort = currentConfig.reasoningEffort && REASONING_EFFORT_OPTIONS.includes(currentConfig.reasoningEffort)
-        ? currentConfig.reasoningEffort
-        : 'medium'
+      const configuredReasoningEffort = currentConfig.reasoningEffort || 'medium'
       codexDefaultModelId.value = normalizedConfiguredModelId
       codexDefaultReasoningEffort.value = configuredReasoningEffort
       const normalizedSelectedModelId = readModelIdForThread(selectedThreadId.value)

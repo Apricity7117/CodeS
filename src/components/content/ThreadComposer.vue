@@ -484,6 +484,7 @@ import type {
 import { useDictation } from '../../composables/useDictation'
 import { useMobile } from '../../composables/useMobile'
 import { useUiLanguage } from '../../composables/useUiLanguage'
+import { DEFAULT_MODEL_REASONING_EFFORTS } from '../../reasoningEffort.js'
 import {
   createComposerPrompt,
   getComposerPrompts,
@@ -680,21 +681,17 @@ let attachmentSessionToken = 0
 const DRAFT_STORAGE_PREFIX = 'codex-web-local.thread-draft.v1.'
 let lastActiveThreadId = ''
 
-const reasoningEffortLabels: Record<ReasoningEffort, string> = {
+const reasoningEffortLabels: Record<string, string> = {
   none: 'None',
   minimal: 'Minimal',
   low: 'Low',
   medium: 'Medium',
   high: 'High',
   xhigh: 'Extra High',
+  max: 'Max',
+  ultra: 'Ultra',
 }
 
-const defaultReasoningMenuOptions: Array<{ value: ReasoningEffort; label: string }> = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-  { value: 'xhigh', label: 'Extra High' },
-]
 function formatModelLabel(modelId: string): string {
   return modelId
     .trim()
@@ -704,7 +701,9 @@ function formatModelLabel(modelId: string): string {
 }
 
 function readReasoningEffortLabel(effort: ReasoningEffort | ''): string {
-  return effort ? reasoningEffortLabels[effort] : reasoningEffortLabels.medium
+  if (!effort) return reasoningEffortLabels.medium ?? 'Medium'
+  return reasoningEffortLabels[effort]
+    ?? effort.replace(/[-_]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
 const selectedModelOption = computed(() =>
@@ -717,8 +716,8 @@ function formatModelOptionLabel(option: UiModelOption): string {
 }
 
 const reasoningMenuOptions = computed(() => {
-  const efforts = selectedModelOption.value?.reasoningEfforts ?? defaultReasoningMenuOptions.map((option) => option.value)
-  return efforts.map((value) => ({ value, label: reasoningEffortLabels[value] }))
+  const efforts = selectedModelOption.value?.reasoningEfforts ?? DEFAULT_MODEL_REASONING_EFFORTS
+  return efforts.map((value) => ({ value, label: readReasoningEffortLabel(value) }))
 })
 const modelOptions = computed(() =>
   selectableModelOptions.value.map((option) => ({ value: option.id, label: formatModelOptionLabel(option) })),

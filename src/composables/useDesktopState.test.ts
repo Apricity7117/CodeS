@@ -1719,6 +1719,38 @@ describe('model selection', () => {
     expect(state.selectedReasoningEffort.value).toBe('minimal')
   })
 
+  it('keeps ultra when the selected model reports it as supported', async () => {
+    installTestWindow()
+    gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })
+    gatewayMocks.getAvailableCollaborationModes.mockResolvedValue([{ value: 'default', label: 'Default' }])
+    gatewayMocks.getSkillsList.mockResolvedValue([])
+    gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'gpt-5.6',
+      providerId: 'codex',
+      reasoningEffort: 'ultra',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [
+        modelOption('gpt-5.6', {
+          reasoningEfforts: ['high', 'max', 'ultra'],
+          defaultReasoningEffort: 'max',
+        }),
+      ],
+      configText: '{\n  "models": [],\n  "order": []\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    expect(state.selectedReasoningEffort.value).toBe('ultra')
+    state.setSelectedReasoningEffort('max')
+    expect(state.selectedReasoningEffort.value).toBe('max')
+  })
+
   it('refreshes model options when a model catalog change notification arrives', async () => {
     installTestWindow()
     const notificationCallbacks: Array<(notification: { method: string; params: unknown; atIso: string }) => void> = []

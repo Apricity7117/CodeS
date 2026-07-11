@@ -27,7 +27,18 @@ describe('model catalog', () => {
     }))
 
     expect(buildEffectiveModelCatalog({
-      codexModelIds: ['codex-model'],
+      codexModels: [
+        {
+          id: 'codex-model',
+          displayName: 'Codex Model',
+          supportedReasoningEfforts: [
+            { reasoningEffort: 'high', description: 'High' },
+            { reasoningEffort: 'max', description: 'Max' },
+            { reasoningEffort: 'ultra', description: 'Ultra' },
+          ],
+          defaultReasoningEffort: 'ultra',
+        },
+      ],
       providerModelIds: ['provider-model'],
       config,
     })).toEqual([
@@ -51,12 +62,12 @@ describe('model catalog', () => {
       },
       {
         id: 'codex-model',
-        label: 'codex-model',
+        label: 'Codex Model',
         source: 'codex',
         isHidden: true,
         isSelectable: false,
-        reasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
-        defaultReasoningEffort: 'medium',
+        reasoningEfforts: ['high', 'max', 'ultra'],
+        defaultReasoningEffort: 'ultra',
       },
     ])
   })
@@ -89,7 +100,7 @@ describe('model catalog', () => {
     }))
 
     expect(buildEffectiveModelCatalog({
-      codexModelIds: [],
+      codexModels: [],
       providerModelIds: [],
       config,
     }).map((option) => option.id)).toEqual([
@@ -112,5 +123,47 @@ describe('model catalog', () => {
         },
       ],
     }))).toThrow('defaultReasoningEffort must be included in reasoningEfforts')
+  })
+
+  it('accepts max and ultra reasoning efforts in custom model config', () => {
+    const config = parseModelCatalogConfigText(JSON.stringify({
+      models: [
+        {
+          id: 'gpt-5.6',
+          reasoningEfforts: ['high', 'max', 'ultra'],
+          defaultReasoningEffort: 'max',
+        },
+      ],
+    }))
+
+    expect(buildEffectiveModelCatalog({
+      codexModels: [],
+      providerModelIds: [],
+      config,
+    })[0]).toMatchObject({
+      reasoningEfforts: ['high', 'max', 'ultra'],
+      defaultReasoningEffort: 'max',
+    })
+  })
+
+  it('preserves future upstream reasoning efforts while validating custom config values', () => {
+    expect(buildEffectiveModelCatalog({
+      codexModels: [
+        {
+          id: 'future-model',
+          supportedReasoningEfforts: [{ reasoningEffort: 'future-tier' }],
+          defaultReasoningEffort: 'future-tier',
+        },
+      ],
+      providerModelIds: [],
+      config: { models: [], order: [] },
+    })[0]).toMatchObject({
+      reasoningEfforts: ['future-tier'],
+      defaultReasoningEffort: 'future-tier',
+    })
+
+    expect(() => parseModelCatalogConfigText(JSON.stringify({
+      models: [{ id: 'future-model', reasoningEfforts: ['future-tier'] }],
+    }))).toThrow('must be one of none, minimal, low, medium, high, xhigh, max, ultra')
   })
 })
