@@ -127,6 +127,7 @@ describe('model catalog', () => {
 
   it('accepts max and ultra reasoning efforts in custom model config', () => {
     const config = parseModelCatalogConfigText(JSON.stringify({
+      defaultModel: 'gpt-5.6',
       models: [
         {
           id: 'gpt-5.6',
@@ -135,6 +136,8 @@ describe('model catalog', () => {
         },
       ],
     }))
+
+    expect(config.defaultModel).toBe('gpt-5.6')
 
     expect(buildEffectiveModelCatalog({
       codexModels: [],
@@ -165,5 +168,9 @@ describe('model catalog', () => {
     expect(() => parseModelCatalogConfigText(JSON.stringify({
       models: [{ id: 'future-model', reasoningEfforts: ['future-tier'] }],
     }))).toThrow('must be one of none, minimal, low, medium, high, xhigh, max, ultra')
+
+    expect(() => parseModelCatalogConfigText(JSON.stringify({
+      defaultModel: 42,
+    }))).toThrow('defaultModel must be a string')
   })
 })

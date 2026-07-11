@@ -21,6 +21,7 @@ export type ModelCatalogConfigModel = {
 }
 
 export type ModelCatalogConfig = {
+  defaultModel?: string
   models: ModelCatalogConfigModel[]
   order: string[]
 }
@@ -35,6 +36,8 @@ export type ModelCatalogBuildInput = {
 
 export type ModelCatalogResponse = {
   data: UiModelOption[]
+  defaultModel: string
+  configuredModelIds: string[]
   configText: string
   configPath: string
   configError: string | null
@@ -201,6 +204,8 @@ export async function readModelCatalogResponse(context: ModelCatalogRouteContext
       providerModelIds,
       config: configState.config,
     }),
+    defaultModel: configState.config.defaultModel ?? '',
+    configuredModelIds: configState.config.models.map((model) => model.id),
     configText: configState.text,
     configPath: getModelCatalogConfigPath(),
     configError: configState.error,
@@ -252,7 +257,9 @@ function normalizeModelCatalogConfig(value: unknown): ModelCatalogConfig {
   }
 
   const models = normalizeConfigModels(record.models)
+  const defaultModel = readOptionalString(record.defaultModel, 'defaultModel')
   return {
+    ...(defaultModel ? { defaultModel } : {}),
     models,
     order: normalizeOrder(record.order),
   }

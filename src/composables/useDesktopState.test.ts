@@ -1556,6 +1556,165 @@ describe('Codex CLI availability', () => {
 })
 
 describe('model selection', () => {
+  it('uses the catalog default model and its configured default reasoning for a new thread', async () => {
+    installTestWindow()
+    gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })
+    gatewayMocks.getAvailableCollaborationModes.mockResolvedValue([{ value: 'default', label: 'Default' }])
+    gatewayMocks.getSkillsList.mockResolvedValue([])
+    gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'big-pickle',
+      providerId: 'codex',
+      reasoningEffort: 'xhigh',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [
+        modelOption('big-pickle'),
+        modelOption('gpt-5.6-sol', {
+          reasoningEfforts: ['xhigh', 'max'],
+          defaultReasoningEffort: 'max',
+        }),
+      ],
+      defaultModel: 'gpt-5.6-sol',
+      configuredModelIds: ['gpt-5.6-sol'],
+      configText: '{\n  "defaultModel": "gpt-5.6-sol"\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    expect(state.selectedModelId.value).toBe('gpt-5.6-sol')
+    expect(state.selectedReasoningEffort.value).toBe('max')
+  })
+
+  it('uses the catalog default reasoning when a Codex model is overridden by id', async () => {
+    installTestWindow()
+    gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })
+    gatewayMocks.getAvailableCollaborationModes.mockResolvedValue([{ value: 'default', label: 'Default' }])
+    gatewayMocks.getSkillsList.mockResolvedValue([])
+    gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'gpt-5.6-sol',
+      providerId: 'codex',
+      reasoningEffort: 'xhigh',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [
+        modelOption('gpt-5.6-sol', {
+          source: 'codex',
+          reasoningEfforts: ['xhigh', 'max'],
+          defaultReasoningEffort: 'max',
+        }),
+      ],
+      configuredModelIds: ['gpt-5.6-sol'],
+      configText: '{\n  "models": [{ "id": "gpt-5.6-sol" }]\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    expect(state.selectedModelId.value).toBe('gpt-5.6-sol')
+    expect(state.selectedReasoningEffort.value).toBe('max')
+  })
+
+  it('keeps the Codex config reasoning for an unconfigured Codex model', async () => {
+    installTestWindow()
+    gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })
+    gatewayMocks.getAvailableCollaborationModes.mockResolvedValue([{ value: 'default', label: 'Default' }])
+    gatewayMocks.getSkillsList.mockResolvedValue([])
+    gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'gpt-5.6-sol',
+      providerId: 'codex',
+      reasoningEffort: 'xhigh',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [
+        modelOption('gpt-5.6-sol', {
+          source: 'codex',
+          reasoningEfforts: ['xhigh', 'max'],
+          defaultReasoningEffort: 'max',
+        }),
+      ],
+      configuredModelIds: [],
+      configText: '{\n  "models": []\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    expect(state.selectedReasoningEffort.value).toBe('xhigh')
+  })
+
+  it('uses a provider model default reasoning instead of the Codex config value', async () => {
+    installTestWindow()
+    gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })
+    gatewayMocks.getAvailableCollaborationModes.mockResolvedValue([{ value: 'default', label: 'Default' }])
+    gatewayMocks.getSkillsList.mockResolvedValue([])
+    gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'provider-model',
+      providerId: 'custom-provider',
+      reasoningEffort: 'xhigh',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [
+        modelOption('provider-model', {
+          source: 'provider',
+          reasoningEfforts: ['xhigh', 'max'],
+          defaultReasoningEffort: 'max',
+        }),
+      ],
+      configuredModelIds: [],
+      configText: '{\n  "models": []\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    expect(state.selectedReasoningEffort.value).toBe('max')
+  })
+
+  it('falls back to the Codex default model when the catalog default is unavailable', async () => {
+    installTestWindow()
+    gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })
+    gatewayMocks.getAvailableCollaborationModes.mockResolvedValue([{ value: 'default', label: 'Default' }])
+    gatewayMocks.getSkillsList.mockResolvedValue([])
+    gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'big-pickle',
+      providerId: 'codex',
+      reasoningEffort: 'high',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [modelOption('big-pickle')],
+      defaultModel: 'missing-model',
+      configuredModelIds: [],
+      configText: '{\n  "defaultModel": "missing-model"\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    expect(state.selectedModelId.value).toBe('big-pickle')
+    expect(state.selectedReasoningEffort.value).toBe('high')
+  })
+
   it('falls back to the configured Codex model when the stored model is unavailable', async () => {
     installTestWindow({
       'codex-web-local.selected-model-by-context.v1': JSON.stringify({

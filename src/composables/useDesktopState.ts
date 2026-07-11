@@ -1650,6 +1650,8 @@ export function useDesktopState() {
   const selectedModelIdByContext = ref<Record<string, string>>(loadSelectedModelMap())
   const codexDefaultModelId = ref('')
   const codexDefaultReasoningEffort = ref<ReasoningEffort | ''>('medium')
+  const catalogDefaultModelId = ref('')
+  const catalogConfiguredModelIds = ref<string[]>([])
   const selectedCollaborationMode = ref<CollaborationModeKind>(
     readSelectedCollaborationMode(selectedCollaborationModeByContext.value, selectedThreadId.value),
   )
@@ -1852,7 +1854,10 @@ export function useDesktopState() {
   }
 
   function readModelIdForThread(threadId: string): string {
-    return readSelectedModel(selectedModelIdByContext.value, threadId, codexDefaultModelId.value).trim()
+    const fallbackModelId = isNewThreadContextId(toThreadContextId(threadId))
+      ? catalogDefaultModelId.value || codexDefaultModelId.value
+      : codexDefaultModelId.value
+    return readSelectedModel(selectedModelIdByContext.value, threadId, fallbackModelId).trim()
   }
 
   function findModelOption(modelId: string): UiModelOption | null {
@@ -1891,7 +1896,9 @@ export function useDesktopState() {
     const option = findModelOption(modelId)
     const defaultEffort = codexDefaultReasoningEffort.value
     if (!option) return defaultEffort
-    if (defaultEffort && option.reasoningEfforts.includes(defaultEffort)) {
+    const isUnconfiguredCodexModel = option.source === 'codex'
+      && !catalogConfiguredModelIds.value.includes(option.id)
+    if (isUnconfiguredCodexModel && defaultEffort && option.reasoningEfforts.includes(defaultEffort)) {
       return defaultEffort
     }
     return option.defaultReasoningEffort
@@ -1965,7 +1972,11 @@ export function useDesktopState() {
     } else {
       ensureAvailableModelOptions(normalizedModelId)
     }
-    applyReasoningEffortForModel(normalizedModelId)
+    if (isNewThreadContextId(contextId)) {
+      selectedReasoningEffort.value = readDefaultReasoningEffortForModel(normalizedModelId)
+    } else {
+      applyReasoningEffortForModel(normalizedModelId)
+    }
     saveSelectedModelMap(selectedModelIdByContext.value)
   }
 
@@ -2246,6 +2257,8 @@ export function useDesktopState() {
     modelCatalogConfigText.value = result.configText
     modelCatalogConfigPath.value = result.configPath
     modelCatalogConfigError.value = result.configError
+    catalogDefaultModelId.value = result.defaultModel?.trim() ?? ''
+    catalogConfiguredModelIds.value = [...(result.configuredModelIds ?? [])]
     setAvailableModelOptions(result.options)
   }
 
@@ -2262,9 +2275,9 @@ export function useDesktopState() {
     }
   }
 
-  function chooseFallbackModelId(configuredModelId: string, selectableIds: string[]): string {
-    if (configuredModelId && selectableIds.includes(configuredModelId)) {
-      return configuredModelId
+  function chooseFallbackModelId(preferredModelIds: string[], selectableIds: string[]): string {
+    for (const modelId of preferredModelIds) {
+      if (modelId && selectableIds.includes(modelId)) return modelId
     }
     return selectableIds[0] ?? ''
   }
@@ -2277,7 +2290,6 @@ export function useDesktopState() {
       const configuredReasoningEffort = currentConfig.reasoningEffort || 'medium'
       codexDefaultModelId.value = normalizedConfiguredModelId
       codexDefaultReasoningEffort.value = configuredReasoningEffort
-      const normalizedSelectedModelId = readModelIdForThread(selectedThreadId.value)
       const discoveredOptions = await readModelOptionsWithFallback()
       const nextModelOptions = [...discoveredOptions]
       if (normalizedConfiguredModelId && !nextModelOptions.some((option) => option.id === normalizedConfiguredModelId)) {
@@ -2285,27 +2297,36 @@ export function useDesktopState() {
         if (fallbackOption) nextModelOptions.push(fallbackOption)
       }
       setAvailableModelOptions(nextModelOptions)
+      catalogDefaultModelId.value = chooseFallbackModelId(
+        [catalogDefaultModelId.value, normalizedConfiguredModelId],
+        availableModelIds.value,
+      )
 
-      const selectedOption = findModelOption(normalizedSelectedModelId)
-      const selectedModelStillKnown = normalizedSelectedModelId && selectedOption !== null
+      const effectiveSelectedModelId = readModelIdForThread(selectedThreadId.value)
+      const selectedOption = findModelOption(effectiveSelectedModelId)
+      const selectedModelStillKnown = effectiveSelectedModelId && selectedOption !== null
       const selectedContextId = toThreadContextId(selectedThreadId.value)
-      if (!normalizedSelectedModelId || !selectedModelStillKnown) {
-        const fallbackModelId = chooseFallbackModelId(normalizedConfiguredModelId, availableModelIds.value)
+      if (!effectiveSelectedModelId || !selectedModelStillKnown) {
+        const fallbackModelId = chooseFallbackModelId(
+          [catalogDefaultModelId.value, normalizedConfiguredModelId],
+          availableModelIds.value,
+        )
         if (isNewThreadContextId(selectedContextId)) {
           selectedModelId.value = fallbackModelId
         } else {
           setSelectedModelId(fallbackModelId)
         }
-      } else if (selectedModelId.value.trim() !== normalizedSelectedModelId) {
+      } else if (selectedModelId.value.trim() !== effectiveSelectedModelId) {
         if (isNewThreadContextId(selectedContextId)) {
-          selectedModelId.value = normalizedSelectedModelId
+          selectedModelId.value = effectiveSelectedModelId
         } else {
-          setSelectedModelId(normalizedSelectedModelId)
+          setSelectedModelId(effectiveSelectedModelId)
         }
       }
 
-      selectedReasoningEffort.value = configuredReasoningEffort
-      applyReasoningEffortForModel(readModelIdForThread(selectedThreadId.value))
+      selectedReasoningEffort.value = readDefaultReasoningEffortForModel(
+        readModelIdForThread(selectedThreadId.value),
+      )
       selectedSpeedMode.value = currentConfig.speedMode
     } catch (unknownError) {
       if (isCodexCliMissingError(unknownError)) {

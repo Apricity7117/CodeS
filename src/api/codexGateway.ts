@@ -90,6 +90,8 @@ type ProviderModelsResponse = {
 
 export type ModelCatalogResult = {
   options: UiModelOption[]
+  defaultModel?: string
+  configuredModelIds?: string[]
   configText: string
   configPath: string
   configError: string
@@ -547,6 +549,12 @@ function normalizeModelCatalogResult(payload: unknown): ModelCatalogResult {
   return {
     options: Array.isArray(record?.data)
       ? record.data.map((row) => normalizeModelOption(row)).filter((row): row is UiModelOption => row !== null)
+      : [],
+    defaultModel: readString(record?.defaultModel)?.trim() ?? '',
+    configuredModelIds: Array.isArray(record?.configuredModelIds)
+      ? record.configuredModelIds
+        .map((id) => readString(id)?.trim() ?? '')
+        .filter((id, index, ids) => id.length > 0 && ids.indexOf(id) === index)
       : [],
     configText: typeof record?.configText === 'string' ? record.configText : '',
     configPath: typeof record?.configPath === 'string' ? record.configPath : '',
