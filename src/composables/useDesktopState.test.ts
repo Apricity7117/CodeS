@@ -1864,6 +1864,64 @@ describe('model selection', () => {
     expect(state.error.value).toBe('Selected model is hidden. Choose an available model before sending.')
   })
 
+  it('preserves an explicitly selected model and reasoning effort when resuming a thread', async () => {
+    installTestWindow({
+      'codex-web-local.selected-thread-id.v1': 'thread-a',
+    })
+    setupRefreshMocks([
+      {
+        projectName: 'alpha',
+        threads: [thread('thread-a', '/tmp/alpha')],
+      },
+    ])
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'model-a',
+      providerId: 'codex',
+      reasoningEffort: 'low',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [
+        modelOption('model-a', {
+          reasoningEfforts: ['low'],
+          defaultReasoningEffort: 'low',
+        }),
+        modelOption('model-b', {
+          reasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        }),
+      ],
+      configText: '{\n  "models": []\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+    gatewayMocks.resumeThread.mockResolvedValue({ model: 'model-a' })
+    gatewayMocks.startThreadTurn.mockResolvedValue('turn-b')
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+    state.setSelectedModelIdForThread('thread-a', 'model-b')
+
+    expect(state.selectedModelId.value).toBe('model-b')
+    expect(state.selectedReasoningEffort.value).toBe('high')
+
+    await state.sendMessageToSelectedThread('use model b')
+
+    expect(gatewayMocks.resumeThread).toHaveBeenCalledWith('thread-a')
+    expect(gatewayMocks.startThreadTurn).toHaveBeenCalledWith(
+      'thread-a',
+      'use model b',
+      [],
+      'model-b',
+      'high',
+      undefined,
+      [],
+      'default',
+    )
+    expect(state.selectedModelId.value).toBe('model-b')
+    expect(state.selectedReasoningEffort.value).toBe('high')
+  })
+
   it('uses a model default reasoning effort when the current effort is not allowed', async () => {
     installTestWindow({
       'codex-web-local.selected-model-by-context.v1': JSON.stringify({

@@ -1973,9 +1973,18 @@ export function useDesktopState() {
     setSelectedModelIdForThread(selectedThreadId.value, modelId)
   }
 
-  function setThreadModelId(threadId: string, modelId: string): void {
+  function setThreadModelId(
+    threadId: string,
+    modelId: string,
+    options: { preserveLocalSelection?: boolean } = {},
+  ): void {
     const normalizedThreadId = threadId.trim()
     if (!normalizedThreadId) return
+
+    const contextId = toThreadContextId(normalizedThreadId)
+    if (options.preserveLocalSelection && normalizeStoredModelId(selectedModelIdByContext.value[contextId])) {
+      return
+    }
 
     const normalizedModelId = modelId.trim()
     if (normalizedModelId) {
@@ -2072,7 +2081,7 @@ export function useDesktopState() {
   }
 
   function applyResumedThreadSnapshot(threadId: string, resumedThread: ResumedThread): void {
-    setThreadModelId(threadId, resumedThread.model)
+    setThreadModelId(threadId, resumedThread.model, { preserveLocalSelection: true })
     if (Array.isArray(resumedThread.messages)) {
       setPersistedMessagesForThread(threadId, resumedThread.messages)
     }
@@ -5543,7 +5552,7 @@ export function useDesktopState() {
           details: ['Preparing conversation history'],
         })
         const resumedThread = await resumeThread(threadId)
-        setThreadModelId(threadId, resumedThread.model)
+        setThreadModelId(threadId, resumedThread.model, { preserveLocalSelection: true })
         setTurnActivityForThread(threadId, {
           label: 'Thinking',
           details: buildPendingTurnDetails(
