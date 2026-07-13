@@ -344,6 +344,7 @@
               @keydown.esc.prevent.stop="closeModelReasoningMenu"
             >
               <div
+                ref="modelMenuAnchorRef"
                 class="thread-composer-model-submenu-anchor"
                 @mouseenter="openModelMenuSection('model')"
               >
@@ -360,29 +361,37 @@
                   <IconCodexChevronRight class="thread-composer-model-row-chevron" />
                 </button>
 
-                <div v-if="activeModelMenuSection === 'model'" class="thread-composer-model-submenu">
-                  <div class="thread-composer-model-menu-title thread-composer-model-submenu-title">{{ t('Model') }}</div>
-                  <button
-                    v-for="option in modelOptions"
-                    :key="option.value"
-                    class="thread-composer-model-menu-option"
-                    :class="{ 'is-selected': option.value === selectedModel }"
-                    type="button"
-                    @click="onModelSelect(option.value)"
+                <Teleport to="body" :disabled="isMobile">
+                  <div
+                    v-if="activeModelMenuSection === 'model'"
+                    ref="modelSubmenuRef"
+                    class="thread-composer-model-submenu thread-composer-model-submenu--right"
+                    :style="modelSubmenuStyle"
                   >
-                    <span class="thread-composer-model-menu-option-label">{{ option.label }}</span>
-                    <IconCodexCheckMd
-                      v-if="option.value === selectedModel"
-                      class="thread-composer-model-menu-check"
-                    />
-                  </button>
-                  <div v-if="modelOptions.length === 0" class="thread-composer-model-menu-empty">
-                    {{ t('No models available') }}
+                    <div class="thread-composer-model-menu-title thread-composer-model-submenu-title">{{ t('Model') }}</div>
+                    <button
+                      v-for="option in modelOptions"
+                      :key="option.value"
+                      class="thread-composer-model-menu-option"
+                      :class="{ 'is-selected': option.value === selectedModel }"
+                      type="button"
+                      @click="onModelSelect(option.value)"
+                    >
+                      <span class="thread-composer-model-menu-option-label">{{ option.label }}</span>
+                      <IconCodexCheckMd
+                        v-if="option.value === selectedModel"
+                        class="thread-composer-model-menu-check"
+                      />
+                    </button>
+                    <div v-if="modelOptions.length === 0" class="thread-composer-model-menu-empty">
+                      {{ t('No models available') }}
+                    </div>
                   </div>
-                </div>
+                </Teleport>
               </div>
 
               <div
+                ref="reasoningMenuAnchorRef"
                 class="thread-composer-model-submenu-anchor"
                 @mouseenter="openModelMenuSection('reasoning')"
               >
@@ -398,23 +407,30 @@
                   <IconCodexChevronRight class="thread-composer-model-row-chevron" />
                 </button>
 
-                <div v-if="activeModelMenuSection === 'reasoning'" class="thread-composer-model-submenu">
-                  <div class="thread-composer-model-menu-title thread-composer-model-submenu-title">{{ t('Reasoning effort') }}</div>
-                  <button
-                    v-for="option in reasoningMenuOptions"
-                    :key="option.value"
-                    class="thread-composer-model-menu-option"
-                    :class="{ 'is-selected': option.value === selectedReasoningEffort }"
-                    type="button"
-                    @click="onReasoningEffortSelect(option.value)"
+                <Teleport to="body" :disabled="isMobile">
+                  <div
+                    v-if="activeModelMenuSection === 'reasoning'"
+                    ref="modelSubmenuRef"
+                    class="thread-composer-model-submenu thread-composer-model-submenu--right"
+                    :style="modelSubmenuStyle"
                   >
-                    <span class="thread-composer-model-menu-option-label">{{ t(option.label) }}</span>
-                    <IconCodexCheckMd
-                      v-if="option.value === selectedReasoningEffort"
-                      class="thread-composer-model-menu-check"
-                    />
-                  </button>
-                </div>
+                    <div class="thread-composer-model-menu-title thread-composer-model-submenu-title">{{ t('Reasoning effort') }}</div>
+                    <button
+                      v-for="option in reasoningMenuOptions"
+                      :key="option.value"
+                      class="thread-composer-model-menu-option"
+                      :class="{ 'is-selected': option.value === selectedReasoningEffort }"
+                      type="button"
+                      @click="onReasoningEffortSelect(option.value)"
+                    >
+                      <span class="thread-composer-model-menu-option-label">{{ t(option.label) }}</span>
+                      <IconCodexCheckMd
+                        v-if="option.value === selectedReasoningEffort"
+                        class="thread-composer-model-menu-check"
+                      />
+                    </button>
+                  </div>
+                </Teleport>
               </div>
             </div>
           </div>
@@ -728,6 +744,10 @@ const fileMentionHighlightedIndex = ref(0)
 const isComposerExpanded = ref(false)
 const isDraftOverflowing = ref(false)
 const modelReasoningMenuRootRef = ref<HTMLElement | null>(null)
+const modelMenuAnchorRef = ref<HTMLElement | null>(null)
+const reasoningMenuAnchorRef = ref<HTMLElement | null>(null)
+const modelSubmenuRef = ref<HTMLElement | null>(null)
+const modelSubmenuStyle = ref<Record<string, string>>({})
 const isModelReasoningMenuOpen = ref(false)
 const activeModelMenuSection = ref<ModelMenuSection | null>(null)
 let composerOverflowMeasurementQueued = false
@@ -1362,6 +1382,25 @@ function closeModelReasoningMenu(): void {
 function openModelMenuSection(section: ModelMenuSection): void {
   if (section === 'model' && selectableModelOptions.value.length === 0) return
   activeModelMenuSection.value = section
+  void nextTick(updateModelSubmenuPosition)
+}
+
+function updateModelSubmenuPosition(): void {
+  if (isMobile.value || !activeModelMenuSection.value) {
+    modelSubmenuStyle.value = {}
+    return
+  }
+  const anchor = activeModelMenuSection.value === 'model'
+    ? modelMenuAnchorRef.value
+    : reasoningMenuAnchorRef.value
+  if (!anchor) return
+  const anchorRect = anchor.getBoundingClientRect()
+  const submenuHeight = modelSubmenuRef.value?.getBoundingClientRect().height ?? 0
+  const top = Math.max(8, Math.min(anchorRect.bottom - submenuHeight, window.innerHeight - submenuHeight - 8))
+  modelSubmenuStyle.value = {
+    left: `${anchorRect.right + 8}px`,
+    top: `${top}px`,
+  }
 }
 
 function onToggleSpeedMode(): void {
@@ -2064,7 +2103,8 @@ function onDocumentClick(event: MouseEvent): void {
   }
 
   const modelRoot = modelReasoningMenuRootRef.value
-  if (isModelReasoningMenuOpen.value && modelRoot && !modelRoot.contains(target)) {
+  const modelSubmenu = modelSubmenuRef.value
+  if (isModelReasoningMenuOpen.value && modelRoot && !modelRoot.contains(target) && !modelSubmenu?.contains(target)) {
     closeModelReasoningMenu()
   }
 }
@@ -2087,6 +2127,8 @@ onMounted(() => {
   window.addEventListener('drop', onWindowDragCleanup)
   window.addEventListener('dragend', onWindowDragCleanup)
   window.addEventListener('blur', onWindowDragCleanup)
+  window.addEventListener('resize', updateModelSubmenuPosition)
+  window.addEventListener('scroll', updateModelSubmenuPosition, true)
   void reloadPrompts()
   queueComposerOverflowMeasurement()
 })
@@ -2104,6 +2146,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('drop', onWindowDragCleanup)
   window.removeEventListener('dragend', onWindowDragCleanup)
   window.removeEventListener('blur', onWindowDragCleanup)
+  window.removeEventListener('resize', updateModelSubmenuPosition)
+  window.removeEventListener('scroll', updateModelSubmenuPosition, true)
   removeHoldDictationListeners()
   if (fileMentionDebounceTimer) {
     clearTimeout(fileMentionDebounceTimer)
@@ -2681,6 +2725,13 @@ watch(
   right: calc(100% + 0.5rem);
 }
 
+.thread-composer-model-submenu--right {
+  position: fixed;
+  z-index: 60;
+  right: auto;
+  bottom: auto;
+}
+
 .thread-composer-model-menu-title {
   @apply px-2.5 py-1.5 text-[13px] font-medium leading-5;
   color: var(--codex-muted-text);
@@ -2839,7 +2890,9 @@ watch(
   }
 
   .thread-composer-model-submenu {
+    position: absolute;
     right: 0;
+    left: auto;
     bottom: calc(100% + 0.5rem);
     width: min(15rem, calc(100vw - 1rem));
   }
