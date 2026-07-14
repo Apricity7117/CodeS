@@ -4,6 +4,7 @@ import {
   parseMarkdownLinkToken,
   trimLinkWrappers,
 } from './threadFileLinks'
+import { parseInlineSegmentsWithMarkdownIt } from './threadMarkdownItParser'
 
 export type InlineSegment =
   | { kind: 'text'; value: string }
@@ -78,7 +79,7 @@ function splitPlainTextByLinks(text: string): InlineSegment[] {
     segments.push({ kind: 'text', value: text.slice(cursor) })
   }
 
-  return applyInlineMarkdownMarkers(segments)
+  return segments
 }
 
 function applyDelimitedMarkersAcrossTextSegments(
@@ -336,6 +337,5 @@ function splitTextByCodeSpans(text: string): InlineSegment[] {
 }
 
 export function parseInlineSegments(text: string): InlineSegment[] {
-  if (!text.includes('`')) return splitTextByFileUrls(text)
-  return splitTextByCodeSpans(text)
+  return parseInlineSegmentsWithMarkdownIt(text, splitPlainTextByLinks)
 }

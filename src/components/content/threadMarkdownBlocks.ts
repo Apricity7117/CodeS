@@ -1,5 +1,6 @@
 import { toRenderableImageUrl } from './threadFileLinks'
 import type { InlineSegment } from './threadInlineSegments'
+import { parseMessageBlocksWithMarkdownIt } from './threadMarkdownItParser'
 
 export type TaskListItem = {
   text: string
@@ -748,7 +749,7 @@ function parseNonCodeMessageBlocks(text: string): MessageBlock[] {
   return blocks
 }
 
-export function parseMessageBlocks(text: string): MessageBlock[] {
+function parseMessageBlocksLegacy(text: string): MessageBlock[] {
   const normalizedText = normalizeMarkdownText(text)
   const lines = normalizedText.split('\n')
   const blocks: MessageBlock[] = []
@@ -769,7 +770,6 @@ export function parseMessageBlocks(text: string): MessageBlock[] {
     }
 
     flushChunk(index)
-
     index += 1
     const codeLines: string[] = []
     while (index < lines.length) {
@@ -780,15 +780,19 @@ export function parseMessageBlocks(text: string): MessageBlock[] {
       codeLines.push(lines[index])
       index += 1
     }
-
-    blocks.push({
-      kind: 'codeBlock',
-      language: fence.language,
-      value: codeLines.join('\n'),
-    })
+    blocks.push({ kind: 'codeBlock', language: fence.language, value: codeLines.join('\n') })
     chunkStart = index
   }
 
   flushChunk(lines.length)
   return blocks.length > 0 ? blocks : [{ kind: 'paragraph', value: text }]
+}
+
+export function parseMessageBlocks(text: string): MessageBlock[] {
+  try {
+    return parseMessageBlocksWithMarkdownIt(text)
+  } catch {
+    // 接入阶段保留旧解析器兜底，避免异常 Markdown 阻断整条消息渲染。
+    return parseMessageBlocksLegacy(text)
+  }
 }

@@ -65,6 +65,53 @@ describe('thread markdown block parsing', () => {
     ])
   })
 
+  it('keeps markdown image syntax inside inline code as paragraph text', () => {
+    expect(parseMessageBlocks('Use `![not image](/tmp/a.png)` as an example.')).toEqual([
+      {
+        kind: 'paragraph',
+        value: 'Use `![not image](/tmp/a.png)` as an example.',
+      },
+    ])
+  })
+
+  it('parses GitHub-style task lists and ordered list start values', () => {
+    expect(parseMessageBlocks([
+      '- [X] Finished',
+      '- [ ] Pending',
+      '',
+      '3. Third',
+      '4. Fourth',
+    ].join('\n'))).toEqual([
+      {
+        kind: 'taskList',
+        items: [
+          { checked: true, text: 'Finished' },
+          { checked: false, text: 'Pending' },
+        ],
+      },
+      {
+        kind: 'orderedList',
+        start: 3,
+        items: [
+          { paragraphs: ['Third'] },
+          { paragraphs: ['Fourth'] },
+        ],
+      },
+    ])
+  })
+
+  it('keeps task-list rendering when task and regular items are adjacent', () => {
+    expect(parseMessageBlocks([
+      '- [x] Done',
+      '- Regular',
+      '- [ ] Later',
+    ].join('\n'))).toEqual([
+      { kind: 'taskList', items: [{ checked: true, text: 'Done' }] },
+      { kind: 'unorderedList', items: [{ paragraphs: ['Regular'] }] },
+      { kind: 'taskList', items: [{ checked: false, text: 'Later' }] },
+    ])
+  })
+
   it('parses nested list content into child blocks', () => {
     const blocks = parseMessageBlocks([
       '1. Parent',

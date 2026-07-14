@@ -15,7 +15,7 @@ Sources:
 
 ## Frontend Rendering Model
 
-`ThreadConversation.vue` uses a local markdown parser rather than a full markdown dependency. Streaming can be expensive if parser calls are made directly from template bindings, so the optimized path caches render inputs:
+`ThreadConversation.vue` uses `markdown-it` with the GitHub-style task-list plugin as the Markdown/GFM parsing core. CodeS still owns the final HTML shape, local file/image URL conversion, syntax highlighting, and streaming caches. Streaming can be expensive if parser calls are made directly from template bindings, so the optimized path caches render inputs:
 
 - message block cache keyed by message id, message text, and cwd
 - inline segment cache keyed by source text

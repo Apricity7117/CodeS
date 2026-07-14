@@ -29,6 +29,14 @@ describe('thread inline segment parsing', () => {
     ])
   })
 
+  it('parses bold content across inline code without showing markdown markers', () => {
+    expect(parseInlineSegments('**采用 `markdown-it` 作为解析内核**')).toEqual([
+      { kind: 'bold', value: '采用 ' },
+      { kind: 'code', value: 'markdown-it' },
+      { kind: 'bold', value: ' 作为解析内核' },
+    ])
+  })
+
   it('still parses file links outside inline code', () => {
     const path = '/Users/a/Projects/js/CodeS/.trellis/spec/frontend/component-guidelines.md'
 
