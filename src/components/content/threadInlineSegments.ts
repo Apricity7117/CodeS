@@ -12,6 +12,7 @@ export type InlineSegment =
   | { kind: 'italic'; value: string }
   | { kind: 'strikethrough'; value: string }
   | { kind: 'code'; value: string }
+  | { kind: 'math'; value: string; displayMode: boolean }
   | { kind: 'url'; value: string; href: string }
   | { kind: 'file'; value: string; path: string; displayPath: string; downloadName: string }
 

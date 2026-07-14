@@ -1,6 +1,7 @@
 import { toRenderableImageUrl } from './threadFileLinks'
 import type { InlineSegment } from './threadInlineSegments'
 import { parseMessageBlocksWithMarkdownIt } from './threadMarkdownItParser'
+import { renderMathToHtml } from './threadMath'
 
 export type TaskListItem = {
   text: string
@@ -23,6 +24,7 @@ export type MessageBlock =
   | { kind: 'orderedList'; items: ListItem[]; start: number }
   | { kind: 'table'; headers: string[]; rows: string[][]; alignments: TableAlignment[] }
   | { kind: 'codeBlock'; language: string; value: string }
+  | { kind: 'mathBlock'; value: string }
   | { kind: 'thematicBreak' }
   | { kind: 'image'; url: string; alt: string; markdown: string }
 
@@ -89,6 +91,10 @@ function renderInlineSegmentsAsHtml(text: string, options: MessageBlockRenderOpt
       }
       if (segment.kind === 'url') {
         return `<a class="message-file-link" href="${escapeHtml(segment.href)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(segment.href)}">${escapeHtml(segment.value)}</a>`
+      }
+      if (segment.kind === 'math') {
+        const displayClass = segment.displayMode ? ' message-math-inline-display' : ''
+        return `<span class="message-math-inline${displayClass}">${renderMathToHtml(segment.value, segment.displayMode)}</span>`
       }
       return `<code class="message-inline-code">${escapeHtml(segment.value)}</code>`
     })
@@ -180,6 +186,9 @@ export function renderMessageBlockAsHtml(block: MessageBlock, options: MessageBl
       '</button>'
     )
     return `<div class="message-code-block"><div class="message-code-toolbar">${language}${copyButton}</div><pre class="message-code-pre"><code class="hljs">${options.renderHighlightedCodeAsHtml(block.language, block.value)}</code></pre></div>`
+  }
+  if (block.kind === 'mathBlock') {
+    return `<div class="message-math-block">${renderMathToHtml(block.value, true)}</div>`
   }
   if (block.kind === 'thematicBreak') {
     return '<hr class="message-divider">'

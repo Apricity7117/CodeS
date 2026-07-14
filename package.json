@@ -57,6 +57,7 @@
     "commander": "^13.1.0",
     "express": "^5.1.0",
     "highlight.js": "^11.11.1",
+    "katex": "^0.17.0",
     "markdown-it": "^14.3.0",
     "markdown-it-task-lists": "^2.1.1",
     "reka-ui": "^2.9.7",

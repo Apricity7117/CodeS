@@ -191,6 +191,7 @@
                   :blocks="getMessageBlocks(message)"
                   :cwd="props.cwd"
                   :highlight-version="highlightCacheVersion"
+                  :math-render-version="mathRenderVersion"
                   :image-failure-version="markdownImageFailureVersion"
                   :get-inline-segments="getInlineSegments"
                   :to-browse-url="toBrowseUrl"
@@ -375,6 +376,7 @@ import {
   renderMarkdownBlocksAsHtml as renderMarkdownBlocksToHtml,
 } from './threadMarkdownBlocks'
 import type { ListItem, MessageBlock } from './threadMarkdownBlocks'
+import { mathRenderVersion } from './threadMath'
 import {
   aggregateFileChanges,
   buildFileChangeCopyText as buildFileChangeCopyTextForCwd,
@@ -777,6 +779,7 @@ type MarkdownHtmlCacheEntry = {
   text: string
   cwd: string
   highlightVersion: number
+  mathVersion: number
   html: string
 }
 
@@ -1337,9 +1340,15 @@ function renderListItemContentAsHtml(item: ListItem): string {
 }
 
 function renderMarkdownBlocksAsHtml(text: string): string {
-  const cacheKey = `${props.cwd}\u0000${highlightCacheVersion.value}\u0000${text}`
+  const cacheKey = `${props.cwd}\u0000${highlightCacheVersion.value}\u0000${mathRenderVersion.value}\u0000${text}`
   const cached = markdownHtmlCache.get(cacheKey)
-  if (cached && cached.text === text && cached.cwd === props.cwd && cached.highlightVersion === highlightCacheVersion.value) {
+  if (
+    cached &&
+    cached.text === text &&
+    cached.cwd === props.cwd &&
+    cached.highlightVersion === highlightCacheVersion.value &&
+    cached.mathVersion === mathRenderVersion.value
+  ) {
     markdownHtmlCache.delete(cacheKey)
     markdownHtmlCache.set(cacheKey, cached)
     return cached.html
@@ -1356,6 +1365,7 @@ function renderMarkdownBlocksAsHtml(text: string): string {
       text,
       cwd: props.cwd,
       highlightVersion: highlightCacheVersion.value,
+      mathVersion: mathRenderVersion.value,
       html,
     },
     MARKDOWN_HTML_CACHE_LIMIT,

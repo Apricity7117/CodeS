@@ -3,6 +3,7 @@ import taskLists from 'markdown-it-task-lists'
 import { getBasename, parseFileReference, toRenderableImageUrl } from './threadFileLinks'
 import type { ListItem, MessageBlock, TableAlignment } from './threadMarkdownBlocks'
 import type { InlineSegment } from './threadInlineSegments'
+import { markdownMathPlugin } from './threadMarkdownMathPlugin'
 
 type MarkdownToken = {
   type: string
@@ -19,7 +20,9 @@ const markdownIt = new MarkdownIt({
   html: false,
   linkify: true,
   typographer: false,
-}).use(taskLists, { enabled: true })
+})
+  .use(taskLists, { enabled: true })
+  .use(markdownMathPlugin)
 
 function findClosingToken(tokens: MarkdownToken[], start: number, openType: string, closeType: string): number {
   let depth = 0
@@ -261,6 +264,11 @@ function parseTokens(tokens: MarkdownToken[], start = 0, end = tokens.length): {
       index = parsed.nextIndex
       continue
     }
+    if (token.type === 'math_block' || token.type === 'math_block_eqno') {
+      blocks.push({ kind: 'mathBlock', value: token.content.trim() })
+      index += 1
+      continue
+    }
     if (token.type === 'fence') {
       blocks.push({ kind: 'codeBlock', language: token.info.trim().split(/\s+/u)[0] ?? '', value: token.content.replace(/\n$/u, '') })
       index += 1
@@ -346,6 +354,14 @@ export function parseInlineSegmentsWithMarkdownIt(
     }
     if (token.type === 'code_inline') {
       segments.push({ kind: 'code', value: token.content })
+      continue
+    }
+    if (token.type === 'math_inline' || token.type === 'math_inline_double') {
+      segments.push({
+        kind: 'math',
+        value: token.content,
+        displayMode: token.type === 'math_inline_double',
+      })
       continue
     }
     if (token.type === 'softbreak' || token.type === 'hardbreak') {

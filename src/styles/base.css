@@ -24,6 +24,34 @@ samp {
   color: var(--codex-link-hover);
 }
 
+.message-math-inline {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+  color: var(--codex-text);
+}
+
+.message-math-inline-display {
+  display: block;
+  overflow-x: auto;
+  padding-block: 0.25rem;
+}
+
+.message-math-block {
+  max-width: 100%;
+  overflow-x: auto;
+  padding-block: 0.5rem;
+  color: var(--codex-text);
+}
+
+.message-math-block .katex-display,
+.message-math-inline-display .katex-display {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  text-align: center;
+}
+
 .desktop-layout {
   background-color: var(--codex-surface-under);
   color: var(--codex-text);

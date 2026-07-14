@@ -1,7 +1,7 @@
 <template>
   <div
     class="message-text-flow"
-    v-memo="[messageId, blocks, cwd, highlightVersion, imageFailureVersion]"
+    v-memo="[messageId, blocks, cwd, highlightVersion, mathRenderVersion, imageFailureVersion]"
   >
     <template v-for="(block, blockIndex) in blocks" :key="`block-${blockIndex}`">
       <p v-if="block.kind === 'paragraph'" class="message-text">
@@ -84,6 +84,11 @@
         </div>
         <pre class="message-code-pre"><code class="hljs" v-html="renderHighlightedCodeAsHtml(block.language, block.value)"></code></pre>
       </div>
+      <div
+        v-else-if="block.kind === 'mathBlock'"
+        class="message-math-block"
+        v-html="renderMathToHtml(block.value, true)"
+      />
       <hr v-else-if="block.kind === 'thematicBreak'" class="message-divider" />
       <p v-else-if="isMarkdownImageFailed(messageId, blockIndex)" class="message-text">{{ block.markdown }}</p>
       <button
@@ -112,6 +117,7 @@ import {
 } from './threadMarkdownBlocks'
 import type { ListItem, MessageBlock } from './threadMarkdownBlocks'
 import type { InlineSegment } from './threadInlineSegments'
+import { renderMathToHtml } from './threadMath'
 import ThreadInlineSegments from './ThreadInlineSegments.vue'
 import {
   IconCodexCheckMd,
@@ -123,6 +129,7 @@ defineProps<{
   blocks: MessageBlock[]
   cwd: string
   highlightVersion: number
+  mathRenderVersion: number
   imageFailureVersion: number
   getInlineSegments: (text: string) => InlineSegment[]
   toBrowseUrl: (pathValue: string) => string

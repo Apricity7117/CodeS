@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseInlineSegments } from './threadInlineSegments'
 import { escapeHtml, parseMessageBlocks, renderMarkdownBlocksAsHtml } from './threadMarkdownBlocks'
+import { loadMathRenderer } from './threadMath'
 
 describe('thread markdown block parsing', () => {
   it('parses headings, paragraphs, task lists, tables, code blocks, and images', () => {
@@ -112,6 +113,41 @@ describe('thread markdown block parsing', () => {
     ])
   })
 
+  it('parses display LaTeX formulas as dedicated blocks', () => {
+    expect(parseMessageBlocks([
+      '$$',
+      '\\begin{aligned}',
+      'f(x) &= x^2 \\\\',
+      "f'(x) &= 2x",
+      '\\end{aligned}',
+      '$$',
+    ].join('\n'))).toEqual([
+      {
+        kind: 'mathBlock',
+        value: [
+          '\\begin{aligned}',
+          'f(x) &= x^2 \\\\',
+          "f'(x) &= 2x",
+          '\\end{aligned}',
+        ].join('\n'),
+      },
+    ])
+  })
+
+  it('keeps formula delimiters inside fenced code blocks as code text', () => {
+    expect(parseMessageBlocks([
+      '```latex',
+      '$$E = mc^2$$',
+      '```',
+    ].join('\n'))).toEqual([
+      {
+        kind: 'codeBlock',
+        language: 'latex',
+        value: '$$E = mc^2$$',
+      },
+    ])
+  })
+
   it('parses nested list content into child blocks', () => {
     const blocks = parseMessageBlocks([
       '1. Parent',
@@ -159,5 +195,17 @@ describe('thread markdown block parsing', () => {
     expect(html).toContain('&lt;unsafe&gt;')
     expect(html).toContain(`<span data-language="ts">${escapeHtml('const value = "<tag>"')}</span>`)
     expect(html).not.toContain('<unsafe>')
+  })
+
+  it('renders block formulas through KaTeX', async () => {
+    await loadMathRenderer()
+    const html = renderMarkdownBlocksAsHtml('$$E = mc^2$$', {
+      getInlineSegments: parseInlineSegments,
+      toBrowseUrl: (pathValue) => `/browse/${pathValue}`,
+      renderHighlightedCodeAsHtml: (_language, value) => escapeHtml(value),
+    })
+
+    expect(html).toContain('class="message-math-block"')
+    expect(html).toContain('class="katex-display"')
   })
 })

@@ -37,6 +37,24 @@ describe('thread inline segment parsing', () => {
     ])
   })
 
+  it('parses inline LaTeX formulas without consuming currency text', () => {
+    expect(parseInlineSegments('Energy $E = mc^2$, price is $20.')).toEqual([
+      { kind: 'text', value: 'Energy ' },
+      { kind: 'math', value: 'E = mc^2', displayMode: false },
+      { kind: 'text', value: ', price is $20.' },
+    ])
+  })
+
+  it('supports bracket formulas and keeps formulas inside inline code literal', () => {
+    expect(parseInlineSegments('Use \\(a^2 + b^2 = c^2\\) and `$E = mc^2$`.')).toEqual([
+      { kind: 'text', value: 'Use ' },
+      { kind: 'math', value: 'a^2 + b^2 = c^2', displayMode: false },
+      { kind: 'text', value: ' and ' },
+      { kind: 'code', value: '$E = mc^2$' },
+      { kind: 'text', value: '.' },
+    ])
+  })
+
   it('still parses file links outside inline code', () => {
     const path = '/Users/a/Projects/js/CodeS/.trellis/spec/frontend/component-guidelines.md'
 

@@ -24,12 +24,19 @@
     >
       {{ segment.value }}
     </a>
+    <span
+      v-else-if="segment.kind === 'math'"
+      class="message-math-inline"
+      :class="{ 'message-math-inline-display': segment.displayMode }"
+      v-html="renderMathToHtml(segment.value, segment.displayMode)"
+    />
     <code v-else class="message-inline-code">{{ segment.value }}</code>
   </template>
 </template>
 
 <script setup lang="ts">
 import type { InlineSegment } from './threadInlineSegments'
+import { renderMathToHtml } from './threadMath'
 
 defineProps<{
   segments: InlineSegment[]
