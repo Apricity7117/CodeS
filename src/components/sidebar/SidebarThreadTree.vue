@@ -516,6 +516,9 @@
         @click.stop
       >
         <template v-if="projectMenuMode === 'actions'">
+          <button class="project-menu-item" type="button" @click="onCopyProjectPath(openProjectMenuGroup.projectName)">
+            {{ t('Copy project path') }}
+          </button>
           <button class="project-menu-item" type="button" @click="onBrowseProjectFiles(openProjectMenuGroup.projectName)">
             {{ t('Browse files') }}
           </button>
@@ -565,11 +568,8 @@
         :style="openThreadMenuStyle"
         @click.stop
       >
-        <button class="thread-menu-item" type="button" @click="onBrowseThreadFiles(openThreadMenuThread.id)">
-          {{ t('Browse files') }}
-        </button>
         <button class="thread-menu-item" type="button" @click="onCopyThreadPath(openThreadMenuThread.id)">
-          {{ t('Copy path') }}
+          {{ t('Copy thread path') }}
         </button>
         <button class="thread-menu-item" type="button" @click="onCopyThreadId(openThreadMenuThread.id)">
           {{ t('Copy ID') }}
@@ -715,7 +715,6 @@ const emit = defineEmits<{
   select: [threadId: string]
   archive: [threadId: string]
   'start-new-thread': [projectName: string]
-  'browse-thread-files': [threadId: string]
   'browse-project-files': [projectName: string]
   'request-project-git-status': [projectName: string]
   'create-project-worktree': [projectName: string]
@@ -1251,11 +1250,6 @@ function onStartNewThread(projectName: string): void {
   emit('start-new-thread', projectName)
 }
 
-function onBrowseThreadFiles(threadId: string): void {
-  emit('browse-thread-files', threadId)
-  closeThreadMenu()
-}
-
 async function copyTextToClipboard(text: string): Promise<void> {
   const value = text.trim()
   if (!value || typeof navigator === 'undefined' || !navigator.clipboard) return
@@ -1267,8 +1261,14 @@ async function copyTextToClipboard(text: string): Promise<void> {
 }
 
 async function onCopyThreadPath(threadId: string): Promise<void> {
-  const path = threadById.value.get(threadId)?.cwd?.trim() ?? ''
+  const path = threadById.value.get(threadId)?.path?.trim() ?? ''
   closeThreadMenu()
+  await copyTextToClipboard(path)
+}
+
+async function onCopyProjectPath(projectName: string): Promise<void> {
+  const path = props.projectCwdByName[projectName]?.trim() ?? ''
+  closeProjectMenu()
   await copyTextToClipboard(path)
 }
 

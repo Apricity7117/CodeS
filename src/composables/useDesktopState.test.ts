@@ -59,6 +59,7 @@ function thread(id: string, cwd: string, options: { hasWorktree?: boolean } = {}
     id,
     title: id,
     projectName: cwd ? cwd.split('/').at(-1) || cwd : 'Projectless',
+    path: '',
     cwd,
     hasWorktree: options.hasWorktree ?? false,
     createdAtIso: '2026-04-28T00:00:00.000Z',

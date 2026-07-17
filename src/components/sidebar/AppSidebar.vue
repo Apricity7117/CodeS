@@ -75,7 +75,6 @@
         @archive="$emit('archive-thread', $event)"
         @start-new-thread="$emit('start-new-thread', $event)"
         @rename-project="$emit('rename-project', $event)"
-        @browse-thread-files="$emit('browse-thread-files', $event)"
         @browse-project-files="$emit('browse-project-files', $event)"
         @request-project-git-status="$emit('request-project-git-status', $event)"
         @create-project-worktree="$emit('create-project-worktree', $event)"
@@ -547,7 +546,6 @@ const emit = defineEmits<{
   'archive-thread': [threadId: string]
   'start-new-thread': [projectName: string]
   'rename-project': [payload: { projectName: string; displayName: string }]
-  'browse-thread-files': [threadId: string]
   'browse-project-files': [projectName: string]
   'request-project-git-status': [projectName: string]
   'create-project-worktree': [projectName: string]

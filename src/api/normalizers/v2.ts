@@ -657,6 +657,7 @@ function readThreadInProgress(summary: Thread): boolean {
 
 function toUiThread(summary: Thread): UiThread {
   const rawSummary = summary as Record<string, unknown>
+  const path = normalizePathForUi(typeof rawSummary.path === 'string' ? rawSummary.path : '')
   const cwd = normalizePathForUi(typeof rawSummary.cwd === 'string' ? rawSummary.cwd : summary.cwd)
   const comparableCwd = normalizePathForComparison(cwd)
   const hasWorktree =
@@ -671,6 +672,7 @@ function toUiThread(summary: Thread): UiThread {
     id: summary.id,
     title: toThreadTitle(summary),
     projectName: toHistoryProjectName(cwd),
+    path,
     cwd,
     hasWorktree,
     createdAtIso: toIso(summary.createdAt),

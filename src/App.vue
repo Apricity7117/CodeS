@@ -71,7 +71,6 @@
         @archive-thread="onArchiveThread"
         @start-new-thread="onStartNewThread"
         @rename-project="onRenameProject"
-        @browse-thread-files="onBrowseThreadFiles"
         @browse-project-files="onBrowseProjectFiles"
         @request-project-git-status="onRequestProjectGitStatus"
         @create-project-worktree="onCreateProjectWorktree"
@@ -1451,19 +1450,6 @@ function onStartNewThread(projectName: string): void {
   if (isMobile.value) setSidebarCollapsed(true)
   if (isHomeRoute.value) return
   void router.push({ name: 'home' })
-}
-
-function onBrowseThreadFiles(threadId: string): void {
-  let targetCwd = ''
-  for (const group of projectGroups.value) {
-    const thread = group.threads.find((row) => row.id === threadId)
-    if (thread?.cwd?.trim()) {
-      targetCwd = thread.cwd.trim()
-      break
-    }
-  }
-  if (!targetCwd || typeof window === 'undefined') return
-  window.open(`/codex-local-browse${encodeURI(targetCwd)}`, '_blank', 'noopener,noreferrer')
 }
 
 function getProjectCwd(projectName: string): string {

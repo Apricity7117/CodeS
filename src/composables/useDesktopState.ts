@@ -1221,6 +1221,7 @@ function areThreadFieldsEqual(first: UiThread, second: UiThread): boolean {
     first.id === second.id &&
     first.title === second.title &&
     first.projectName === second.projectName &&
+    first.path === second.path &&
     first.cwd === second.cwd &&
     first.createdAtIso === second.createdAtIso &&
     first.updatedAtIso === second.updatedAtIso &&
@@ -2515,6 +2516,7 @@ export function useDesktopState() {
       id: threadId,
       title: toOptimisticThreadTitle(firstMessageText),
       projectName,
+      path: '',
       cwd: normalizedCwd,
       hasWorktree: normalizedCwd.includes('/.codex/worktrees/') || normalizedCwd.includes('/.git/worktrees/'),
       createdAtIso: nowIso,

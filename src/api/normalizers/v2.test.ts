@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeThreadMessagesV2 } from './v2'
+import { normalizeThreadMessagesV2, normalizeThreadSummaryV2 } from './v2'
 import type { ThreadReadResponse } from '../appServerDtos'
 
 function threadReadResponseWithContent(
@@ -152,5 +152,50 @@ describe('normalizeThreadMessagesV2', () => {
     } as ThreadReadResponse['thread']['turns'][number]['items'][number]], { durationMs: 2_000 }))
 
     expect(messages.map((message) => message.id)).toEqual(['cmd-without-final'])
+  })
+})
+
+describe('normalizeThreadSummaryV2', () => {
+  it('preserves the thread JSONL path separately from the working directory', () => {
+    const summary = normalizeThreadSummaryV2({
+      thread: {
+        id: 'thread-path',
+        preview: 'Path test',
+        modelProvider: 'openai',
+        createdAt: 1,
+        updatedAt: 2,
+        path: '/Users/test/.codex/sessions/thread-path.jsonl',
+        cwd: '/Users/test/project',
+        cliVersion: 'test',
+        source: 'appServer',
+        gitInfo: null,
+        turns: [],
+      },
+    })
+
+    expect(summary).toMatchObject({
+      path: '/Users/test/.codex/sessions/thread-path.jsonl',
+      cwd: '/Users/test/project',
+    })
+  })
+
+  it('normalizes a missing thread JSONL path to an empty string', () => {
+    const summary = normalizeThreadSummaryV2({
+      thread: {
+        id: 'thread-without-path',
+        preview: 'No path',
+        modelProvider: 'openai',
+        createdAt: 1,
+        updatedAt: 2,
+        path: null,
+        cwd: '/Users/test/project',
+        cliVersion: 'test',
+        source: 'appServer',
+        gitInfo: null,
+        turns: [],
+      },
+    })
+
+    expect(summary.path).toBe('')
   })
 })
