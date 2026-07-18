@@ -1,4 +1,4 @@
-import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdtemp, readFile, readdir, rename, rm, mkdir, stat, cp, lstat, readlink, symlink } from 'node:fs/promises'
 import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -12,6 +12,11 @@ import { createInterface } from 'node:readline'
 import { writeFile } from 'node:fs/promises'
 import { handleAccountRoutes } from './accountRoutes.js'
 import { buildAppServerArgs } from './appServerRuntimeConfig.js'
+import {
+  createCodexUpstreamIdentityHeaders,
+  resolveCodexTuiRuntime,
+  type CodexClientInfo,
+} from './codexClientInfo.js'
 import { handleModelCatalogRoutes, watchModelCatalogConfigFile } from './modelCatalog.js'
 import { handleReviewRoutes } from './reviewGit.js'
 import { handleSkillsRoutes } from './skillsRoutes.js'
@@ -3851,14 +3856,14 @@ async function proxyTranscribe(
   body: Buffer,
   contentType: string,
   authToken: string,
+  userAgent: string,
   accountId?: string,
 ): Promise<{ status: number; body: string }> {
   const chatgptHeaders: Record<string, string | number> = {
     'Content-Type': contentType,
     'Content-Length': body.length,
     Authorization: `Bearer ${authToken}`,
-    originator: 'Codex Desktop',
-    'User-Agent': `Codex Desktop/0.1.0 (${process.platform}; ${process.arch})`,
+    ...createCodexUpstreamIdentityHeaders(userAgent),
   }
   if (accountId) chatgptHeaders['ChatGPT-Account-Id'] = accountId
 
@@ -3906,6 +3911,8 @@ const MERGEABLE_ITEM_TYPES = new Set([
 
 class AppServerProcess {
   private process: ChildProcessWithoutNullStreams | null = null
+  private clientInfo: CodexClientInfo | null = null
+  private upstreamUserAgent: string | null = null
   private initialized = false
   private initializePromise: Promise<void> | null = null
   private readBuffer = ''
@@ -3923,12 +3930,12 @@ class AppServerProcess {
   private chatgptAuthRefreshPromise: Promise<ChatgptAuthTokensRefreshResponse> | null = null
 
 
-  private getCodexCommand(): string {
-    const codexCommand = resolveCodexCommand()
-    if (!codexCommand) {
+  private getCodexRuntime(): { command: string; clientInfo: CodexClientInfo } {
+    const runtime = resolveCodexTuiRuntime()
+    if (!runtime) {
       throw new Error('Codex CLI is not available. Install @openai/codex or set CODES_CODEX_COMMAND.')
     }
-    return codexCommand
+    return runtime
   }
 
   private buildAppServerConfig(): { args: string[]; env: Record<string, string> } {
@@ -3939,13 +3946,15 @@ class AppServerProcess {
     if (this.process) return
 
     this.stopping = false
+    const runtime = this.getCodexRuntime()
     const config = this.buildAppServerConfig()
-    const invocation = getSpawnInvocation(this.getCodexCommand(), config.args)
+    const invocation = getSpawnInvocation(runtime.command, config.args)
     const spawnEnv = Object.keys(config.env).length > 0
       ? { ...process.env, ...config.env }
       : undefined
     const proc = spawn(invocation.command, invocation.args, { stdio: ['pipe', 'pipe', 'pipe'], ...(spawnEnv ? { env: spawnEnv } : {}) })
     this.process = proc
+    this.clientInfo = runtime.clientInfo
 
     proc.stdout.setEncoding('utf8')
     proc.stdout.on('data', (chunk: string) => {
@@ -3982,6 +3991,8 @@ class AppServerProcess {
       this.pending.clear()
       this.pendingServerRequests.clear()
       this.process = null
+      this.clientInfo = null
+      this.upstreamUserAgent = null
       this.initialized = false
       this.initializePromise = null
       this.readBuffer = ''
@@ -4351,15 +4362,17 @@ class AppServerProcess {
       return
     }
 
+    this.start()
+    if (!this.clientInfo) {
+      throw new Error('Codex app-server client info is unavailable')
+    }
     this.initializePromise = this.call('initialize', {
-      clientInfo: {
-        name: 'CodeS',
-        version: '0.1.0',
-      },
+      clientInfo: this.clientInfo,
       capabilities: {
         experimentalApi: true,
       },
-    }).then(() => {
+    }).then((result) => {
+      this.upstreamUserAgent = readNonEmptyString(asRecord(result)?.userAgent) || null
       this.sendLine({
         jsonrpc: '2.0',
         method: 'initialized',
@@ -4375,6 +4388,12 @@ class AppServerProcess {
   async rpc(method: string, params: unknown): Promise<unknown> {
     await this.ensureInitialized()
     return this.call(method, params)
+  }
+
+  async getUpstreamUserAgent(): Promise<string> {
+    await this.ensureInitialized()
+    const headers = createCodexUpstreamIdentityHeaders(this.upstreamUserAgent ?? '')
+    return headers['User-Agent']
   }
 
   async restart(): Promise<void> {
@@ -4441,6 +4460,8 @@ class AppServerProcess {
     const proc = this.process
     this.stopping = true
     this.process = null
+    this.clientInfo = null
+    this.upstreamUserAgent = null
     this.initialized = false
     this.initializePromise = null
     this.readBuffer = ''
@@ -5482,7 +5503,8 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
 
         const rawBody = await readRawBody(req)
         const incomingCt = req.headers['content-type'] ?? 'application/octet-stream'
-        const upstream = await proxyTranscribe(rawBody, incomingCt, auth.accessToken, auth.accountId)
+        const userAgent = await appServer.getUpstreamUserAgent()
+        const upstream = await proxyTranscribe(rawBody, incomingCt, auth.accessToken, userAgent, auth.accountId)
 
         res.statusCode = upstream.status
         res.setHeader('Content-Type', 'application/json; charset=utf-8')

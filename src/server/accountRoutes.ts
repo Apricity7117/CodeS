@@ -5,7 +5,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildAppServerArgs } from './appServerRuntimeConfig.js'
+import { resolveCodexTuiRuntime } from './codexClientInfo.js'
 import { ENV_KEYS, readTrimmedEnv } from '../config/env.js'
+import { getSpawnInvocation } from '../utils/commandInvocation.js'
 
 type AppServerLike = {
   rpc(method: string, params: unknown): Promise<unknown>
@@ -414,11 +416,16 @@ async function withTemporaryCodexAppServer<T>(
   authRaw: string,
   run: (rpc: (method: string, params: unknown) => Promise<unknown>) => Promise<T>,
 ): Promise<T> {
+  const runtime = resolveCodexTuiRuntime()
+  if (!runtime) {
+    throw new Error('Codex CLI is not available. Install @openai/codex or set CODES_CODEX_COMMAND.')
+  }
   const tempCodexHome = await mkdtemp(join(tmpdir(), 'codes-account-'))
   const authPath = join(tempCodexHome, 'auth.json')
   await writeFile(authPath, authRaw, { encoding: 'utf8', mode: 0o600 })
 
-  const proc = spawn('codex', buildAppServerArgs(), {
+  const invocation = getSpawnInvocation(runtime.command, buildAppServerArgs())
+  const proc = spawn(invocation.command, invocation.args, {
     env: { ...process.env, CODEX_HOME: tempCodexHome },
     stdio: ['pipe', 'pipe', 'pipe'],
   })
@@ -507,10 +514,7 @@ async function withTemporaryCodexAppServer<T>(
     }
 
     initializePromise = call('initialize', {
-      clientInfo: {
-        name: 'codes-account-refresh',
-        version: '0.1.0',
-      },
+      clientInfo: runtime.clientInfo,
       capabilities: {
         experimentalApi: true,
       },
