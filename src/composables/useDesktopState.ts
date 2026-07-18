@@ -1608,6 +1608,18 @@ export function useDesktopState() {
   const liveFileChangeMessagesByThreadId = ref<Record<string, UiMessage[]>>({})
   const inProgressById = ref<Record<string, boolean>>({})
   type FileAttachment = { label: string; path: string; fsPath: string }
+  type TurnRunConfig = {
+    reasoningEffort: ReasoningEffort | ''
+    collaborationMode: CollaborationModeKind
+  }
+  type SendMessageToThreadOptions = Partial<TurnRunConfig> & {
+    mode?: 'steer' | 'queue'
+    queueInsertIndex?: number
+  }
+  type SendMessageToNewThreadOptions = Partial<TurnRunConfig> & {
+    modelId?: string
+    selectCreatedThread?: boolean
+  }
   type QueuedMessage = {
     id: string
     text: string
@@ -5294,29 +5306,75 @@ export function useDesktopState() {
     queueInsertIndex?: number,
     collaborationModeOverride?: CollaborationModeKind,
   ): Promise<void> {
+    return sendMessageToThread(
+      selectedThreadId.value,
+      text,
+      imageUrls,
+      skills,
+      fileAttachments,
+      {
+        mode,
+        queueInsertIndex,
+        reasoningEffort: selectedReasoningEffort.value,
+        collaborationMode: collaborationModeOverride ?? selectedCollaborationMode.value,
+      },
+    )
+  }
+
+  function resolveTurnRunConfig(
+    threadId: string,
+    options: Partial<TurnRunConfig> = {},
+  ): TurnRunConfig {
+    const collaborationMode = options.collaborationMode === 'plan'
+      ? 'plan'
+      : options.collaborationMode === 'default'
+        ? 'default'
+        : readSelectedCollaborationMode(selectedCollaborationModeByContext.value, threadId)
+    const reasoningEffort = options.reasoningEffort !== undefined
+      ? options.reasoningEffort
+      : threadId === selectedThreadId.value
+        ? selectedReasoningEffort.value
+        : readDefaultReasoningEffortForModel(readModelIdForThread(threadId))
+
+    return {
+      collaborationMode,
+      reasoningEffort,
+    }
+  }
+
+  async function sendMessageToThread(
+    threadId: string,
+    text: string,
+    imageUrls: string[] = [],
+    skills: Array<{ name: string; path: string }> = [],
+    fileAttachments: FileAttachment[] = [],
+    options: SendMessageToThreadOptions = {},
+  ): Promise<void> {
     if (isUpdatingSpeedMode.value) return
 
-    const threadId = selectedThreadId.value
+    const targetThreadId = threadId.trim()
     const nextText = text.trim()
-    if (!threadId || (!nextText && imageUrls.length === 0 && fileAttachments.length === 0)) return
-    if (!isModelSelectableForThread(threadId)) {
+    if (!targetThreadId || (!nextText && imageUrls.length === 0 && fileAttachments.length === 0)) return
+    if (!isModelSelectableForThread(targetThreadId)) {
       error.value = MODEL_SELECTION_REQUIRED_MESSAGE
-      setTurnErrorForThread(threadId, MODEL_SELECTION_REQUIRED_MESSAGE)
+      setTurnErrorForThread(targetThreadId, MODEL_SELECTION_REQUIRED_MESSAGE)
+      return
+    }
+    const runConfig = resolveTurnRunConfig(targetThreadId, options)
+    const mode = options.mode ?? 'steer'
+
+    if (await maybeReplyToPendingUserInputRequest(targetThreadId, nextText, imageUrls, skills, fileAttachments)) {
       return
     }
 
-    if (await maybeReplyToPendingUserInputRequest(threadId, nextText, imageUrls, skills, fileAttachments)) {
-      return
-    }
-
-    const isInProgress = inProgressById.value[threadId] === true
+    const isInProgress = inProgressById.value[targetThreadId] === true
 
     if (isInProgress && mode === 'queue') {
-      const queue = queuedMessagesByThreadId.value[threadId] ?? []
+      const queue = queuedMessagesByThreadId.value[targetThreadId] ?? []
       const id = `q-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       const nextQueue = [...queue]
-      const insertIndex = typeof queueInsertIndex === 'number'
-        ? Math.max(0, Math.min(queueInsertIndex, nextQueue.length))
+      const insertIndex = typeof options.queueInsertIndex === 'number'
+        ? Math.max(0, Math.min(options.queueInsertIndex, nextQueue.length))
         : nextQueue.length
       nextQueue.splice(insertIndex, 0, {
         id,
@@ -5324,15 +5382,11 @@ export function useDesktopState() {
         imageUrls,
         skills,
         fileAttachments,
-        collaborationMode: collaborationModeOverride === 'plan'
-          ? 'plan'
-          : collaborationModeOverride === 'default'
-            ? 'default'
-            : selectedCollaborationMode.value,
+        collaborationMode: runConfig.collaborationMode,
       })
       queuedMessagesByThreadId.value = {
         ...queuedMessagesByThreadId.value,
-        [threadId]: nextQueue,
+        [targetThreadId]: nextQueue,
       }
       persistQueueState()
       return
@@ -5341,15 +5395,15 @@ export function useDesktopState() {
     if (isInProgress) {
       shouldAutoScrollOnNextAgentEvent = true
       void startTurnForThread(
-        threadId,
+        targetThreadId,
         nextText,
         imageUrls,
         skills,
         fileAttachments,
-        collaborationModeOverride,
+        runConfig,
       ).catch((unknownError) => {
         const errorMessage = unknownError instanceof Error ? unknownError.message : 'Unknown application error'
-        setTurnErrorForThread(threadId, errorMessage)
+        setTurnErrorForThread(targetThreadId, errorMessage)
         error.value = errorMessage
       })
       return
@@ -5358,38 +5412,34 @@ export function useDesktopState() {
     error.value = ''
     shouldAutoScrollOnNextAgentEvent = true
     setTurnActivityForThread(
-      threadId,
+      targetThreadId,
       {
         label: 'Thinking',
         details: buildPendingTurnDetails(
-          readModelIdForThread(threadId),
-          selectedReasoningEffort.value,
-          collaborationModeOverride === 'plan'
-            ? 'plan'
-            : collaborationModeOverride === 'default'
-              ? 'default'
-              : selectedCollaborationMode.value,
+          readModelIdForThread(targetThreadId),
+          runConfig.reasoningEffort,
+          runConfig.collaborationMode,
         ),
       },
     )
-    setTurnErrorForThread(threadId, null)
-    setThreadInProgress(threadId, true)
+    setTurnErrorForThread(targetThreadId, null)
+    setThreadInProgress(targetThreadId, true)
 
     try {
       await startTurnForThread(
-        threadId,
+        targetThreadId,
         nextText,
         imageUrls,
         skills,
         fileAttachments,
-        collaborationModeOverride,
+        runConfig,
       )
     } catch (unknownError) {
       shouldAutoScrollOnNextAgentEvent = false
-      setThreadInProgress(threadId, false)
-      setTurnActivityForThread(threadId, null)
+      setThreadInProgress(targetThreadId, false)
+      setTurnActivityForThread(targetThreadId, null)
       const errorMessage = unknownError instanceof Error ? unknownError.message : 'Unknown application error'
-      setTurnErrorForThread(threadId, errorMessage)
+      setTurnErrorForThread(targetThreadId, errorMessage)
       error.value = errorMessage
       throw unknownError
     }
@@ -5401,13 +5451,20 @@ export function useDesktopState() {
     imageUrls: string[] = [],
     skills: Array<{ name: string; path: string }> = [],
     fileAttachments: FileAttachment[] = [],
+    options: SendMessageToNewThreadOptions = {},
   ): Promise<string> {
     if (isUpdatingSpeedMode.value) return ''
 
     const nextText = text.trim()
     const targetCwd = cwd.trim()
-    const selectedModel = readModelIdForThread(NEW_THREAD_COLLABORATION_MODE_CONTEXT).trim()
-    const selectedMode = selectedCollaborationMode.value
+    const selectedModel = options.modelId === undefined
+      ? readModelIdForThread(NEW_THREAD_COLLABORATION_MODE_CONTEXT).trim()
+      : options.modelId.trim()
+    const runConfig = resolveTurnRunConfig(NEW_THREAD_COLLABORATION_MODE_CONTEXT, {
+      reasoningEffort: options.reasoningEffort ?? selectedReasoningEffort.value,
+      collaborationMode: options.collaborationMode ?? selectedCollaborationMode.value,
+    })
+    const selectedThreadIdAtStart = selectedThreadId.value
     if (!nextText && imageUrls.length === 0 && fileAttachments.length === 0) return ''
     if (!isModelSelectableForThread(NEW_THREAD_COLLABORATION_MODE_CONTEXT)) {
       error.value = MODEL_SELECTION_REQUIRED_MESSAGE
@@ -5427,14 +5484,16 @@ export function useDesktopState() {
         const startedThread = await startThread(targetCwd || undefined, selectedModel || undefined)
         threadId = startedThread.threadId
         setThreadModelId(threadId, startedThread.model)
-        setSelectedCollaborationModeForThread(threadId, selectedMode)
+        setSelectedCollaborationModeForThread(threadId, runConfig.collaborationMode)
       } catch (unknownError) {
         if (selectedModel && selectedModel !== MODEL_FALLBACK_ID && isUnsupportedChatGptModelError(unknownError)) {
-          await applyFallbackModelSelection()
+          if (selectedThreadId.value === selectedThreadIdAtStart) {
+            await applyFallbackModelSelection(selectedThreadIdAtStart)
+          }
           const fallbackThread = await startThread(targetCwd || undefined, MODEL_FALLBACK_ID)
           threadId = fallbackThread.threadId
           setThreadModelId(threadId, fallbackThread.model)
-          setSelectedCollaborationModeForThread(threadId, selectedMode)
+          setSelectedCollaborationModeForThread(threadId, runConfig.collaborationMode)
         } else {
           throw unknownError
         }
@@ -5450,7 +5509,9 @@ export function useDesktopState() {
         ...resumedThreadById.value,
         [threadId]: true,
       }
-      setSelectedThreadId(threadId)
+      if (options.selectCreatedThread !== false && selectedThreadId.value === selectedThreadIdAtStart) {
+        setSelectedThreadId(threadId)
+      }
       setNewThreadActivity(null)
       shouldAutoScrollOnNextAgentEvent = true
       setTurnSummaryForThread(threadId, null)
@@ -5460,8 +5521,8 @@ export function useDesktopState() {
           label: 'Thinking',
           details: buildPendingTurnDetails(
             readModelIdForThread(threadId),
-            selectedReasoningEffort.value,
-            selectedMode,
+            runConfig.reasoningEffort,
+            runConfig.collaborationMode,
           ),
         },
       )
@@ -5470,7 +5531,7 @@ export function useDesktopState() {
       const capturedThreadId = threadId
       const capturedCwd = targetCwd || null
       const capturedPrompt = nextText
-      void startTurnForThread(threadId, nextText, imageUrls, skills, fileAttachments, selectedMode)
+      void startTurnForThread(threadId, nextText, imageUrls, skills, fileAttachments, runConfig)
         .catch((unknownError) => {
           shouldAutoScrollOnNextAgentEvent = false
           setThreadInProgress(threadId, false)
@@ -5507,15 +5568,14 @@ export function useDesktopState() {
     imageUrls: string[] = [],
     skills: Array<{ name: string; path: string }> = [],
     fileAttachments: FileAttachment[] = [],
-    collaborationModeOverride?: CollaborationModeKind,
+    options: Partial<TurnRunConfig> = {},
   ): Promise<void> {
-    const reasoningEffort = selectedReasoningEffort.value
+    const runConfig = resolveTurnRunConfig(threadId, options)
+    const reasoningEffort = runConfig.reasoningEffort
     if (!isModelSelectableForThread(threadId)) {
       throw new Error(MODEL_SELECTION_REQUIRED_MESSAGE)
     }
-    const collaborationMode = collaborationModeOverride === 'plan' ? 'plan' : collaborationModeOverride === 'default'
-      ? 'default'
-      : selectedCollaborationMode.value
+    const collaborationMode = runConfig.collaborationMode
     const normalizedText = nextText.trim()
     const normalizedImageUrls = [...imageUrls]
     if (
@@ -6262,6 +6322,7 @@ export function useDesktopState() {
     rollbackSelectedThread,
 
     sendMessageToSelectedThread,
+    sendMessageToThread,
     sendMessageToNewThread,
     interruptSelectedThreadTurn,
     selectedThreadQueuedMessages,

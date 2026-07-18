@@ -730,6 +730,7 @@ const {
   forkThreadById,
   renameThreadById,
   forkThreadFromTurn,
+  sendMessageToThread,
   sendMessageToSelectedThread,
   sendMessageToNewThread,
   interruptSelectedThreadTurn,
@@ -796,6 +797,23 @@ type ThreadSubmitPayload = {
   fileAttachments: Array<{ label: string; path: string; fsPath: string }>
   skills: Array<{ name: string; path: string }>
   mode: 'steer' | 'queue'
+}
+type ThreadRunConfigSnapshot = {
+  reasoningEffort: ReasoningEffort | ''
+  collaborationMode: 'default' | 'plan'
+}
+function captureThreadRunConfig(): ThreadRunConfigSnapshot {
+  return {
+    reasoningEffort: selectedReasoningEffort.value,
+    collaborationMode: selectedCollaborationMode.value,
+  }
+}
+function captureNewThreadSendOptions() {
+  return {
+    modelId: readModelIdForThread('__new-thread__'),
+    ...captureThreadRunConfig(),
+    selectCreatedThread: false,
+  } as const
 }
 const homeThreadComposerRef = ref<ThreadComposerExposed | null>(null)
 const threadComposerRef = ref<ThreadComposerExposed | null>(null)
@@ -1593,18 +1611,24 @@ function onRequestProjectGitStatus(projectName: string): void {
 }
 
 function onRespondServerRequest(payload: UiServerRequestReply): void {
-  void handleServerRequestResponse(payload)
+  const threadId = selectedThreadId.value
+  if (!threadId || isHomeRoute.value) return
+  void handleServerRequestResponse(payload, threadId, captureThreadRunConfig())
 }
 
-async function handleServerRequestResponse(payload: UiServerRequestReply): Promise<void> {
+async function handleServerRequestResponse(
+  payload: UiServerRequestReply,
+  threadId: string,
+  runConfig: ThreadRunConfigSnapshot,
+): Promise<void> {
   const responded = await respondToPendingServerRequest(payload)
   const followUpMessageText = payload.followUpMessageText?.trim() ?? ''
-  if (!responded || !followUpMessageText || isHomeRoute.value) return
+  if (!responded || !followUpMessageText) return
 
   try {
-    await sendMessageToSelectedThread(followUpMessageText, [], [], 'steer', [])
+    await sendMessageToThread(threadId, followUpMessageText, [], [], [], runConfig)
   } catch {
-    // sendMessageToSelectedThread already surfaces the error through shared state.
+    // sendMessageToThread 已经通过共享状态展示错误。
   }
 }
 
@@ -1737,33 +1761,42 @@ function createEmptyComposerDraftPayload(): ComposerDraftPayload {
   }
 }
 
-async function submitEditedHistoryMessage(state: HistoryMessageEditState, payload: ThreadSubmitPayload): Promise<void> {
+async function submitEditedHistoryMessage(
+  state: HistoryMessageEditState,
+  payload: ThreadSubmitPayload,
+  runConfig: ThreadRunConfigSnapshot,
+): Promise<void> {
   if (isHomeRoute.value || selectedThreadId.value !== state.threadId) return
 
   const rolledBack = await rollbackSelectedThread(state.turnId)
   if (!rolledBack) {
-    editingHistoryMessageState.value = state
-    threadComposerRef.value?.hydrateDraft(toComposerDraftPayload(payload))
+    if (!isHomeRoute.value && selectedThreadId.value === state.threadId) {
+      editingHistoryMessageState.value = state
+      threadComposerRef.value?.hydrateDraft(toComposerDraftPayload(payload))
+    }
     return
   }
 
-  void sendMessageToSelectedThread(
+  void sendMessageToThread(
+    state.threadId,
     payload.text,
     payload.imageUrls,
     payload.skills,
-    'steer',
     payload.fileAttachments,
+    runConfig,
   )
 }
 
 function onSubmitThreadMessage(payload: ThreadSubmitPayload): void {
   const text = payload.text
+  const threadId = selectedThreadId.value
+  const runConfig = captureThreadRunConfig()
   scheduleMobileConversationJumpToLatest()
   const editingHistoryState = editingHistoryMessageState.value
-  if (editingHistoryState && editingHistoryState.threadId === selectedThreadId.value) {
+  if (editingHistoryState && editingHistoryState.threadId === threadId) {
     editingHistoryMessageState.value = null
     editingQueuedMessageState.value = null
-    void submitEditedHistoryMessage(editingHistoryState, payload)
+    void submitEditedHistoryMessage(editingHistoryState, payload, runConfig)
     return
   }
 
@@ -1771,7 +1804,7 @@ function onSubmitThreadMessage(payload: ThreadSubmitPayload): void {
   const queueInsertIndex =
     payload.mode === 'queue'
     && editingState
-    && editingState.threadId === selectedThreadId.value
+    && editingState.threadId === threadId
       ? editingState.queueIndex
       : undefined
   editingQueuedMessageState.value = null
@@ -1779,7 +1812,19 @@ function onSubmitThreadMessage(payload: ThreadSubmitPayload): void {
     void submitFirstMessageForNewThread(text, payload.imageUrls, payload.skills, payload.fileAttachments)
     return
   }
-  void sendMessageToSelectedThread(text, payload.imageUrls, payload.skills, payload.mode, payload.fileAttachments, queueInsertIndex)
+  if (!threadId) return
+  void sendMessageToThread(
+    threadId,
+    text,
+    payload.imageUrls,
+    payload.skills,
+    payload.fileAttachments,
+    {
+      ...runConfig,
+      mode: payload.mode,
+      queueInsertIndex,
+    },
+  )
 }
 
 function onEditHistoryMessage(payload: { turnId: string; text: string }): void {
@@ -2597,6 +2642,8 @@ async function submitFirstMessageForNewThread(
   skills: Array<{ name: string; path: string }> = [],
   fileAttachments: Array<{ label: string; path: string; fsPath: string }> = [],
 ): Promise<void> {
+  const routeFullPathAtSubmit = route.fullPath
+  const runConfig = captureNewThreadSendOptions()
   try {
     worktreeInitStatus.value = { phase: 'idle', title: '', message: '' }
     let targetCwd = newThreadCwd.value
@@ -2624,8 +2671,8 @@ async function submitFirstMessageForNewThread(
       targetCwd = directory.cwd
       newThreadCwd.value = directory.cwd
     }
-    const threadId = await sendMessageToNewThread(text, targetCwd, imageUrls, skills, fileAttachments)
-    if (!threadId) return
+    const threadId = await sendMessageToNewThread(text, targetCwd, imageUrls, skills, fileAttachments, runConfig)
+    if (!threadId || route.fullPath !== routeFullPathAtSubmit) return
     await router.replace({ name: 'thread', params: { threadId } })
     scheduleMobileConversationJumpToLatest()
   } catch {
@@ -2635,6 +2682,8 @@ async function submitFirstMessageForNewThread(
 
 async function onTryDirectoryItem(payload: DirectoryTryItemPayload): Promise<void> {
   if (directoryTryInFlightKey.value) return
+  const routeFullPathAtSubmit = route.fullPath
+  const runConfig = captureNewThreadSendOptions()
   directoryTryInFlightKey.value = getDirectoryTryItemKey(payload)
   const text = buildDirectoryTryPrompt(payload)
   const skills = payload.attachedSkills?.length
@@ -2644,8 +2693,8 @@ async function onTryDirectoryItem(payload: DirectoryTryItemPayload): Promise<voi
     : []
   try {
     const targetCwd = composerCwd.value.trim() || await resolveProjectBaseDirectory()
-    const threadId = await sendMessageToNewThread(text, targetCwd, [], skills, [])
-    if (!threadId) return
+    const threadId = await sendMessageToNewThread(text, targetCwd, [], skills, [], runConfig)
+    if (!threadId || route.fullPath !== routeFullPathAtSubmit) return
     await router.replace({ name: 'thread', params: { threadId } })
     scheduleMobileConversationJumpToLatest()
   } catch {

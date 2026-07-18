@@ -759,6 +759,60 @@ describe('collaboration mode selection', () => {
 })
 
 describe('optimistic submitted user messages', () => {
+  it('keeps a restoring send bound to the submitted thread after selection changes', async () => {
+    installTestWindow()
+    let resolveResumeThread: (value: { model: string }) => void = () => {}
+
+    setupRefreshMocks([
+      {
+        projectName: 'alpha',
+        threads: [
+          thread('thread-a', '/tmp/alpha'),
+          thread('thread-b', '/tmp/alpha'),
+        ],
+      },
+    ])
+    gatewayMocks.getPendingServerRequests.mockResolvedValue([])
+    gatewayMocks.resumeThread.mockImplementation(() => new Promise((resolve) => {
+      resolveResumeThread = resolve
+    }))
+    gatewayMocks.startThreadTurn.mockResolvedValue('turn-a')
+    gatewayMocks.getThreadDetail.mockResolvedValue({
+      messages: [],
+      inProgress: false,
+      activeTurnId: '',
+      hasMoreOlder: false,
+      turnIndexByTurnId: {},
+    })
+
+    const state = useDesktopState()
+    state.primeSelectedThread('thread-a')
+    await state.refreshAll({ includeSelectedThreadMessages: true, awaitAncillaryRefreshes: true })
+
+    const sendPromise = state.sendMessageToSelectedThread('message for thread a')
+    await Promise.resolve()
+
+    expect(state.selectedLiveOverlay.value).toMatchObject({
+      activityLabel: 'Restoring thread',
+    })
+
+    state.primeSelectedThread('thread-b')
+    resolveResumeThread({ model: 'gpt-5.4' })
+    await sendPromise
+
+    expect(state.selectedThreadId.value).toBe('thread-b')
+    expect(gatewayMocks.startThreadTurn).toHaveBeenCalledWith(
+      'thread-a',
+      'message for thread a',
+      [],
+      'gpt-5.4',
+      'medium',
+      undefined,
+      [],
+      'default',
+    )
+  })
+
   it('keeps the previous worked summary visible while submitting the next turn', async () => {
     installTestWindow()
 
@@ -1064,6 +1118,117 @@ describe('optimistic submitted user messages', () => {
 })
 
 describe('history message editing', () => {
+  it('sends the edited turn to the original thread after selection changes during restore', async () => {
+    installTestWindow()
+    const historyMessages: UiMessage[] = [
+      uiMessage({
+        id: 'history-user-turn',
+        role: 'user',
+        text: 'old prompt',
+        turnId: 'history-turn',
+        turnIndex: 0,
+      }),
+      uiMessage({
+        id: 'history-assistant-turn',
+        role: 'assistant',
+        text: 'old answer',
+        turnId: 'history-turn',
+        turnIndex: 0,
+      }),
+    ]
+    let resolveInitialResume: (value: {
+      model: string
+      messages: UiMessage[]
+      inProgress: boolean
+      activeTurnId: string
+      hasMoreOlder: boolean
+      turnIndexByTurnId: Record<string, number>
+    }) => void = () => {}
+
+    setupRefreshMocks([
+      {
+        projectName: 'alpha',
+        threads: [
+          thread('thread-a', '/tmp/alpha'),
+          thread('thread-b', '/tmp/alpha'),
+        ],
+      },
+    ])
+    gatewayMocks.getPendingServerRequests.mockResolvedValue([])
+    gatewayMocks.getThreadDetail.mockImplementation(async (threadId: string) => ({
+      messages: threadId === 'thread-a' ? historyMessages : [],
+      inProgress: false,
+      activeTurnId: '',
+      hasMoreOlder: false,
+      turnIndexByTurnId: threadId === 'thread-a' ? { 'history-turn': 0 } : {},
+    }))
+    gatewayMocks.resumeThread
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveInitialResume = resolve
+      }))
+      .mockResolvedValue({
+        model: 'gpt-5.4',
+        messages: [],
+        inProgress: false,
+        activeTurnId: '',
+        hasMoreOlder: false,
+        turnIndexByTurnId: {},
+      })
+    gatewayMocks.rollbackThread.mockResolvedValue([])
+    gatewayMocks.startThreadTurn.mockResolvedValue('edited-turn')
+
+    const state = useDesktopState()
+    state.primeSelectedThread('thread-a')
+    await state.refreshAll({ includeSelectedThreadMessages: true, awaitAncillaryRefreshes: true })
+
+    const rollbackPromise = state.rollbackSelectedThread('history-turn')
+    await Promise.resolve()
+    state.primeSelectedThread('thread-b')
+    resolveInitialResume({
+      model: 'gpt-5.4',
+      messages: historyMessages,
+      inProgress: false,
+      activeTurnId: '',
+      hasMoreOlder: false,
+      turnIndexByTurnId: { 'history-turn': 0 },
+    })
+
+    await expect(rollbackPromise).resolves.toBe(true)
+    await state.sendMessageToThread(
+      'thread-a',
+      'edited prompt',
+      [],
+      [],
+      [],
+      {
+        collaborationMode: 'default',
+        reasoningEffort: 'medium',
+      },
+    )
+
+    expect(state.selectedThreadId.value).toBe('thread-b')
+    expect(gatewayMocks.resumeThread).toHaveBeenCalledTimes(2)
+    expect(gatewayMocks.resumeThread.mock.invocationCallOrder[0]).toBeLessThan(
+      gatewayMocks.rollbackThread.mock.invocationCallOrder[0],
+    )
+    expect(gatewayMocks.rollbackThread.mock.invocationCallOrder[0]).toBeLessThan(
+      gatewayMocks.resumeThread.mock.invocationCallOrder[1],
+    )
+    expect(gatewayMocks.resumeThread.mock.invocationCallOrder[1]).toBeLessThan(
+      gatewayMocks.startThreadTurn.mock.invocationCallOrder[0],
+    )
+    expect(gatewayMocks.startThreadTurn).toHaveBeenLastCalledWith(
+      'thread-a',
+      'edited prompt',
+      [],
+      'gpt-5.4',
+      'medium',
+      undefined,
+      [],
+      'default',
+    )
+  })
+
   it('resumes a previously restored thread again after rollback before sending the edited turn', async () => {
     installTestWindow()
     const historyMessages: UiMessage[] = [
@@ -1429,6 +1594,54 @@ describe('history message editing', () => {
 })
 
 describe('new thread activity', () => {
+  it('keeps the current selection and submitted run config when thread creation finishes later', async () => {
+    installTestWindow()
+    let resolveStartThread: (value: { threadId: string; model: string }) => void = () => {}
+
+    setupRefreshMocks([])
+    gatewayMocks.startThread.mockImplementation(() => new Promise((resolve) => {
+      resolveStartThread = resolve
+    }))
+    gatewayMocks.startThreadTurn.mockResolvedValue('turn-new')
+
+    const state = useDesktopState()
+    state.setSelectedReasoningEffort('high')
+    state.setSelectedCollaborationMode('plan')
+
+    const sendPromise = state.sendMessageToNewThread(
+      'start a background task',
+      '/tmp/alpha',
+      [],
+      [],
+      [],
+      {
+        selectCreatedThread: false,
+        reasoningEffort: 'high',
+        collaborationMode: 'plan',
+      },
+    )
+    await Promise.resolve()
+
+    state.primeSelectedThread('thread-b')
+    state.setSelectedReasoningEffort('low')
+    state.setSelectedCollaborationMode('default')
+    resolveStartThread({ threadId: 'thread-new', model: 'gpt-5.4' })
+
+    await expect(sendPromise).resolves.toBe('thread-new')
+
+    expect(state.selectedThreadId.value).toBe('thread-b')
+    expect(gatewayMocks.startThreadTurn).toHaveBeenCalledWith(
+      'thread-new',
+      'start a background task',
+      [],
+      'gpt-5.4',
+      'high',
+      undefined,
+      [],
+      'plan',
+    )
+  })
+
   it('shows starting thread activity while the first new-thread request is creating the thread', async () => {
     installTestWindow()
     let resolveStartThread: (value: { threadId: string; model: string }) => void = () => {}
