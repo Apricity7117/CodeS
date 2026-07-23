@@ -264,116 +264,116 @@ defineEmits<{
   @apply border-b-0;
 }
 
-.message-code-block {
+.message-text-flow :deep(.message-code-block) {
   @apply relative max-w-full overflow-hidden rounded-lg border text-zinc-950 shadow-none;
   background-color: var(--codex-code-block-bg);
   border-color: var(--codex-code-block-border);
   box-shadow: none;
 }
 
-.message-code-toolbar {
+.message-text-flow :deep(.message-code-toolbar) {
   @apply pointer-events-none absolute inset-x-0 top-0 z-10 flex h-10 items-center justify-between gap-3 px-3 pt-2;
 }
 
-.message-code-language {
+.message-text-flow :deep(.message-code-language) {
   @apply min-w-0 truncate font-mono text-xs font-medium normal-case text-zinc-500;
 }
 
-.message-code-copy {
+.message-text-flow :deep(.message-code-copy) {
   @apply pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent p-0 transition focus:outline-none focus-visible:ring-2;
   --tw-ring-color: var(--codex-focus-ring);
   color: var(--codex-muted-text);
 }
 
-.message-code-copy:hover {
+.message-text-flow :deep(.message-code-copy:hover) {
   background-color: var(--codex-control-hover);
   color: var(--codex-text);
 }
 
-.message-code-copy[data-copied='true'] {
+.message-text-flow :deep(.message-code-copy[data-copied='true']) {
   background-color: var(--codex-success-bg);
   color: var(--codex-success-fg);
 }
 
-.message-code-copy[data-copied='true']:hover {
+.message-text-flow :deep(.message-code-copy[data-copied='true']:hover) {
   background-color: var(--codex-success-bg);
   color: var(--codex-success-fg);
 }
 
-.message-code-copy-icon {
+.message-text-flow :deep(.message-code-copy-icon) {
   @apply h-4 w-4 shrink-0;
 }
 
-.message-code-copy-icon--check {
+.message-text-flow :deep(.message-code-copy-icon--check) {
   @apply hidden;
 }
 
-.message-code-copy[data-copied='true'] .message-code-copy-icon--copy {
+.message-text-flow :deep(.message-code-copy[data-copied='true'] .message-code-copy-icon--copy) {
   @apply hidden;
 }
 
-.message-code-copy[data-copied='true'] .message-code-copy-icon--check {
+.message-text-flow :deep(.message-code-copy[data-copied='true'] .message-code-copy-icon--check) {
   @apply block;
 }
 
-.message-code-pre {
+.message-text-flow :deep(.message-code-pre) {
   @apply m-0 overflow-x-auto px-4 pt-10 pb-3 leading-relaxed whitespace-pre;
   font-family: var(--codex-code-font-family);
   font-size: var(--codex-code-font-size);
 }
 
-.message-code-pre :deep(.hljs) {
+.message-text-flow :deep(.message-code-pre .hljs) {
   @apply block bg-transparent p-0 text-inherit;
 }
 
-.message-code-pre :deep(.hljs),
-.message-code-pre :deep(.hljs-subst) {
+.message-text-flow :deep(.message-code-pre .hljs),
+.message-text-flow :deep(.message-code-pre .hljs-subst) {
   color: var(--codex-code-text);
 }
 
-.message-code-pre :deep(.hljs-comment),
-.message-code-pre :deep(.hljs-quote) {
+.message-text-flow :deep(.message-code-pre .hljs-comment),
+.message-text-flow :deep(.message-code-pre .hljs-quote) {
   color: var(--codex-code-comment);
 }
 
-.message-code-pre :deep(.hljs-keyword),
-.message-code-pre :deep(.hljs-selector-tag),
-.message-code-pre :deep(.hljs-meta .hljs-keyword),
-.message-code-pre :deep(.hljs-doctag),
-.message-code-pre :deep(.hljs-built_in),
-.message-code-pre :deep(.hljs-type) {
+.message-text-flow :deep(.message-code-pre .hljs-keyword),
+.message-text-flow :deep(.message-code-pre .hljs-selector-tag),
+.message-text-flow :deep(.message-code-pre .hljs-meta .hljs-keyword),
+.message-text-flow :deep(.message-code-pre .hljs-doctag),
+.message-text-flow :deep(.message-code-pre .hljs-built_in),
+.message-text-flow :deep(.message-code-pre .hljs-type) {
   color: var(--codex-code-keyword);
 }
 
-.message-code-pre :deep(.hljs-string),
-.message-code-pre :deep(.hljs-attr),
-.message-code-pre :deep(.hljs-symbol),
-.message-code-pre :deep(.hljs-bullet) {
+.message-text-flow :deep(.message-code-pre .hljs-string),
+.message-text-flow :deep(.message-code-pre .hljs-attr),
+.message-text-flow :deep(.message-code-pre .hljs-symbol),
+.message-text-flow :deep(.message-code-pre .hljs-bullet) {
   color: var(--codex-code-string);
 }
 
-.message-code-pre :deep(.hljs-title),
-.message-code-pre :deep(.hljs-section),
-.message-code-pre :deep(.hljs-name),
-.message-code-pre :deep(.hljs-selector-id),
-.message-code-pre :deep(.hljs-selector-class),
-.message-code-pre :deep(.hljs-function .hljs-title),
-.message-code-pre :deep(.hljs-class .hljs-title) {
+.message-text-flow :deep(.message-code-pre .hljs-title),
+.message-text-flow :deep(.message-code-pre .hljs-section),
+.message-text-flow :deep(.message-code-pre .hljs-name),
+.message-text-flow :deep(.message-code-pre .hljs-selector-id),
+.message-text-flow :deep(.message-code-pre .hljs-selector-class),
+.message-text-flow :deep(.message-code-pre .hljs-function .hljs-title),
+.message-text-flow :deep(.message-code-pre .hljs-class .hljs-title) {
   color: var(--codex-code-title);
 }
 
-.message-code-pre :deep(.hljs-number),
-.message-code-pre :deep(.hljs-literal),
-.message-code-pre :deep(.hljs-variable),
-.message-code-pre :deep(.hljs-template-variable) {
+.message-text-flow :deep(.message-code-pre .hljs-number),
+.message-text-flow :deep(.message-code-pre .hljs-literal),
+.message-text-flow :deep(.message-code-pre .hljs-variable),
+.message-text-flow :deep(.message-code-pre .hljs-template-variable) {
   color: var(--codex-code-number);
 }
 
-.message-code-pre :deep(.hljs-addition) {
+.message-text-flow :deep(.message-code-pre .hljs-addition) {
   color: var(--codex-diff-added);
 }
 
-.message-code-pre :deep(.hljs-deletion) {
+.message-text-flow :deep(.message-code-pre .hljs-deletion) {
   color: var(--codex-diff-removed);
 }
 

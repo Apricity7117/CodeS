@@ -197,6 +197,31 @@ describe('thread markdown block parsing', () => {
     expect(html).not.toContain('<unsafe>')
   })
 
+  it('renders list-nested code blocks with shared markup for every language', () => {
+    const html = renderMarkdownBlocksAsHtml([
+      '1. Plain text',
+      '',
+      '   ```text',
+      '   plain value',
+      '   ```',
+      '2. TypeScript',
+      '',
+      '   ```tsx',
+      '   const value = 1',
+      '   ```',
+    ].join('\n'), {
+      getInlineSegments: parseInlineSegments,
+      toBrowseUrl: (pathValue) => `/browse/${pathValue}`,
+      renderHighlightedCodeAsHtml: (_language, value) => escapeHtml(value),
+    })
+
+    expect(html.match(/class="message-code-block"/gu)).toHaveLength(2)
+    expect(html.match(/class="message-code-toolbar"/gu)).toHaveLength(2)
+    expect(html.match(/class="message-code-pre"/gu)).toHaveLength(2)
+    expect(html).toContain('<span class="message-code-language">text</span>')
+    expect(html).toContain('<span class="message-code-language">tsx</span>')
+  })
+
   it('renders block formulas through KaTeX', async () => {
     await loadMathRenderer()
     const html = renderMarkdownBlocksAsHtml('$$E = mc^2$$', {
