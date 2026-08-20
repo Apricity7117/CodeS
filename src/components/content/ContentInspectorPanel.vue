@@ -76,22 +76,6 @@
             </div>
           </section>
 
-          <section class="content-inspector-section">
-            <h2 class="content-inspector-heading">{{ t('Sources') }}</h2>
-            <div class="content-inspector-rows">
-              <div v-if="sourceItems.length === 0" class="content-inspector-empty">
-                {{ t('No sources yet') }}
-              </div>
-              <div
-                v-for="item in sourceItems"
-                :key="item.label"
-                class="content-inspector-row"
-              >
-                <span v-if="item.mark" class="content-inspector-source-mark" aria-hidden="true">{{ item.mark }}</span>
-                <span class="content-inspector-row-label">{{ item.label }}</span>
-              </div>
-            </div>
-          </section>
         </div>
       </div>
     </aside>
@@ -101,7 +85,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useUiLanguage } from '../../composables/useUiLanguage'
-import type { InspectorSourceItem } from '../../app/appTypes'
 import type { InspectorPlanProgressItem } from './inspectorProgress'
 import {
   IconCodexCheckCircleFilled,
@@ -127,7 +110,6 @@ const props = defineProps<{
   progressToggleLabel: string
   progressExpanded: boolean
   progressItems: InspectorPlanProgressItem[]
-  sourceItems: InspectorSourceItem[]
 }>()
 
 defineEmits<{

@@ -5,11 +5,6 @@ export type DarkModePreference = 'system' | 'light' | 'dark'
 export type InProgressSendMode = 'steer' | 'queue'
 export type InspectorProgressDotState = 'done' | 'active' | 'idle'
 
-export type InspectorSourceItem = {
-  label: string
-  mark?: string
-}
-
 export type DirectoryTryItemPayload = {
   kind: 'skill'
   name: string

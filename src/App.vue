@@ -576,7 +576,6 @@
           :progress-toggle-label="inspectorProgressToggleLabel"
           :progress-expanded="isInspectorProgressExpanded"
           :progress-items="inspectorProgressItems"
-          :source-items="inspectorSourceItems"
           @toggle-progress="toggleInspectorProgress"
         />
         </div>
@@ -659,7 +658,6 @@ import type { ComposerDraftPayload, ThreadComposerExposed } from './components/c
 import type { LocalDirectoryEntry, WorktreeBranchOption } from './api/codexGateway'
 import type {
   DirectoryTryItemPayload,
-  InspectorSourceItem,
 } from './app/appTypes'
 import { getPathLeafName, getPathParent, isProjectlessChatPath, normalizePathForUi } from './pathUtils.js'
 import { isImeComposingKeydown, shouldHandleEnterKeydown } from './utils/keyboard'
@@ -1059,9 +1057,6 @@ const inspectorCommitText = computed(() => {
   const shortSha = currentThreadHeadSha.value?.trim().slice(0, 8) ?? ''
   const subject = currentThreadHeadSubject.value?.trim() ?? ''
   return [shortSha, subject].filter(Boolean).join(' · ')
-})
-const inspectorSourceItems = computed<InspectorSourceItem[]>(() => {
-  return []
 })
 
 watch(

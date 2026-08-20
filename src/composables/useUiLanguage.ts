@@ -344,8 +344,6 @@ const zhCN: Record<string, string> = {
   'Progress': '进度',
   'Expand progress': '展开进度',
   'Collapse progress': '折叠进度',
-  'Sources': '来源',
-  'No sources yet': '暂无来源',
   'Restoring thread': '正在恢复对话线程',
   'Starting thread': '正在新建对话线程',
   'Thinking for {time}': '思考 {time}',
