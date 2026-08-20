@@ -179,21 +179,11 @@ function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
 }
 
 .content-inspector-section {
-  @apply relative flex flex-col pb-2.5;
-}
-
-.content-inspector-section::after {
-  content: '';
-  @apply absolute inset-x-4 bottom-0 h-px;
-  background-color: var(--codex-border);
+  @apply flex flex-col pb-2.5;
 }
 
 .content-inspector-section:last-child {
   @apply pb-0;
-}
-
-.content-inspector-section:last-child::after {
-  display: none;
 }
 
 .content-inspector-heading {
