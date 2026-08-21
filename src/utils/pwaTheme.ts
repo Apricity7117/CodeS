@@ -4,6 +4,14 @@ export const PWA_DARK_THEME_COLOR = '#1e1e1e'
 export type PwaThemeMode = 'system' | 'light' | 'dark'
 
 type ThemeMetaDocument = Pick<Document, 'querySelectorAll'>
+type PwaDisplayWindow = Pick<Window, 'matchMedia'>
+type PwaDisplayNavigator = { standalone?: boolean; userAgent?: string }
+
+export function isPwaDisplayMode(windowRef: PwaDisplayWindow, navigatorRef: PwaDisplayNavigator): boolean {
+  return windowRef.matchMedia('(display-mode: standalone)').matches
+    || windowRef.matchMedia('(display-mode: window-controls-overlay)').matches
+    || navigatorRef.standalone === true
+}
 
 export function resolvePwaThemeColor(mode: PwaThemeMode, prefersDark: boolean): string {
   if (mode === 'dark') return PWA_DARK_THEME_COLOR

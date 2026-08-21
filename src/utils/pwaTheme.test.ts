@@ -3,6 +3,7 @@ import {
   PWA_DARK_THEME_COLOR,
   PWA_LIGHT_THEME_COLOR,
   applyPwaThemeColor,
+  isPwaDisplayMode,
   resolvePwaThemeColor,
 } from './pwaTheme'
 
@@ -34,6 +35,30 @@ describe('resolvePwaThemeColor', () => {
   it('follows system preference in system mode', () => {
     expect(resolvePwaThemeColor('system', false)).toBe(PWA_LIGHT_THEME_COLOR)
     expect(resolvePwaThemeColor('system', true)).toBe(PWA_DARK_THEME_COLOR)
+  })
+})
+
+describe('isPwaDisplayMode', () => {
+  function createWindowRef(matchedQuery: string): Pick<Window, 'matchMedia'> {
+    return {
+      matchMedia: (query: string) => ({ matches: query === matchedQuery }) as MediaQueryList,
+    }
+  }
+
+  it('detects installed standalone PWAs', () => {
+    expect(isPwaDisplayMode(createWindowRef('(display-mode: standalone)'), {})).toBe(true)
+  })
+
+  it('detects Window Controls Overlay PWAs', () => {
+    expect(isPwaDisplayMode(createWindowRef('(display-mode: window-controls-overlay)'), {})).toBe(true)
+  })
+
+  it('detects iOS standalone PWAs', () => {
+    expect(isPwaDisplayMode(createWindowRef(''), { standalone: true })).toBe(true)
+  })
+
+  it('does not classify normal browser windows as PWAs', () => {
+    expect(isPwaDisplayMode(createWindowRef(''), {})).toBe(false)
   })
 })
 

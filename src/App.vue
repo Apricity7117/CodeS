@@ -663,6 +663,7 @@ import { getPathLeafName, getPathParent, isProjectlessChatPath, normalizePathFor
 import { isImeComposingKeydown, shouldHandleEnterKeydown } from './utils/keyboard'
 import { formatLiveOverlayDuration } from './utils/liveOverlay'
 import { hasDuplicateFolderLeaf, isWorktreePath, joinPath, normalizeAbsolutePath } from './utils/pathHelpers'
+import { isPwaDisplayMode } from './utils/pwaTheme'
 
 const ThreadConversation = defineAsyncComponent(() => import('./components/content/ThreadConversation.vue'))
 const ReviewPane = defineAsyncComponent(() => import('./components/content/ReviewPane.vue'))
@@ -902,7 +903,10 @@ const contentTitle = computed(() => {
   if (isHomeRoute.value) return t('Start new thread')
   return selectedThread.value?.title ?? t('Choose a thread')
 })
-const pageTitle = computed(() => 'CodeS')
+const pageTitle = computed(() => {
+  const threadTitle = selectedThread.value?.title?.trim() ?? ''
+  return threadTitle || 'CodeS'
+})
 const filteredMessages = computed(() =>
   messages.value.filter((message) => {
     const type = normalizeMessageType(message.messageType, message.role)
@@ -2616,7 +2620,9 @@ watch(
   pageTitle,
   (value) => {
     if (typeof document === 'undefined') return
-    document.title = value
+    const isPwaWindow = typeof window !== 'undefined' && typeof navigator !== 'undefined'
+      && isPwaDisplayMode(window, navigator)
+    document.title = isPwaWindow ? 'CodeS' : value
   },
   { immediate: true },
 )
