@@ -2622,7 +2622,7 @@ watch(
     if (typeof document === 'undefined') return
     const isPwaWindow = typeof window !== 'undefined' && typeof navigator !== 'undefined'
       && isPwaDisplayMode(window, navigator)
-    document.title = isPwaWindow ? 'CodeS' : value
+    document.title = isPwaWindow ? ' ' : value
   },
   { immediate: true },
 )
