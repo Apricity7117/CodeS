@@ -902,10 +902,7 @@ const contentTitle = computed(() => {
   if (isHomeRoute.value) return t('Start new thread')
   return selectedThread.value?.title ?? t('Choose a thread')
 })
-const pageTitle = computed(() => {
-  const threadTitle = selectedThread.value?.title?.trim() ?? ''
-  return threadTitle || 'CodeS'
-})
+const pageTitle = computed(() => 'CodeS')
 const filteredMessages = computed(() =>
   messages.value.filter((message) => {
     const type = normalizeMessageType(message.messageType, message.role)
