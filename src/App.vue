@@ -1,5 +1,9 @@
 <template>
-  <DesktopLayout :is-sidebar-collapsed="isSidebarCollapsed" @close-sidebar="setSidebarCollapsed(true)">
+  <DesktopLayout
+    :class="{ 'hide-code-block-scrollbars': !codeBlockScrollbarsEnabled }"
+    :is-sidebar-collapsed="isSidebarCollapsed"
+    @close-sidebar="setSidebarCollapsed(true)"
+  >
     <template #sidebar>
       <AppSidebar
         v-model:search-query="sidebarSearchQuery"
@@ -39,6 +43,7 @@
         :ui-language="uiLanguage"
         :ui-language-options="uiLanguageOptions"
         :chat-width-label="chatWidthLabel"
+        :code-block-scrollbars-enabled="codeBlockScrollbarsEnabled"
         :text-animations-enabled="textAnimationsEnabled"
         :live-reasoning-text-enabled="liveReasoningTextEnabled"
         :dictation-enabled="dictationEnabled"
@@ -93,6 +98,7 @@
         @cycle-dark-mode="cycleDarkMode"
         @set-ui-language="setUiLanguage"
         @cycle-chat-width="cycleChatWidth"
+        @toggle-code-block-scrollbars="toggleCodeBlockScrollbars"
         @toggle-text-animations="toggleTextAnimations"
         @toggle-live-reasoning-text="toggleLiveReasoningText"
         @toggle-dictation-enabled="toggleDictationEnabled"
@@ -767,6 +773,7 @@ const {
   inProgressSendMode,
   darkMode,
   chatWidth,
+  codeBlockScrollbarsEnabled,
   textAnimationsEnabled,
   liveReasoningTextEnabled,
   dictationEnabled,
@@ -779,6 +786,7 @@ const {
   cycleInProgressSendMode,
   cycleDarkMode,
   cycleChatWidth,
+  toggleCodeBlockScrollbars,
   toggleTextAnimations,
   toggleLiveReasoningText,
   toggleDictationEnabled,

@@ -1,6 +1,7 @@
 import {
   ACCOUNTS_SECTION_COLLAPSED_STORAGE_KEY,
   CHAT_WIDTH_KEY,
+  CODE_BLOCK_SCROLLBARS_ENABLED_KEY,
   DARK_MODE_KEY,
   DICTATION_AUTO_SEND_KEY,
   DICTATION_CLICK_TO_TOGGLE_KEY,
@@ -55,6 +56,14 @@ export function loadLiveReasoningTextPref(): boolean {
 
 export function saveLiveReasoningTextPref(value: boolean): void {
   saveBoolPref(LIVE_REASONING_TEXT_ENABLED_KEY, value)
+}
+
+export function loadCodeBlockScrollbarsPref(): boolean {
+  return loadBoolPref(CODE_BLOCK_SCROLLBARS_ENABLED_KEY, true)
+}
+
+export function saveCodeBlockScrollbarsPref(value: boolean): void {
+  saveBoolPref(CODE_BLOCK_SCROLLBARS_ENABLED_KEY, value)
 }
 
 export function loadDictationEnabledPref(): boolean {

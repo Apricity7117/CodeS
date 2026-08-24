@@ -40,6 +40,8 @@ const zhCN: Record<string, string> = {
   'Dark': '深色',
   'Light': '浅色',
   'Chat width': '聊天宽度',
+  'Code block scrollbars': '代码块滚动条',
+  'Show or hide horizontal scrollbars in long code blocks without disabling horizontal scrolling.': '显示或隐藏长代码块的横向滚动条，但不影响横向滚动。',
   'Text shimmer animations': '文本扫光动画',
   'Voice input': '语音输入',
   'Click to toggle dictation': '点击切换语音输入',

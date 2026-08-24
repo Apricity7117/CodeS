@@ -2,6 +2,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { CHAT_WIDTH_PRESETS, WHISPER_LANGUAGES } from '../app/appConfig'
 import {
   loadChatWidthPref,
+  loadCodeBlockScrollbarsPref,
   loadDarkModePref,
   loadDictationAutoSendPref,
   loadDictationClickToTogglePref,
@@ -13,6 +14,7 @@ import {
   loadTextAnimationsPref,
   normalizeToWhisperLanguage,
   saveChatWidthPref,
+  saveCodeBlockScrollbarsPref,
   saveDarkModePref,
   saveDictationAutoSendPref,
   saveDictationClickToTogglePref,
@@ -36,6 +38,7 @@ export function usePreferences() {
   const inProgressSendMode = ref<InProgressSendMode>(loadInProgressSendModePref())
   const darkMode = ref<DarkModePreference>(loadDarkModePref())
   const chatWidth = ref<ChatWidthMode>(loadChatWidthPref())
+  const codeBlockScrollbarsEnabled = ref(loadCodeBlockScrollbarsPref())
   const textAnimationsEnabled = ref(loadTextAnimationsPref())
   const liveReasoningTextEnabled = ref(loadLiveReasoningTextPref())
   const dictationEnabled = ref(loadDictationEnabledPref())
@@ -70,6 +73,11 @@ export function usePreferences() {
     const idx = order.indexOf(chatWidth.value)
     chatWidth.value = order[(idx + 1) % order.length]
     saveChatWidthPref(chatWidth.value)
+  }
+
+  function toggleCodeBlockScrollbars(): void {
+    codeBlockScrollbarsEnabled.value = !codeBlockScrollbarsEnabled.value
+    saveCodeBlockScrollbarsPref(codeBlockScrollbarsEnabled.value)
   }
 
   function toggleTextAnimations(): void {
@@ -170,6 +178,7 @@ export function usePreferences() {
     inProgressSendMode,
     darkMode,
     chatWidth,
+    codeBlockScrollbarsEnabled,
     textAnimationsEnabled,
     liveReasoningTextEnabled,
     dictationEnabled,
@@ -182,6 +191,7 @@ export function usePreferences() {
     cycleInProgressSendMode,
     cycleDarkMode,
     cycleChatWidth,
+    toggleCodeBlockScrollbars,
     toggleTextAnimations,
     toggleLiveReasoningText,
     toggleDictationEnabled,

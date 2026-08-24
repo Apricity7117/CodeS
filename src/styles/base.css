@@ -44,6 +44,31 @@ samp {
   color: var(--codex-text);
 }
 
+.hide-code-block-scrollbars .message-code-pre,
+.hide-code-block-scrollbars .message-code-pre .hljs {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+}
+
+.hide-code-block-scrollbars .message-code-pre::-webkit-scrollbar,
+.hide-code-block-scrollbars .message-code-pre .hljs::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent;
+}
+
+.hide-code-block-scrollbars .message-code-pre::-webkit-scrollbar-track,
+.hide-code-block-scrollbars .message-code-pre::-webkit-scrollbar-thumb,
+.hide-code-block-scrollbars .message-code-pre .hljs::-webkit-scrollbar-track,
+.hide-code-block-scrollbars .message-code-pre .hljs::-webkit-scrollbar-thumb {
+  width: 0;
+  height: 0;
+  border: 0;
+  background: transparent;
+}
+
 .message-math-block .katex-display,
 .message-math-inline-display .katex-display {
   width: max-content;

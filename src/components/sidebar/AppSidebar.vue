@@ -313,6 +313,14 @@
             <span class="sidebar-settings-label">{{ t('Chat width') }}</span>
             <span class="sidebar-settings-value">{{ chatWidthLabel }}</span>
           </button>
+          <div class="sidebar-settings-row sidebar-settings-row--switch" :title="settingsHelp.codeBlockScrollbars">
+            <span class="sidebar-settings-label">{{ t('Code block scrollbars') }}</span>
+            <CodexSwitch
+              :checked="codeBlockScrollbarsEnabled"
+              :ariaLabel="t('Code block scrollbars')"
+              @update:checked="$emit('toggle-code-block-scrollbars')"
+            />
+          </div>
           <div class="sidebar-settings-row sidebar-settings-row--switch" :title="settingsHelp.textAnimations">
             <span class="sidebar-settings-label">{{ t('Text shimmer animations') }}</span>
             <CodexSwitch
@@ -505,6 +513,7 @@ const props = defineProps<{
   uiLanguage: UiLanguage
   uiLanguageOptions: Array<{ value: UiLanguage; label: string }>
   chatWidthLabel: string
+  codeBlockScrollbarsEnabled: boolean
   textAnimationsEnabled: boolean
   liveReasoningTextEnabled: boolean
   dictationEnabled: boolean
@@ -569,6 +578,7 @@ const emit = defineEmits<{
   'cycle-dark-mode': []
   'set-ui-language': [value: UiLanguage]
   'cycle-chat-width': []
+  'toggle-code-block-scrollbars': []
   'toggle-text-animations': []
   'toggle-live-reasoning-text': []
   'toggle-dictation-enabled': []

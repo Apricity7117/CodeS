@@ -8,6 +8,7 @@ import {
 } from './accountDisplay'
 import {
   CHAT_WIDTH_KEY,
+  CODE_BLOCK_SCROLLBARS_ENABLED_KEY,
   DARK_MODE_KEY,
   DICTATION_ENABLED_KEY,
   DICTATION_LANGUAGE_KEY,
@@ -19,6 +20,7 @@ import {
 import { buildDirectoryTryPrompt, getDirectoryTryItemKey } from './directoryTry'
 import {
   loadChatWidthPref,
+  loadCodeBlockScrollbarsPref,
   loadDarkModePref,
   loadDictationEnabledPref,
   loadDictationLanguagePref,
@@ -28,6 +30,7 @@ import {
   loadSendWithEnterPref,
   normalizeToWhisperLanguage,
   saveDictationEnabledPref,
+  saveCodeBlockScrollbarsPref,
   saveLiveReasoningTextPref,
   saveSendWithEnterPref,
 } from './preferences'
@@ -95,6 +98,7 @@ describe('preferences', () => {
     expect(loadDarkModePref()).toBe('system')
     expect(loadInProgressSendModePref()).toBe('steer')
     expect(loadChatWidthPref()).toBe('standard')
+    expect(loadCodeBlockScrollbarsPref()).toBe(true)
     expect(loadDictationEnabledPref()).toBe(true)
     expect(loadLiveReasoningTextPref()).toBe(true)
     expect(loadDictationLanguagePref()).toBe('auto')
@@ -106,6 +110,7 @@ describe('preferences', () => {
       [DARK_MODE_KEY]: 'dark',
       [IN_PROGRESS_SEND_MODE_KEY]: 'invalid',
       [CHAT_WIDTH_KEY]: 'extra-wide',
+      [CODE_BLOCK_SCROLLBARS_ENABLED_KEY]: '0',
       [DICTATION_ENABLED_KEY]: '0',
       [LIVE_REASONING_TEXT_ENABLED_KEY]: '0',
       [DICTATION_LANGUAGE_KEY]: 'zh-CN',
@@ -115,6 +120,7 @@ describe('preferences', () => {
     expect(loadDarkModePref()).toBe('dark')
     expect(loadInProgressSendModePref()).toBe('queue')
     expect(loadChatWidthPref()).toBe('extra-wide')
+    expect(loadCodeBlockScrollbarsPref()).toBe(false)
     expect(loadDictationEnabledPref()).toBe(false)
     expect(loadLiveReasoningTextPref()).toBe(false)
     expect(loadDictationLanguagePref()).toBe('zh')
@@ -125,10 +131,12 @@ describe('preferences', () => {
 
     saveSendWithEnterPref(false)
     saveDictationEnabledPref(false)
+    saveCodeBlockScrollbarsPref(false)
     saveLiveReasoningTextPref(false)
 
     expect(localStorage.getItem(SEND_WITH_ENTER_KEY)).toBe('0')
     expect(localStorage.getItem(DICTATION_ENABLED_KEY)).toBe('0')
+    expect(localStorage.getItem(CODE_BLOCK_SCROLLBARS_ENABLED_KEY)).toBe('0')
     expect(localStorage.getItem(LIVE_REASONING_TEXT_ENABLED_KEY)).toBe('0')
   })
 
