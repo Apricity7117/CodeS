@@ -2385,6 +2385,13 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 
+/* 用户气泡常含长路径/URL，这类连续串不含换行点，
+   仅靠 overflow-wrap 会被整体挪到下一行、导致上一行右侧留大片空白，
+   故对纯文本用户消息允许在行尾任意字符处断行以填满行宽 */
+.message-text-plain {
+  word-break: break-all;
+}
+
 .message-file-link {
   @apply text-sm leading-relaxed no-underline hover:underline underline-offset-2;
   color: var(--codex-link);
