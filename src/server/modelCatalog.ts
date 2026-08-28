@@ -22,6 +22,7 @@ export type ModelCatalogConfigModel = {
 
 export type ModelCatalogConfig = {
   defaultModel?: string
+  defaultReasoningEffort?: ReasoningEffort
   models: ModelCatalogConfigModel[]
   order: string[]
 }
@@ -37,6 +38,7 @@ export type ModelCatalogBuildInput = {
 export type ModelCatalogResponse = {
   data: UiModelOption[]
   defaultModel: string
+  defaultReasoningEffort?: ReasoningEffort
   configuredModelIds: string[]
   configText: string
   configPath: string
@@ -176,6 +178,18 @@ export function buildEffectiveModelCatalog(input: ModelCatalogBuildInput): UiMod
     configuredOrder.push(configModel.id)
   }
 
+  const catalogDefaultModelId = input.config.defaultModel?.trim() ?? ''
+  const catalogDefaultReasoningEffort = input.config.defaultReasoningEffort
+  if (catalogDefaultModelId && catalogDefaultReasoningEffort) {
+    const defaultModel = optionsById.get(catalogDefaultModelId)
+    if (defaultModel && !defaultModel.reasoningEfforts.includes(catalogDefaultReasoningEffort)) {
+      optionsById.set(catalogDefaultModelId, {
+        ...defaultModel,
+        reasoningEfforts: [catalogDefaultReasoningEffort, ...defaultModel.reasoningEfforts],
+      })
+    }
+  }
+
   const idsByLabel = buildIdsByLabel(optionsById)
   const orderedIds: string[] = []
   for (const orderEntry of input.config.order) {
@@ -205,6 +219,9 @@ export async function readModelCatalogResponse(context: ModelCatalogRouteContext
       config: configState.config,
     }),
     defaultModel: configState.config.defaultModel ?? '',
+    ...(configState.config.defaultReasoningEffort
+      ? { defaultReasoningEffort: configState.config.defaultReasoningEffort }
+      : {}),
     configuredModelIds: configState.config.models.map((model) => model.id),
     configText: configState.text,
     configPath: getModelCatalogConfigPath(),
@@ -258,8 +275,13 @@ function normalizeModelCatalogConfig(value: unknown): ModelCatalogConfig {
 
   const models = normalizeConfigModels(record.models)
   const defaultModel = readOptionalString(record.defaultModel, 'defaultModel')
+  const defaultReasoningEffort = readOptionalReasoningEffort(
+    record.defaultReasoningEffort,
+    'defaultReasoningEffort',
+  )
   return {
     ...(defaultModel ? { defaultModel } : {}),
+    ...(defaultReasoningEffort ? { defaultReasoningEffort } : {}),
     models,
     order: normalizeOrder(record.order),
   }

@@ -149,6 +149,35 @@ describe('model catalog', () => {
     })
   })
 
+  it('keeps the top-level default effort separate and adds it to the default model options', () => {
+    const config = parseModelCatalogConfigText(JSON.stringify({
+      defaultModel: 'gpt-5.6',
+      defaultReasoningEffort: 'max',
+      models: [{
+        id: 'gpt-5.6',
+        reasoningEfforts: ['low', 'medium'],
+        defaultReasoningEffort: 'low',
+      }],
+      order: [],
+    }))
+
+    expect(config.defaultReasoningEffort).toBe('max')
+    expect(buildEffectiveModelCatalog({
+      codexModels: [],
+      providerModelIds: [],
+      config,
+    })[0]).toMatchObject({
+      reasoningEfforts: ['max', 'low', 'medium'],
+      defaultReasoningEffort: 'low',
+    })
+  })
+
+  it('rejects an invalid top-level default effort', () => {
+    expect(() => parseModelCatalogConfigText(JSON.stringify({
+      defaultReasoningEffort: 'unsupported',
+    }))).toThrow('defaultReasoningEffort must be one of')
+  })
+
   it('preserves future upstream reasoning efforts while validating custom config values', () => {
     expect(buildEffectiveModelCatalog({
       codexModels: [

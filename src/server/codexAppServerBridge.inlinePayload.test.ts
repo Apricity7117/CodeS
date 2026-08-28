@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   BackendQueueProcessor,
+  buildSessionLogRecovery,
   mergeSessionSkillInputsIntoTurns,
   sanitizeThreadTurnsInlinePayloads,
 } from './codexAppServerBridge'
@@ -237,6 +238,15 @@ describe('thread inline media sanitization', () => {
 })
 
 describe('thread session skill recovery', () => {
+  it('recovers the last turn context effort in one rollout pass', () => {
+    const recovery = buildSessionLogRecovery([
+      JSON.stringify({ type: 'turn_context', payload: { turn_id: 'turn-1', model: 'model-a', effort: 'low' } }),
+      JSON.stringify({ type: 'turn_context', payload: { turn_id: 'turn-2', model: 'model-b', effort: 'max' } }),
+    ].join('\n'))
+
+    expect(recovery.lastTurnContext).toEqual({ model: 'model-b', effort: 'max' })
+  })
+
   it('adds selected skill inputs from session JSONL to matching user messages', () => {
     const turns = [{
       id: 'turn-1',

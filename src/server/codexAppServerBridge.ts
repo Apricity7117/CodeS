@@ -170,6 +170,17 @@ type SessionSkillInputCacheEntry = {
   size: number
   mtimeMs: number
   skillsByTurnId: Map<string, SessionRecoveredSkillInput[]>
+  lastTurnContext: SessionRecoveredTurnContext | null
+}
+
+export type SessionRecoveredTurnContext = {
+  model: string
+  effort: ReasoningEffort
+}
+
+type SessionLogRecovery = {
+  skillsByTurnId: Map<string, SessionRecoveredSkillInput[]>
+  lastTurnContext: SessionRecoveredTurnContext | null
 }
 
 const SESSION_SKILL_INPUT_CACHE_LIMIT = 64
@@ -184,9 +195,10 @@ function parseSessionSkillText(value: string): SessionRecoveredSkillInput | null
   return { name, path }
 }
 
-function buildSessionSkillInputsByTurn(sessionLogRaw: string): Map<string, SessionRecoveredSkillInput[]> {
+export function buildSessionLogRecovery(sessionLogRaw: string): SessionLogRecovery {
   let currentTurnId = ''
   const skillsByTurnId = new Map<string, SessionRecoveredSkillInput[]>()
+  let lastTurnContext: SessionRecoveredTurnContext | null = null
 
   for (const line of sessionLogRaw.split('\n')) {
     if (!line.trim()) continue
@@ -200,6 +212,11 @@ function buildSessionSkillInputsByTurn(sessionLogRaw: string): Map<string, Sessi
     if (row.type === 'turn_context') {
       const payloadRecord = asRecord(row.payload)
       currentTurnId = readNonEmptyString(payloadRecord?.turn_id) || currentTurnId
+      const settings = asRecord(asRecord(payloadRecord?.collaboration_mode)?.settings)
+      lastTurnContext = {
+        model: readNonEmptyString(payloadRecord?.model),
+        effort: normalizeReasoningEffort(payloadRecord?.effort ?? settings?.reasoning_effort),
+      }
       continue
     }
     if (row.type === 'event_msg') {
@@ -228,28 +245,34 @@ function buildSessionSkillInputsByTurn(sessionLogRaw: string): Map<string, Sessi
     }
   }
 
-  return skillsByTurnId
+  return {
+    skillsByTurnId,
+    lastTurnContext: lastTurnContext?.effort ? lastTurnContext : null,
+  }
 }
 
-async function readCachedSessionSkillInputsByTurn(sessionPath: string): Promise<Map<string, SessionRecoveredSkillInput[]>> {
+async function readCachedSessionLogRecovery(sessionPath: string): Promise<SessionLogRecovery> {
   const sessionStat = await stat(sessionPath)
   const cached = sessionSkillInputCache.get(sessionPath)
   if (cached && cached.size === sessionStat.size && cached.mtimeMs === sessionStat.mtimeMs) {
-    return cached.skillsByTurnId
+    return {
+      skillsByTurnId: cached.skillsByTurnId,
+      lastTurnContext: cached.lastTurnContext,
+    }
   }
 
   const sessionLogRaw = await readFile(sessionPath, 'utf8')
-  const skillsByTurnId = buildSessionSkillInputsByTurn(sessionLogRaw)
+  const recovery = buildSessionLogRecovery(sessionLogRaw)
   sessionSkillInputCache.set(sessionPath, {
     size: sessionStat.size,
     mtimeMs: sessionStat.mtimeMs,
-    skillsByTurnId,
+    ...recovery,
   })
   if (sessionSkillInputCache.size > SESSION_SKILL_INPUT_CACHE_LIMIT) {
     const oldestKey = sessionSkillInputCache.keys().next().value
     if (oldestKey) sessionSkillInputCache.delete(oldestKey)
   }
-  return skillsByTurnId
+  return recovery
 }
 
 function mergeSessionSkillInputsIntoTurnsFromMap(
@@ -318,28 +341,38 @@ function mergeSessionSkillInputsIntoTurnsFromMap(
 }
 
 export function mergeSessionSkillInputsIntoTurns(turns: unknown[], sessionLogRaw: string): unknown[] {
-  return mergeSessionSkillInputsIntoTurnsFromMap(turns, buildSessionSkillInputsByTurn(sessionLogRaw))
+  return mergeSessionSkillInputsIntoTurnsFromMap(
+    turns,
+    buildSessionLogRecovery(sessionLogRaw).skillsByTurnId,
+  )
 }
 
-async function mergeSessionSkillInputsIntoThreadResult(result: unknown): Promise<unknown> {
+async function mergeSessionSkillInputsIntoThreadResult(
+  result: unknown,
+  includeLastTurnContext = false,
+): Promise<unknown> {
   const record = asRecord(result)
   const thread = asRecord(record?.thread)
   const turns = Array.isArray(thread?.turns) ? thread.turns : null
   const sessionPath = readNonEmptyString(thread?.path)
-  if (!record || !thread || !turns || turns.length === 0 || !sessionPath || !isAbsolute(sessionPath)) {
+  if (!record || !thread || !sessionPath || !isAbsolute(sessionPath)) {
     return result
   }
 
   try {
-    const skillsByTurnId = await readCachedSessionSkillInputsByTurn(sessionPath)
-    const mergedTurns = mergeSessionSkillInputsIntoTurnsFromMap(turns, skillsByTurnId)
-    if (mergedTurns === turns) return result
+    const recovery = await readCachedSessionLogRecovery(sessionPath)
+    const mergedTurns = turns && turns.length > 0
+      ? mergeSessionSkillInputsIntoTurnsFromMap(turns, recovery.skillsByTurnId)
+      : turns
+    const recoveredEffort = includeLastTurnContext ? recovery.lastTurnContext?.effort : ''
+    if (mergedTurns === turns && !recoveredEffort) return result
     return {
       ...record,
       thread: {
         ...thread,
-        turns: mergedTurns,
+        ...(mergedTurns ? { turns: mergedTurns } : {}),
       },
+      ...(recoveredEffort ? { reasoningEffort: recoveredEffort } : {}),
     }
   } catch {
     return result
@@ -5183,7 +5216,7 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
         const trimmedResult = trimThreadTurnsInRpcResult(body.method, rpcResult)
         const sanitizedResult = await sanitizeThreadTurnsInlinePayloads(body.method, trimmedResult)
         const result = THREAD_METHODS_WITH_TURNS.has(body.method)
-          ? await mergeSessionSkillInputsIntoThreadResult(sanitizedResult)
+          ? await mergeSessionSkillInputsIntoThreadResult(sanitizedResult, body.method === 'thread/resume')
           : sanitizedResult
 
 	        if (THREAD_METHODS_WITH_THREAD_SNAPSHOT.has(body.method)) {

@@ -1790,6 +1790,70 @@ describe('Codex CLI availability', () => {
 })
 
 describe('model selection', () => {
+  it('uses the catalog top-level default effort for a new thread, not the model default', async () => {
+    installTestWindow()
+    gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })
+    gatewayMocks.getAvailableCollaborationModes.mockResolvedValue([{ value: 'default', label: 'Default' }])
+    gatewayMocks.getSkillsList.mockResolvedValue([])
+    gatewayMocks.getAccountRateLimits.mockResolvedValue(null)
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'model-a',
+      providerId: 'codex',
+      reasoningEffort: 'low',
+      speedMode: 'standard',
+    })
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [modelOption('model-a', { reasoningEfforts: ['low', 'max'], defaultReasoningEffort: 'low' })],
+      defaultModel: 'model-a',
+      defaultReasoningEffort: 'max',
+      configuredModelIds: ['model-a'],
+      configText: '{\n  "defaultModel": "model-a",\n  "defaultReasoningEffort": "max"\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+
+    expect(state.selectedModelId.value).toBe('model-a')
+    expect(state.selectedReasoningEffort.value).toBe('max')
+  })
+
+  it('keeps reasoning effort per thread across switching and refresh persistence', async () => {
+    installTestWindow()
+    setupRefreshMocks([{
+      projectName: 'alpha',
+      threads: [thread('thread-a', '/tmp/alpha'), thread('thread-b', '/tmp/alpha')],
+    }])
+    gatewayMocks.getEffectiveModelCatalog.mockResolvedValue({
+      options: [
+        modelOption('model-a', { reasoningEfforts: ['low', 'max'], defaultReasoningEffort: 'low' }),
+        modelOption('model-b', { reasoningEfforts: ['medium', 'high'], defaultReasoningEffort: 'medium' }),
+      ],
+      configText: '{\n  "models": [],\n  "order": []\n}\n',
+      configPath: '/tmp/codes-model-catalog.json',
+      configError: '',
+    })
+    gatewayMocks.getCurrentModelConfig.mockResolvedValue({
+      model: 'model-a',
+      providerId: 'codex',
+      reasoningEffort: 'low',
+      speedMode: 'standard',
+    })
+
+    const state = useDesktopState()
+    await state.refreshAll({ includeSelectedThreadMessages: false, awaitAncillaryRefreshes: true })
+    state.setSelectedModelIdForThread('thread-a', 'model-a')
+    state.setSelectedReasoningEffort('max')
+    await state.selectThread('thread-b')
+    state.setSelectedModelIdForThread('thread-b', 'model-b')
+    expect(state.selectedReasoningEffort.value).toBe('medium')
+    await state.selectThread('thread-a')
+    expect(state.selectedReasoningEffort.value).toBe('max')
+    expect(JSON.parse(window.localStorage.getItem('codex-web-local.selected-reasoning-effort-by-context.v1') ?? '{}'))
+      .toEqual({ 'thread-a': 'max', 'thread-b': 'medium' })
+  })
+
   it('uses the catalog default model and its configured default reasoning for a new thread', async () => {
     installTestWindow()
     gatewayMocks.getThreadGroupsPage.mockResolvedValue({ groups: [], nextCursor: null })

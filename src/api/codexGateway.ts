@@ -91,6 +91,7 @@ type ProviderModelsResponse = {
 export type ModelCatalogResult = {
   options: UiModelOption[]
   defaultModel?: string
+  defaultReasoningEffort?: ReasoningEffort
   configuredModelIds?: string[]
   configText: string
   configPath: string
@@ -551,6 +552,7 @@ function normalizeModelCatalogResult(payload: unknown): ModelCatalogResult {
       ? record.data.map((row) => normalizeModelOption(row)).filter((row): row is UiModelOption => row !== null)
       : [],
     defaultModel: readString(record?.defaultModel)?.trim() ?? '',
+    defaultReasoningEffort: normalizeReasoningEffort(record?.defaultReasoningEffort) || undefined,
     configuredModelIds: Array.isArray(record?.configuredModelIds)
       ? record.configuredModelIds
         .map((id) => readString(id)?.trim() ?? '')
@@ -1077,6 +1079,7 @@ export async function removeAccount(accountId: string): Promise<AccountsListResu
 
 export type ResumedThread = {
   model: string
+  reasoningEffort: ReasoningEffort | ''
   messages: UiMessage[]
   inProgress: boolean
   activeTurnId: string
@@ -1090,6 +1093,7 @@ export async function resumeThread(threadId: string): Promise<ResumedThread> {
   const messages = normalizeThreadMessagesV2(payload, startTurnIndex)
   return {
     model: normalizeThreadModelFromPayload(payload),
+    reasoningEffort: normalizeReasoningEffort(asRecord(payload)?.reasoningEffort),
     messages,
     inProgress: readThreadInProgressFromResponse(payload),
     activeTurnId: readActiveTurnIdFromResponse(payload),

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { deleteProjectSessions, deleteThreadSession, getEffectiveModelCatalog, restartCodexCli, saveModelCatalogConfig, startThreadTurn } from './codexGateway'
+import { deleteProjectSessions, deleteThreadSession, getEffectiveModelCatalog, restartCodexCli, resumeThread, saveModelCatalogConfig, startThreadTurn } from './codexGateway'
 
 function mockRpcFetch(): { requests: Array<{ method: string, params: Record<string, unknown> }> } {
   const requests: Array<{ method: string, params: Record<string, unknown> }> = []
@@ -118,6 +118,7 @@ describe('model catalog endpoints', () => {
         },
       ],
       defaultModel: 'gpt-5.4',
+      defaultReasoningEffort: 'max',
       configuredModelIds: ['gpt-5.4'],
       configText: '{}\n',
       configPath: '/tmp/codes-model-catalog.json',
@@ -140,6 +141,7 @@ describe('model catalog endpoints', () => {
         },
       ],
       defaultModel: 'gpt-5.4',
+      defaultReasoningEffort: 'max',
       configuredModelIds: ['gpt-5.4'],
       configText: '{}\n',
       configPath: '/tmp/codes-model-catalog.json',
@@ -156,6 +158,24 @@ describe('model catalog endpoints', () => {
     })))
 
     await expect(saveModelCatalogConfig('{ "models": [{}] }')).rejects.toThrow('models[0].id is required')
+  })
+
+  it('normalizes the resume reasoning effort from the bridge response', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      result: {
+        model: 'gpt-5.4',
+        reasoningEffort: 'max',
+        thread: { turns: [] },
+      },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })))
+
+    await expect(resumeThread('thread-1')).resolves.toMatchObject({
+      model: 'gpt-5.4',
+      reasoningEffort: 'max',
+    })
   })
 })
 
