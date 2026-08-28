@@ -18,6 +18,7 @@
     "skillsUpstreamOwner": ["CODES_SKILLS_UPSTREAM_OWNER"],
     "skillsUpstreamRepo": ["CODES_SKILLS_UPSTREAM_REPO"],
     "sqliteCommand": ["CODES_SQLITE_COMMAND", "SQLITE3"],
+    "terminalCommand": ["CODES_TERMINAL_COMMAND", "CODEXUI_TERMINAL_COMMAND"],
     "testChatProfileBaseUrl": ["TESTCHAT_PROFILE_BASE_URL"],
     "testChatProfileLabel": ["TESTCHAT_PROFILE_LABEL"],
     "testChatProfileTimeoutMs": ["TESTCHAT_PROFILE_TIMEOUT_MS"],

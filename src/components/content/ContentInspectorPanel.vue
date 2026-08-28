@@ -34,6 +34,17 @@
                 <span class="content-inspector-row-spacer" aria-hidden="true" />
                 <span class="content-inspector-row-label content-inspector-row-label--muted">{{ commitText }}</span>
               </div>
+              <button
+                v-if="showOpenTerminal"
+                class="content-inspector-row content-inspector-row-button"
+                type="button"
+                :disabled="isOpeningTerminal"
+                :title="t('Open in terminal')"
+                @click="$emit('open-terminal')"
+              >
+                <IconCodexTerminal class="content-inspector-row-icon" />
+                <span class="content-inspector-row-label">{{ t('Open in terminal') }}</span>
+              </button>
             </div>
           </section>
 
@@ -93,6 +104,7 @@ import {
   IconCodexPullRequestOpen,
   IconCodexSendToCloud,
   IconCodexSettingsCog,
+  IconCodexTerminal,
   IconCodexUnselectedCircle,
   IconCodexWorktree,
 } from '../icons/codex'
@@ -110,10 +122,13 @@ const props = defineProps<{
   progressToggleLabel: string
   progressExpanded: boolean
   progressItems: InspectorPlanProgressItem[]
+  showOpenTerminal: boolean
+  isOpeningTerminal: boolean
 }>()
 
 defineEmits<{
   'toggle-progress': []
+  'open-terminal': []
 }>()
 
 const { t } = useUiLanguage()
@@ -252,6 +267,19 @@ function getProgressDotState(status: string): 'done' | 'active' | 'idle' {
 .content-inspector-row-value {
   @apply ml-auto max-w-40 shrink-0 truncate text-right text-xs;
   color: var(--codex-muted-text);
+}
+
+.content-inspector-row-button {
+  @apply w-full cursor-pointer border-0 bg-transparent text-left transition focus:outline-none focus-visible:ring-2;
+  --tw-ring-color: var(--codex-focus-ring);
+}
+
+.content-inspector-row-button:hover:not(:disabled) {
+  background-color: var(--codex-control-hover);
+}
+
+.content-inspector-row-button:disabled {
+  @apply cursor-default opacity-60;
 }
 
 .content-inspector-row-label--muted {

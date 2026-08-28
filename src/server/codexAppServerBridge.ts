@@ -18,6 +18,7 @@ import {
   type CodexClientInfo,
 } from './codexClientInfo.js'
 import { handleModelCatalogRoutes, watchModelCatalogConfigFile } from './modelCatalog.js'
+import { openTerminalAtDirectory } from './openTerminal.js'
 import { handleReviewRoutes } from './reviewGit.js'
 import { handleSkillsRoutes } from './skillsRoutes.js'
 import { TelegramThreadBridge } from './telegramThreadBridge.js'
@@ -6152,6 +6153,38 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
         }
 
         setJson(res, 200, { data: { path: normalizedPath } })
+        return
+      }
+
+      if (req.method === 'POST' && url.pathname === '/codex-api/open-terminal') {
+        if (!isLoopbackRemoteAddress(req.socket.remoteAddress)) {
+          setJson(res, 403, { error: 'Opening a terminal is only allowed from localhost' })
+          return
+        }
+        const payload = asRecord(await readJsonBody(req))
+        const rawCwd = typeof payload?.cwd === 'string' ? payload.cwd.trim() : ''
+        if (!rawCwd) {
+          setJson(res, 400, { error: 'Missing cwd' })
+          return
+        }
+        const normalizedCwd = isAbsolute(rawCwd) ? rawCwd : resolve(rawCwd)
+        try {
+          const info = await stat(normalizedCwd)
+          if (!info.isDirectory()) {
+            setJson(res, 400, { error: 'Path exists but is not a directory' })
+            return
+          }
+        } catch {
+          setJson(res, 404, { error: 'Directory does not exist' })
+          return
+        }
+        try {
+          await openTerminalAtDirectory(normalizedCwd)
+          setJson(res, 200, { data: { ok: true } })
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to open terminal'
+          setJson(res, 500, { error: message })
+        }
         return
       }
 

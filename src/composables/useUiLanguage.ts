@@ -413,6 +413,8 @@ const zhCN: Record<string, string> = {
   'Type a message... (@ for files)': '输入消息...（@ 选择文件）',
   'Hide': '隐藏',
   'Terminal': '终端',
+  'Open in terminal': '在终端中打开',
+  'Failed to open terminal': '打开终端失败',
   'Terminal input failed': '终端输入失败',
   'Terminal attach failed': '终端附加失败',
   'Creating worktree': '创建工作树',

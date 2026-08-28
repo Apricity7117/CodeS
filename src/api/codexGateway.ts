@@ -2304,6 +2304,18 @@ export async function createLocalDirectory(path: string): Promise<string> {
   return normalizedPath
 }
 
+export async function openTerminalAtDirectory(cwd: string): Promise<void> {
+  const response = await fetch('/codex-api/open-terminal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cwd }),
+  })
+  if (!response.ok) {
+    const payload = await readJsonResponse(response)
+    throw new Error(getErrorMessageFromPayload(payload, 'Failed to open terminal'))
+  }
+}
+
 export async function cloneGithubRepository(url: string, basePath: string): Promise<string> {
   const response = await fetch('/codex-api/github-clone', {
     method: 'POST',

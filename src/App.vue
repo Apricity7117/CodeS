@@ -582,7 +582,10 @@
           :progress-toggle-label="inspectorProgressToggleLabel"
           :progress-expanded="isInspectorProgressExpanded"
           :progress-items="inspectorProgressItems"
+          :show-open-terminal="showInspectorOpenTerminal"
+          :is-opening-terminal="isOpeningInspectorTerminal"
           @toggle-progress="toggleInspectorProgress"
+          @open-terminal="onOpenTerminalFromInspector"
         />
         </div>
       </section>
@@ -657,6 +660,7 @@ import {
   getWorkspaceRootsState,
   listLocalDirectories,
   openProjectRoot,
+  openTerminalAtDirectory,
   searchThreads,
 } from './api/codexGateway'
 import type { ReasoningEffort, SpeedMode, UiLiveOverlay, UiServerRequest, UiServerRequestReply, UiThreadTokenUsage } from './types/codex'
@@ -1067,6 +1071,24 @@ const inspectorCommitText = computed(() => {
   const subject = currentThreadHeadSubject.value?.trim() ?? ''
   return [shortSha, subject].filter(Boolean).join(' · ')
 })
+// 终端在服务端机器上弹出，仅 localhost 访问时展示入口（服务端另有 loopback 校验）
+const isLocalhostClient = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)
+const showInspectorOpenTerminal = computed(() => isLocalhostClient && composerCwd.value.length > 0)
+const isOpeningInspectorTerminal = ref(false)
+
+async function onOpenTerminalFromInspector(): Promise<void> {
+  const cwd = composerCwd.value
+  if (!cwd || isOpeningInspectorTerminal.value) return
+  isOpeningInspectorTerminal.value = true
+  try {
+    await openTerminalAtDirectory(cwd)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : t('Failed to open terminal')
+    window.alert(message)
+  } finally {
+    isOpeningInspectorTerminal.value = false
+  }
+}
 
 watch(
   () => {
