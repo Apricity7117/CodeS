@@ -21,3 +21,4 @@ reference/
 .agents/skills/npm-publish/agents/openai.yaml
 .agents/skills/upstream-sync-curator/SKILL.md
 .agents/skills/upstream-sync-curator/agents/openai.yaml
+.trellis/
