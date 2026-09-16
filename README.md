@@ -1,210 +1,193 @@
-# 🔥 codes
+# CodeS
 
-### 🚀 Run Codex App UI Anywhere: Linux or Windows 🚀
+[![npm version](https://img.shields.io/npm/v/%40voeid%2Fcodes?logo=npm)](https://www.npmjs.com/package/@voeid/codes)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-[![npm](https://img.shields.io/npm/v/codes?style=for-the-badge&logo=npm&logoColor=white)](https://www.npmjs.com/package/codes)
-[![platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-blue?style=for-the-badge)](#-quick-start)
-[![node](https://img.shields.io/badge/Node-18%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![license](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](./LICENSE)
-
-> **CodeS in your browser. No drama. One command.**
->  
-> **Yes, that is your Codex desktop app experience exposed over web UI. Yes, it runs cross-platform.**
-
-```text
- ██████╗ ██████╗ ██████╗ ███████╗██╗  ██╗██╗   ██╗██╗
-██╔════╝██╔═══██╗██╔══██╗██╔════╝╚██╗██╔╝██║   ██║██║
-██║     ██║   ██║██║  ██║█████╗   ╚███╔╝ ██║   ██║██║
-██║     ██║   ██║██║  ██║██╔══╝   ██╔██╗ ██║   ██║██║
-╚██████╗╚██████╔╝██████╔╝███████╗██╔╝ ██╗╚██████╔╝██║
- ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝
-```
-
----
-<img width="1366" height="900" alt="image" src="https://github.com/user-attachments/assets/1a3578ba-add8-49a2-88b4-08195a7f0140" />
-
-## 🤯 What Is This?
-**`codes`** is a lightweight bridge that gives you a browser-accessible UI for Codex app-server workflows.
-
-You run one command. It starts a local web server. You open it from your machine, your LAN, or wherever your setup allows.  
-
-**TL;DR 🧠: Codex app UI, unlocked for Linux and Windows setups.**
+**CodeS** 是一个轻量级 Web UI，让你从任意浏览器远程访问本地的 [OpenAI Codex](https://github.com/openai/codex) 实例。它以 `codex app-server` 为后端，复刻了 Codex Desktop 的核心体验，并扩展了若干额外特性。
 
 ---
 
-## ⚡ Quick Start
-> **The main event.**
+## 特性
 
-```bash
-# 🔓 Run instantly (recommended)
-npx codes
-
-# 🌐 Then open in browser
-# http://localhost:18923
-```
-
-The CLI prints local and LAN URLs in startup output. Use the password shown in the same output when opening from another device on the same network.
-
-If Codex is already authenticated and you do not want `codes` to force `codex login` during startup, use:
-
-```bash
-npx codes --no-login
-```
-
-### Linux 🐧
-```bash
-node -v   # should be 18+
-npx codes
-```
-
-### Windows 🪟 (PowerShell)
-```powershell
-node -v   # 18+
-npx codes
-```
-
-## ✨ Features
-> **The payload.**
-
-- 🚀 One-command launch with `npx codes`
-- 🌍 Cross-platform support for Linux and Windows
-- 🖥️ Browser-first CodeS flow on `http://localhost:18923`
-- 🌐 LAN-friendly access from other devices on the same network
-- 🧪 Remote/headless-friendly setup for server-based Codex usage
-- ⚡ No global install required for quick experimentation
-- 🎙️ Built-in hold-to-dictate voice input with transcription to composer draft
-- 🧩 Local Skills Hub and composer skill picker backed by Codex local skills
-- 🤖 Optional Telegram bot bridge: send messages to bot, forward into mapped thread, send assistant reply back to Telegram
-
-### Telegram Bot Bridge (Optional)
-
-Set these environment variables before starting `codes`:
-
-```bash
-export TELEGRAM_BOT_TOKEN="<your-telegram-bot-token>"
-export TELEGRAM_ALLOWED_USER_IDS="<your-telegram-user-id>,<optional-second-id>"
-export TELEGRAM_DEFAULT_CWD="$PWD" # optional, defaults to current working directory
-npx codes
-```
-
-`TELEGRAM_ALLOWED_USER_IDS` is required for safe access. Only allowlisted Telegram user IDs can use the bridge. If no allowed user IDs are configured, incoming Telegram messages are rejected.
-
-To find your Telegram user ID:
-
-1. Send a message to your bot.
-2. Run `curl "https://api.telegram.org/bot<your-telegram-bot-token>/getUpdates"`.
-3. Read `message.from.id` from the returned update payload.
-
-Bot commands:
-
-- `/start` show quick help and thread picker
-- `/threads` list recent threads and pick one
-- `/newthread` create and map a new Codex thread for this Telegram chat
-- `/thread <threadId>` map current Telegram chat to an existing thread
-- `/current` show currently connected thread for this chat
-- `/history` show recent history for current thread
-- `/status` show bridge/mapping status
-- `/whoami` show your Telegram user/chat IDs and authorization state
-- `/help` show command reference
-
-Outgoing assistant messages are sent with Telegram `parse_mode=HTML` for formatting, with automatic plain-text fallback if HTML delivery fails.
+- **全功能对话界面** — 流式输出、实时推理文本、消息队列、语音输入、多模态附件
+- **线程管理** — 创建/归档/删除/Fork/回滚，支持收藏与导出
+- **模型灵活选择** — 多模型目录、思考强度（none → ultra）、协作/速度模式，每线程独立配置
+- **实时推送** — WebSocket 优先，自动降级 SSE
+- **服务端请求审批** — 弹窗展示 Codex 发起的命令/文件/工具调用，支持批准/拒绝
+- **Skills Hub** — 浏览、安装并在输入框中注入社区 Skills
+- **Git Review** — 工作区变更查看，支持 stage / unstage / revert
+- **本地文件集成** — 内联图片预览、本地文件浏览、右侧检查器面板
+- **终端集成** — 在项目目录打开系统终端，自动发现 npm scripts / Makefile 快捷命令
+- **Telegram Bot 桥接** — 通过 Telegram 收发 Codex 对话
+- **多账号管理** — 账号切换、速率限制查看
+- **密码保护** — 默认自动生成随机密码（存于 `~/.codex/codes-password`），可选关闭
+- **PWA 支持** — 支持安装为桌面应用，移动端适配
+- **深色/浅色主题** — 跟随系统或手动切换
 
 ---
 
-## 🧩 Recent Product Features (from main commits)
-> **Not just launch. Actual UX upgrades.**
+## 前置依赖
 
-- 🗂️ Searchable project picker in new-thread flow
-- ➕ "Create Project" button next to "Select folder" with browser prompt
-- 📌 New projects get pinned to top automatically
-- 🧠 Smart default new-project name suggestion via server-side free-directory scan (`New Project (N)`)
-- 🔄 Project order persisted globally to workspace roots state
-- 🧵 Optimistic in-progress threads preserved during refresh/poll cycles
-- 📱 Mobile drawer sidebar in desktop layout (teleported overlay + swipe-friendly structure)
-- 🎛️ Skills Hub mobile-friendly spacing/toolbar layout improvements
-- 🪟 Skill detail modal tuned for mobile sheet-style behavior
-- 🧪 Skills Hub event typing fix for `SkillCard` select emit compatibility
-- 🎙️ Voice dictation flow in composer (`hold to dictate` -> transcribe -> append text)
+- **Node.js** >= 18
+- **OpenAI Codex CLI**（`@openai/codex`）— 首次运行时若未检测到，会自动安装
 
 ---
 
-## 🌍 What Can You Do With This?
+## 安装与运行
 
-| 🔥 Use Case | 💥 What You Get |
+### 方式一：通过 npm 安装（推荐）
+
+无需克隆仓库或从源码构建，直接安装 npm 包：
+
+```bash
+npm install -g @voeid/codes
+codes
+```
+
+如果不想全局安装，也可以临时运行：
+
+```bash
+npx --package=@voeid/codes codes
+```
+
+> 由于本项目使用 scoped npm 包名，不能使用 `npx codes`；该命令会解析到 npm 上其他同名包。
+
+安装成功后直接运行 `codes`，启动完成后输出：
+
+```
+CodeS is running!
+  Version:  x.x.x
+  Local:    http://localhost:5900
+  Network:  http://192.168.x.x:5900
+  Generated password file: /Users/xxx/.codex/codes-password
+```
+
+打开浏览器访问对应地址，输入密码文件中的密码即可登录。
+
+> **首次运行**：若系统 PATH 中未检测到 `codex` CLI，会自动执行 `npm install -g @openai/codex` 并引导登录。
+
+### 方式二：从源码构建
+
+适用于开发、调试或使用尚未发布的代码：
+
+```bash
+git clone https://github.com/YOUR_USERNAME/CodeS.git
+cd CodeS
+pnpm install
+pnpm run build
+node dist-cli/index.js
+```
+
+### 方式三：从本地 tgz 包安装
+
+适用于发布前在本地验证安装包：
+
+```bash
+pnpm install
+pnpm run build
+pnpm pack --pack-destination ./release/
+npm install -g ./release/voeid-codes-*.tgz
+codes
+```
+
+---
+
+## 命令行选项
+
+```
+codes [项目目录] [选项]
+
+选项：
+  --port <port>                     监听端口（默认 5900，占用时自动 +1）
+  --password <password>             指定访问密码
+  --no-password                     禁用密码保护（仅限本机可信环境）
+  --no-open                         启动后不自动打开浏览器
+  --no-login                        跳过 Codex 登录状态检查
+  --sandbox-mode <mode>             沙盒模式（read-only / workspace-write / danger-full-access）
+  --approval-policy <policy>        审批策略（untrusted / on-failure / on-request / never）
+  --open-project <path>             将项目写入 Codex 全局列表后退出（不启动服务）
+```
+
+**示例：**
+
+```bash
+# 指定端口并关闭密码保护
+codes --port 5999 --no-password
+
+# 以受限沙盒模式启动，需手动审批所有操作
+codes --sandbox-mode workspace-write --approval-policy on-request
+
+# 启动时直接打开某个项目
+codes /path/to/project
+```
+
+---
+
+## 子命令
+
+```bash
+# 安装/检查 Codex CLI 并执行 codex login
+codes login
+```
+
+---
+
+## 环境变量
+
+可通过 `.env` / `.env.local` 文件或系统环境变量配置：
+
+| 变量名 | 说明 | 默认值 |
+|---|---|---|
+| `CODES_HOST` | Web 服务绑定地址 | `0.0.0.0` |
+| `CODES_SANDBOX_MODE` | 沙盒模式 | `danger-full-access` |
+| `CODES_APPROVAL_POLICY` | 审批策略 | `never` |
+| `CODES_CODEX_COMMAND` | Codex CLI 命令路径 | 自动探测 |
+| `CODES_RG_COMMAND` | ripgrep 路径 | 自动探测 |
+| `CODES_TERMINAL_COMMAND` | 打开终端命令模板（支持 `{dir}` 占位符） | 按平台自动选 |
+| `CODEX_HOME` | Codex 状态目录（auth.json、密码文件等） | `~/.codex` |
+
+---
+
+## 从源码开发
+
+```bash
+# 安装依赖
+pnpm install
+
+# 启动开发服务（含 Vite HMR + bridge 中间件）
+pnpm run dev
+
+# 类型检查
+pnpm run typecheck
+
+# 全量构建
+pnpm run build
+
+# 单元测试
+pnpm run test:unit
+```
+
+---
+
+## 技术栈
+
+| 层级 | 技术 |
 |---|---|
-| 💻 Linux workstation | Run CodeS in browser without depending on desktop shell |
-| 🪟 Windows machine | Launch web UI and access from Chrome/Edge quickly |
-| 🧪 Remote dev box | Keep Codex process on server, view UI from client device |
-| 🌐 LAN sharing | Open UI from another device on same network |
-| 🧰 Headless workflows | Keep Codex process on the host and use the browser as the UI |
-| ⚡ Fast experiments | `npx` run without full global setup |
+| 前端框架 | Vue 3（Composition API）+ Vue Router 4 |
+| 样式 | Tailwind CSS 4 |
+| 构建 | Vite 6 / tsup 8 |
+| 服务器 | Express 5 + ws |
+| Markdown | markdown-it + highlight.js + KaTeX |
+| CLI | Commander 13 |
 
 ---
 
-## 🖼️ Screenshots
+## 来源说明
 
-### Skills Hub
-![Skills Hub](docs/screenshots/skills-hub.png)
-
-### Chat
-![Chat](docs/screenshots/chat.png)
-
-### Mobile UI
-![Skills Hub Mobile](docs/screenshots/skills-hub-mobile.png)
-![Chat Mobile](docs/screenshots/chat-mobile.png)
+本项目基于 [codex-mobile](https://github.com/friuns2/codex-mobile)（作者：Pavel Voronin、Igor Levochkin，MIT License）修改而来，已在原有基础上进行了大量重构与功能扩展。
 
 ---
 
-## 🏗️ Architecture
+## License
 
-```text
-┌─────────────────────────────┐
-│  Browser (Desktop/Mobile)   │
-└──────────────┬──────────────┘
-               │ HTTP/WebSocket
-┌──────────────▼──────────────┐
-│         codes            │
-│  (Express + Vue UI bridge)  │
-└──────────────┬──────────────┘
-               │ RPC/Bridge calls
-┌──────────────▼──────────────┐
-│      Codex App Server       │
-└─────────────────────────────┘
-```
-
----
-
-## 🎯 Requirements
-- ✅ Node.js `18+`
-- ✅ Codex app-server environment available
-- ✅ Browser access to host/port
-- ✅ Microphone permission (only for voice dictation)
-
----
-
-## 🐛 Troubleshooting
-
-| ❌ Problem | ✅ Fix |
-|---|---|
-| Port already in use | Run on a free port or stop old process |
-| `npx` fails | Update npm/node, then retry |
-| Can’t open from other device | Check firewall, bind address, and LAN routing |
-
----
-
-## 🤝 Contributing
-Issues and PRs are welcome.  
-Bring bug reports, platform notes, and setup improvements.
-
----
-
-## ⭐ Star This Repo
-If you believe CodeS should be accessible from **any machine, any OS, any screen**, star this project and share it. ⭐
-
-<div align="center">
-Built for speed, portability, and a little bit of chaos 😏
-</div>
-
----
-
-Forked from [pavel-voronin/codex-web-local](https://github.com/pavel-voronin/codex-web-local) by Pavel Voronin.
+MIT © Pavel Voronin, Igor Levochkin

@@ -326,7 +326,7 @@ Bidirectional sync between `selectedThreadId` state and URL is handled via Vue `
 ### Production Mode
 
 ```bash
-npx codes [--port 5999] [--password mypass] [--no-password]
+npx --package=@voeid/codes codes [--port 5999] [--password mypass] [--no-password]
 ```
 
 The CLI starts an Express server that serves the built frontend from `dist/` and uses the same bridge middleware. Password authentication is enabled by default. When a password is auto-generated, it is written to `$CODEX_HOME/codes-password` with `0600` permissions and startup output prints only that file path.
