@@ -22,3 +22,6 @@ reference/
 .agents/skills/upstream-sync-curator/SKILL.md
 .agents/skills/upstream-sync-curator/agents/openai.yaml
 .trellis/
+docs/build.md
+.gitattributes
+AGENTS.md
