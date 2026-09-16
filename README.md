@@ -11,7 +11,7 @@
 
 - **全功能对话界面** — 流式输出、实时推理文本、消息队列、语音输入、多模态附件
 - **线程管理** — 创建/归档/删除/Fork/回滚，支持收藏与导出
-- **模型灵活选择** — 多模型目录、思考强度（none → ultra）、协作/速度模式，每线程独立配置
+- **模型灵活选择** — 多模型目录、思考强度（none → ultra）、协作/速度模式，每线程独立配置；**无需修改 `~/.codex/config.toml`，在 UI 中即可切换模型和 Provider**
 - **实时推送** — WebSocket 优先，自动降级 SSE
 - **服务端请求审批** — 弹窗展示 Codex 发起的命令/文件/工具调用，支持批准/拒绝
 - **Skills Hub** — 浏览、安装并在输入框中注入社区 Skills
@@ -23,6 +23,84 @@
 - **密码保护** — 默认自动生成随机密码（存于 `~/.codex/codes-password`），可选关闭
 - **PWA 支持** — 支持安装为桌面应用，移动端适配
 - **深色/浅色主题** — 跟随系统或手动切换
+
+---
+
+## 模型与 Provider 配置
+
+CodeS 通过本地代理（Provider Proxy）将 Codex 的请求转发到第三方 Provider，配置通过启动参数实时注入，**不会修改 `~/.codex/config.toml`**。Provider 必须支持 **Responses API**——这是硬性要求。可以使用 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) 等**协议转换代理**将其他 API 转为 Responses API。
+
+### 模型目录（codes-model-catalog.json）
+
+可在 `~/.codex/codes-model-catalog.json` 中添加任意模型（含非 OpenAI 官方模型），CodeS 会在 UI 中合并自动发现的模型与此处配置的模型一起展示：
+
+```json
+{
+  "defaultModel": "gpt-5.6-sol",
+  "defaultReasoningEffort": "high",
+  "models": [
+    {
+      "id": "deepseek-v4-pro",
+      "label": "DeepSeek V4 Pro",
+      "reasoningEfforts": ["xhigh", "max"],
+      "defaultReasoningEffort": "max"
+    },
+    {
+      "id": "deepseek-v4-flash",
+      "label": "DeepSeek V4 Flash",
+      "reasoningEfforts": ["high", "xhigh", "max"],
+      "defaultReasoningEffort": "max"
+    },
+    {
+      "id": "claude-opus-5",
+      "label": "Claude Opus 5",
+      "reasoningEfforts": ["xhigh", "max"],
+      "defaultReasoningEffort": "max"
+    },
+    {
+      "id": "claude-sonnet-5",
+      "label": "Claude Sonnet 5",
+      "reasoningEfforts": ["xhigh", "max"],
+      "defaultReasoningEffort": "max"
+    },
+    {
+      "id": "grok-4.5",
+      "label": "Grok 4.5",
+      "reasoningEfforts": ["xhigh", "max"],
+      "defaultReasoningEffort": "max"
+    },
+    {
+      "id": "glm-5.3-flash",
+      "label": "GLM 5.3 Flash",
+      "reasoningEfforts": ["xhigh", "max"],
+      "defaultReasoningEffort": "max"
+    }
+  ],
+  "order": [
+    "gpt-5.6-luna",
+    "gpt-5.6-sol",
+    "deepseek-v4-flash",
+    "claude-opus-5",
+    "glm-5.3-flash",
+    "deepseek-v4-pro"
+  ]
+}
+```
+
+字段说明：
+
+| 字段 | 说明 |
+|---|---|
+| `defaultModel` | 新线程默认使用的模型 id |
+| `defaultReasoningEffort` | 全局默认思考强度 |
+| `models[].id` | Provider 识别的模型 id |
+| `models[].label` | UI 中显示的名称（可选，默认同 id）|
+| `models[].reasoningEfforts` | 该模型支持的思考强度列表（可选）|
+| `models[].defaultReasoningEffort` | 该模型的默认思考强度（可选）|
+| `models[].hidden` | 设为 `true` 可隐藏自动发现的模型（可选）|
+| `order` | 控制 UI 中模型的显示顺序（可选）|
+
+文件保存后 CodeS 会热重载，无需重启。
 
 ---
 
