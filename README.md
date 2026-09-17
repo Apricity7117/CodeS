@@ -26,15 +26,23 @@
 
 ### 新建线程与主题
 
-| 浅色主题 | 深色主题 |
-|---|---|
-| <img src="./docs/screenshots/new-thread-light.png" alt="浅色主题下的新建线程界面" width="100%"> | <img src="./docs/screenshots/new-thread-dark.png" alt="深色主题下的新建线程界面" width="100%"> |
+**浅色主题**
+
+![浅色主题下的新建线程界面](./docs/screenshots/new-thread-light.png)
+
+**深色主题**
+
+![深色主题下的新建线程界面](./docs/screenshots/new-thread-dark.png)
 
 ### 对话与实时执行
 
-| 执行中 | 执行完成 |
-|---|---|
-| <img src="./docs/screenshots/thread-running.png" alt="对话执行中的界面" width="100%"> | <img src="./docs/screenshots/thread-completed.png" alt="对话执行完成后的界面" width="100%"> |
+**执行中**
+
+![对话执行中的界面](./docs/screenshots/thread-running.png)
+
+**执行完成**
+
+![对话执行完成后的界面](./docs/screenshots/thread-completed.png)
 
 ---
 
