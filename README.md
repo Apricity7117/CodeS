@@ -10,19 +10,31 @@
 ## 特性
 
 - **全功能对话界面** — 流式输出、实时推理文本、消息队列、语音输入、多模态附件
-- **线程管理** — 创建/归档/删除/Fork/回滚，支持收藏与导出
-- **模型灵活选择** — 多模型目录、思考强度（none → ultra）、协作/速度模式，每线程独立配置；**无需修改 `~/.codex/config.toml`，在 UI 中即可切换模型和 Provider**
+- **线程管理** — 显示全部历史线程，告别codex desktop丢历史线程的问题，支持创建/归档/删除/Fork/回滚
+- **模型灵活选择** — 多模型目录、思考强度（none → ultra）、协作/速度模式，每线程独立配置
 - **实时推送** — WebSocket 优先，自动降级 SSE
 - **服务端请求审批** — 弹窗展示 Codex 发起的命令/文件/工具调用，支持批准/拒绝
-- **Skills Hub** — 浏览、安装并在输入框中注入社区 Skills
 - **Git Review** — 工作区变更查看，支持 stage / unstage / revert
 - **本地文件集成** — 内联图片预览、本地文件浏览、右侧检查器面板
-- **终端集成** — 在项目目录打开系统终端，自动发现 npm scripts / Makefile 快捷命令
-- **Telegram Bot 桥接** — 通过 Telegram 收发 Codex 对话
-- **多账号管理** — 账号切换、速率限制查看
-- **密码保护** — 默认自动生成随机密码（存于 `~/.codex/codes-password`），可选关闭
+- **系统终端入口** — 在项目目录打开系统终端
 - **PWA 支持** — 支持安装为桌面应用，移动端适配
 - **深色/浅色主题** — 跟随系统或手动切换
+
+---
+
+## 界面预览
+
+### 新建线程与主题
+
+| 浅色主题 | 深色主题 |
+|---|---|
+| <img src="./docs/screenshots/new-thread-light.png" alt="浅色主题下的新建线程界面" width="100%"> | <img src="./docs/screenshots/new-thread-dark.png" alt="深色主题下的新建线程界面" width="100%"> |
+
+### 对话与实时执行
+
+| 执行中 | 执行完成 |
+|---|---|
+| <img src="./docs/screenshots/thread-running.png" alt="对话执行中的界面" width="100%"> | <img src="./docs/screenshots/thread-completed.png" alt="对话执行完成后的界面" width="100%"> |
 
 ---
 
