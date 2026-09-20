@@ -1,24 +1,30 @@
+<div align="center">
+
+<img src="public/icons/app-icon.png" alt="CodeS" width="96" height="96" />
+
 # CodeS
 
-[![npm version](https://img.shields.io/npm/v/%40voeid%2Fcodes?logo=npm)](https://www.npmjs.com/package/@voeid/codes)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+面向 Codex CLI 的轻量级 Web UI，从任意浏览器远程访问本地 Codex CLI 实例
 
-**CodeS** 是一个轻量级 Web UI，让你从任意浏览器远程访问本地的 [OpenAI Codex](https://github.com/openai/codex) 实例。它以 `codex app-server` 为后端，复刻了 Codex Desktop 的核心体验，并扩展了若干额外特性。
+[![npm version](https://img.shields.io/npm/v/%40voeid%2Fcodes?logo=npm&style=flat-square)](https://www.npmjs.com/package/@voeid/codes)
+[![Node](https://img.shields.io/badge/Node.js-%3E%3D18-339933?logo=node.js&logoColor=white&style=flat-square)](./package.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](./LICENSE)
+
+[特性](#特性) · [界面预览](#界面预览) · [模型配置](#模型与-provider-配置) · [安装与运行](#安装与运行) · [命令行](#命令行选项) · [开发](#从源码开发) · [许可证](#license)
+
+</div>
+
+**CodeS** 是一个轻量级 Web UI，让你从任意浏览器远程访问本地的 [Codex CLI](https://github.com/openai/codex) 实例。它以 `codex app-server` 为后端，复刻了 Codex Desktop 的核心体验，并扩展了若干额外特性。
 
 ---
 
 ## 特性
 
-- **全功能对话界面** — 流式输出、实时推理文本、消息队列、语音输入、多模态附件
 - **线程管理** — 显示全部历史线程，告别codex desktop丢历史线程的问题，支持创建/归档/删除/Fork/回滚
-- **模型灵活选择** — 多模型目录、思考强度（none → ultra）、协作/速度模式，每线程独立配置
-- **实时推送** — WebSocket 优先，自动降级 SSE
+- **线程缓存** — 已加载过的线程内容本地留存，点击线程秒开，省去重复加载的等待
+- **自定义模型** — 支持填入任意模型 id（含非官方模型），在 UI 中直接选用
 - **服务端请求审批** — 弹窗展示 Codex 发起的命令/文件/工具调用，支持批准/拒绝
-- **Git Review** — 工作区变更查看，支持 stage / unstage / revert
-- **本地文件集成** — 内联图片预览、本地文件浏览、右侧检查器面板
-- **系统终端入口** — 在项目目录打开系统终端
-- **PWA 支持** — 支持安装为桌面应用，移动端适配
-- **深色/浅色主题** — 跟随系统或手动切换
+- **PWA 支持** — 支持Chrome/Safari安装为桌面应用，浅/深模式适配窗口沉浸
 
 ---
 
